@@ -1,144 +1,159 @@
 # System architecture
 
-## Architecture overview
+This describes what is built. The reasoning behind the decisions, including the
+alternatives that were rejected, is in [OVERHAUL_PLAN.md](OVERHAUL_PLAN.md).
 
-OmniAtlas uses a scale-aware scene shell backed by a catalogue and tile platform. A single browser scene cannot retain useful precision from crater scale to cosmological scale, so navigation crosses explicit reference-frame and renderer boundaries.
+## The problem this architecture exists to solve
 
-```text
-UI / directory / timeline
-          |
-Navigation state + scale router
-          |
-  +-------+-------------------+
-  |                           |
-Space renderer            Surface renderer
-(Three.js / R3F)          (CesiumJS / globe tiles)
-  |                           |
-GPU point/mesh tiles      imagery / terrain / 3D Tiles
-  +-------------+-------------+
-                |
-       Catalogue & tile APIs
-        /        |          \
- PostgreSQL   object store   cache/CDN
- metadata     tiles/kernels  edge tiles
+An atlas that runs from a crater floor to the cosmic microwave background spans about
+thirty orders of magnitude. A float32 vertex attribute carries roughly seven significant
+digits, so a single scene graph cannot hold that range: at Neptune's orbit, expressed in
+the Earth-radius units the first version used, one unit in the last place is about
+535 km — larger than several of the moons being drawn. At one parsec the error reaches
+about a billion kilometres.
+
+Two mechanisms answer this, and almost everything else follows from them.
+
+**One float64 world model.** Every canonical position in the product is a `Vec3d` in SI
+metres, double precision, in a named reference frame. Nothing outside the renderer holds
+a position in render units.
+
+**Render layers.** Six scenes, each with its own unit, origin, frame and camera. Each
+layer's camera is placed at `(cameraWorld − layer.origin) / layer.unitMetres`, computed
+in float64 and downcast only at the end. The GPU therefore only ever sees small
+camera-relative numbers. This is the floating origin.
+
+Three.js makes the second half of this free: it computes `modelViewMatrix` on the CPU in
+JavaScript doubles and downcasts only the product, so object *origins* may be arbitrarily
+large. The constraint that remains is on vertex buffers — every geometry's coordinates
+must stay local to its own object origin. A body is a unit sphere scaled by its radius; an
+orbit curve is generated relative to its central body.
+
+## Layout
+
+```
+src/
+├── core/            the engine. No React, no JSX.
+│   ├── world.ts         Vec3d float64 metres; ICRF / ecliptic / galactic / supergalactic
+│   ├── Layer.ts         unit + origin + frame + scene + camera; the per-frame rebase
+│   ├── Engine.ts        module lifecycle; the ordered far-to-near composite
+│   ├── AtlasViewer.ts   renderer, controls, animation loop, UI snapshot
+│   ├── camera/          AtlasControls: log zoom in altitude, van Wijk-Nuij flyTo
+│   ├── render/          SphereBody, PostStack, orientation
+│   └── labels/          LabelEngine: the 2D overlay, markers and declutter
+├── astronomy/       pure float64 maths. No THREE import. Unit-tested.
+├── modules/         content. init / update / preRender / dispose, failure-isolated.
+├── data/            catalogue records, object classes, the scale ladder
+├── state/           Zustand stores for UI state only
+├── ui/              React chrome. Never touches the scene graph.
+└── format/          units and distance formatting
+scripts/            build-time ETL. Third-party data is ingested here, never at runtime.
+tests/unit/         vitest
 ```
 
-## Client
+## The six layers
 
-### Application shell
+| order | id | unit | origin | frame | contents |
+|---|---|---|---|---|---|
+| 50 | `cosmic` | 1 Mpc | observer | supergalactic | galaxy groups, large-scale structure |
+| 40 | `galactic` | 1 kpc | galactic centre | galactic | the Milky Way disc, globulars, Local Group |
+| 30 | `stellar` | 1 pc | Sol | ICRF | stars, constellations, deep-sky objects |
+| 20 | `helio` | 1 AU | Sun | J2000 ecliptic | Sun, planets, moons, orbits, small bodies |
+| 10 | `system` | 1000 km | active body | ICRF | reserved for per-planet detail |
+| 0 | `surface` | 1 km | active body | ICRF | reserved for terrain |
 
-React owns panels, directory, accessibility, routes, settings, and error boundaries. The directory follows the catalogue hierarchy (system, body, feature category, object), provides explicit back navigation at every level, and switches to global results while searching. Zustand holds small serializable view state. URL state contains selected object, time, active layers, focus frame, and camera pose where practical.
+Layers are rendered from the largest order to the smallest, with the depth buffer cleared
+between passes and the colour buffer preserved, so near layers composite over far ones.
+A layer whose camera distance falls outside its band is skipped entirely.
 
-### Space renderer
+The whole solar system lives in one layer rather than being split across `helio`,
+`system` and `surface`. It fits: Earth's radius is 4.3e-5 AU, and float32 resolves that to
+well under a metre, because the geometry is local to the body's own origin. The near
+layers exist for terrain work that is not yet built.
 
-Three.js through React Three Fiber owns orbital and astronomical views, custom shaders, instanced bodies, GPU point clouds, picking, and camera transitions. The scene is organized by local frames rather than one universal coordinate system.
+### A note on the depth buffer
 
-### Surface renderer
+`logarithmicDepthBuffer` is on, which the overhaul plan argued against. Layering solves
+*position* precision and that is why it is here, but it does not solve *depth* precision
+within a single layer, and the solar system is the hard case: hovering above Earth while
+the Moon is still in the same pass needs a near/far ratio around 1e7. Splitting them into
+separate passes would mean drawing bodies twice and hiding one copy. Log depth costs
+early-Z rejection, which matters when a scene is fragment-bound; this one is not. The
+stats overlay reports frame time so the assumption stays falsifiable.
 
-CesiumJS is the preferred surface engine for Earth because it already implements a WGS84 globe, view-dependent imagery/terrain requests, quantized-mesh terrain, lighting normals, water masks, and 3D Tiles. It should be mounted as a separate renderer mode when the user descends below the orbital handoff altitude. Lunar support can use a custom ellipsoid/terrain pipeline or a dedicated quadtree renderer if Cesium constraints make multi-body operation awkward.
+## Modules
 
-The space and surface renderers share navigation contracts and object IDs; they do not share a depth buffer or pretend to be one scene.
+Content is a plain object, not a React tree:
 
-### Workers
-
-Web Workers decode catalogue batches, transform coordinate frames, build typed arrays, perform spatial filtering, and prepare tile meshes. Transferable `ArrayBuffer`s avoid copies. Service workers cache the application shell and safe immutable assets, while the renderer maintains its own memory-aware tile cache.
-
-### Current ephemeris layer
-
-The foundation uses Astronomy Engine 2.1.19 in the browser for current geocentric Sun/Moon vectors and the IAU 2015 rotational elements exposed for Earth, Moon, and Sun. EQJ vectors are converted into the Three.js world basis, while the prime-meridian angle and pole vector form each body quaternion. This is suitable for the live exploratory view. The later mission-grade service will replace or validate these calculations with pinned NAIF SPICE kernels and explicit correction metadata.
-
-True-scale mode uses one render unit per mean Earth radius for Sun, Earth, Moon, and both live centre distances. A logarithmic depth buffer spans the resulting near/far range. Exploration mode preserves local body scale while compressing inter-body separation. Camera-to-target range and kilometre-per-pixel are derived continuously from the active camera, so the distance readout and ruler respond to orbiting and zooming rather than repeating a catalogue separation.
-
-Foundation Earth coastlines are preprocessed into one transferable binary array and render in one merged line-segment draw call. Curated crater and continent anchors stay as small catalogue records. Each frame, a body-local camera direction selects the nearest anchor inside a strict angular and zoom threshold, so at most one label mounts. A fixed screen-space callout connects the projected surface anchor to an offset label with a short 45-degree segment and horizontal tail, keeping the feature visible and the geometry stable while the camera moves.
-
-## Backend services
-
-Start as a modular monolith; split only when load demands it.
-
-- **Catalogue API:** object records, aliases, hierarchy, facts, sources, and spatial queries.
-- **Search API:** name/alias/autocomplete and catalogue-ID resolution.
-- **Ephemeris API:** validated SPICE/Horizons-derived state vectors at requested epochs, returned with frame and correction metadata.
-- **Tile API:** signed/versioned URLs for imagery, terrain, point, and model tiles.
-- **Ingest jobs:** fetch source releases, validate schemas, normalize units, construct indexes/LODs, and publish immutable snapshots.
-
-REST is sufficient for initial lookup and tiles. Use binary payloads such as Arrow/FlatBuffers for dense catalogue tiles rather than verbose per-star JSON. WebSockets are unnecessary until live shared sessions or telemetry layers exist.
-
-## Storage
-
-### PostgreSQL
-
-Store canonical metadata and relationships in PostgreSQL:
-
-- `object`: stable OmniAtlas ID, type, canonical name, parent, status.
-- `alias`: normalized alias, namespace, object ID.
-- `physical_property`: typed value, unit, uncertainty, method, epoch.
-- `state_vector`: object, center, frame, epoch range, ephemeris reference.
-- `surface_feature`: body, geometry/lat/lon, dimensions, feature type.
-- `source_record`: provider, dataset/version, source ID, URL, license, retrieved time.
-- `object_source`: field-level provenance links.
-
-Use PostgreSQL full-text search plus `pg_trgm` for the first search service. Use PostGIS for Earth surface geometry. Store HEALPix cell IDs as indexed integers for sky/catalogue partitioning. Do not use `earthdistance` for precise ellipsoidal geography; its own documentation recommends PostGIS when a spherical Earth is insufficient.
-
-### Object storage and CDN
-
-S3-compatible object storage holds immutable, content-addressed imagery, terrain, 3D Tiles, catalogue batches, thumbnails, and SPICE kernels. A CDN serves versioned public tiles with long cache lifetimes. Metadata rows point to manifests and checksums, not mutable “latest” paths.
-
-### Browser persistence
-
-IndexedDB (Dexie is already available) may cache recent object records, directory indexes, preferences, and offline packs. It is not the system of record and must be partitioned by catalogue snapshot/schema version.
-
-## Coordinate-frame hierarchy
-
-The authoritative store retains double-precision physical coordinates. The render client selects a local origin:
-
-```text
-ICRF / barycentric
-  -> star or solar-system barycentric frame
-     -> planet-moon system frame
-        -> body-fixed frame
-           -> local east-north-up surface frame
+```ts
+interface AtlasModule {
+  id: string
+  init(engine: Engine): Promise<void> | void
+  update?(ctx: FrameContext): void      // move things
+  preRender?(ctx: FrameContext): void   // camera-dependent LOD, fades, uniforms
+  dispose?(): void
+}
 ```
 
-At each boundary, the current target becomes the floating origin and nearby positions are converted to GPU-friendly floats. The camera never carries universe-scale coordinates in Three.js `Vector3` values.
+Modules load concurrently under `Promise.allSettled`, so one failing never costs the user
+the rest of the atlas; failures are recorded and surfaced in the UI. Each registers its
+selectable objects in `engine.registry`, which is what feeds search, labels, picking and
+the cosmic address.
 
-## Scale routing
+`update` runs before the layers rebase and `preRender` after, so camera-dependent work
+always sees a final camera. Mixing them produces a one-frame lag in every LOD decision,
+which reads as shimmer.
 
-- **Surface:** centimetres to thousands of kilometres; tiled globe renderer.
-- **Body/orbit:** kilometres to astronomical units; Three.js meshes and orbital paths.
-- **Local stars:** light-years; HEALPix/octree catalogue point tiles with origin rebasing.
-- **Galaxy:** parsecs/kiloparsecs; aggregated density volumes and selected resolved stars.
-- **Extragalactic:** megaparsecs; catalogue points and uncertainty volumes.
+## Scale honesty
 
-Transitions crossfade or stage through a parent frame. There is never a requirement to render all scales simultaneously.
+The previous version had an "exploration" mode that compressed distances by `14·√AU` and
+radii by a `^0.4` power law. It is gone, not softened. The laws were provably
+self-inconsistent — Jupiter's compressed moon system crossed Saturn's compressed orbit —
+and the UI string describing them contradicted what the code did.
 
-## API contracts
+Everything renders at true scale. Four instruments replace the compression:
 
-Every object response includes schema and catalogue snapshot versions. Every state includes its center, frame, epoch, unit, and source. Tile manifests include origin, bounds, geometric error, child availability, content hash, compression, record count, and source snapshot.
+- **Constant-size marker glyphs.** Below about two pixels of true angular size, the mesh
+  fades out and a hairline ring of fixed screen size fades in. The ring is visibly
+  chrome — unlit, never shaded — so it does not read as the body. As you approach, the
+  body grows to fill its own marker, which teaches the real angular size.
+- **A live "view spans X" readout.** The honest replacement for a compression toggle: it
+  reports the scale instead of distorting the scene to make the scale comfortable.
+- **The scale ladder**, a logarithmic rail of fourteen named rungs with a marker tracking
+  the current view span. Rungs with no content yet are greyed, not hidden.
+- **Light-travel time** on every distance past a light-second.
 
-## Deployment and operations
+## State
 
-- Static React application and public immutable assets on a CDN.
-- API and ingest containers deployed independently from tile storage.
-- PostgreSQL with point-in-time recovery; object storage versioning enabled.
-- CI validates types, lint, unit tests, deterministic ingest fixtures, asset attribution, and performance budgets.
-- Metrics: API latency/error rate, tile cache hit rate, bytes by layer, frame time, long tasks, shader failures, and WebGL context loss.
-- Structured logs use object IDs and request IDs; avoid raw user search history unless the user opts into diagnostics.
+Nothing written per frame is React state. The viewer publishes a throttled snapshot at
+10 Hz; the camera, the ephemeris and the scene graph never enter a reconciler. The
+previous version called the ephemeris three times a second from three components and
+re-rendered the whole tree on each tick.
 
-## Security
+## Data
 
-- Treat catalogue descriptions and imported metadata as untrusted text.
-- Allowlist tile/source hosts and enforce CSP.
-- Do not put provider secrets or unrestricted service tokens in client bundles.
-- Rate-limit search and ephemeris endpoints.
-- Validate decompressed size and geometry counts before GPU upload.
-- Record licenses and attribution during ingest; block publication when required metadata is absent.
+Every third-party dataset is ingested at build time by a script in `scripts/`, which
+emits a binary plus a manifest recording record count, field order, dtypes, byte offsets,
+dequantization formulae, coordinate frame, epoch, units, source URL, source version,
+retrieval date and licence. Nothing is fetched from a third-party origin at runtime,
+which is what makes the COEP header safe and removes CORS as a failure class.
 
-## Key technology decisions
+Binaries are **struct-of-arrays** — all of field A, then all of field B. Reading one as
+interleaved pairs produces geometry that looks plausible and is entirely wrong; it
+happened once, to the constellation figures, and the resulting web of lines between
+unrelated stars was convincing enough to need a manifest check to disprove.
 
-- Three.js documents reverse depth buffers as faster and more accurate than logarithmic depth when `EXT_clip_control` is available; use capability detection, with logarithmic depth as a fallback. Precision is still solved primarily by local frames.
-- CesiumJS streams finer terrain based on camera distance and visible regions and separates terrain from imagery, matching the surface-view requirement.
-- OGC 3D Tiles 1.1 is the interchange format for massive heterogeneous 3D geospatial content, not the canonical astronomical object schema.
-- SPICE supplies state vectors and transformations among named inertial/body-fixed frames; preserve frame and epoch on every computed state.
-- HEALPix NESTED cells provide stable hierarchical sky partitions for multi-resolution catalogue delivery.
+See [DATA_AND_COORDINATES.md](DATA_AND_COORDINATES.md) for the datasets themselves.
 
-See [DATA_AND_COORDINATES.md](DATA_AND_COORDINATES.md) for sources and [RENDERING.md](RENDERING.md) for implementation detail.
+## What is deliberately not here
+
+- **CesiumJS.** The earlier plan proposed it for surface descent. A second globe engine
+  means a second camera model, a second coordinate system and a hand-off bug surface.
+  Terrain will be displaced patches on our own mesh in the `surface` layer.
+- **A backend.** There is no catalogue API, no PostgreSQL, no tile service. Everything is
+  static files on a CDN. This is not a scaling compromise — a competitor ships 2.5 million
+  stars and 630,000 galaxies with no backend at all.
+- **WebGPU.** `@react-three/postprocessing` does not run on `WebGPURenderer`, custom
+  `ShaderMaterial` support is incomplete, and adapter acquisition is still unreliable on
+  Linux and Android. The one thing it would buy — compute culling — is unnecessary when
+  the spatial structure is precomputed offline.

@@ -372,8 +372,11 @@ button {
   pointer-events: none;
 }
 
+/* The active rung's name is NOT shown here. The HUD already names the current scale
+   a few pixels away, and showing both put two copies of the same words on top of each
+   other. The rail shows position; the HUD shows the name. */
 .ladder-rung:hover .ladder-label,
-.ladder-rung[data-active='true'] .ladder-label {
+.ladder-rung:focus-visible .ladder-label {
   opacity: 1;
   transform: translateX(0);
 }
@@ -856,6 +859,9 @@ button.chip:hover {
     width: auto;
     flex: 1;
     min-width: 0;
+    height: 30px;
+    white-space: nowrap;
+    overflow: hidden;
   }
 
   .search-trigger kbd {
@@ -864,6 +870,26 @@ button.chip:hover {
 
   .ladder {
     display: none;
+  }
+
+  /* The HUD indents past the scale rail on desktop; on phones the rail is gone, so
+     the indent would just be dead space on the narrowest viewport we support. */
+  .hud {
+    left: var(--gutter);
+  }
+
+  .timebar {
+    gap: 8px;
+    padding: 0 12px;
+  }
+
+  .rate-label {
+    min-width: 72px;
+    font-size: 11px;
+  }
+
+  .time-stamp {
+    font-size: 12px;
   }
 
   .inspector {
@@ -910,5 +936,31 @@ button.chip:hover {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* Responsive label swap for the search affordance: the full phrase reads better on a
+   wide top bar, but it wraps to two lines in a phone-width flex row. */
+.search-label-short {
+  display: none;
+}
+
+.now-button {
+  margin-left: 8px;
+  flex: none;
+}
+
+@media (width < 768px) {
+  .search-label-long {
+    display: none;
+  }
+
+  .search-label-short {
+    display: inline;
+  }
+
+  .now-button {
+    margin-left: 4px;
+    padding: 0 8px;
   }
 }

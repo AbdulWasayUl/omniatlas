@@ -28,6 +28,8 @@ export interface ViewerSnapshot {
   epochMs: number
   fps: number
   drawCalls: number
+  /** Objects currently in the engine registry. */
+  registered: number
   activeLayers: string[]
   /** Containment chain from the outermost structure down to the anchor. */
   addressPath: { id: string; name: string }[]
@@ -189,6 +191,24 @@ export class AtlasViewer {
     this.engine.setAnchor(id)
   }
 
+  /** Pause or resume the simulation clock. */
+  setPaused(paused: boolean): void {
+    this.paused = paused
+  }
+
+  /** Set simulated seconds per real second. Zero pauses. */
+  setTimeRate(rate: number): void {
+    this.timeRate = rate
+    this.paused = rate === 0
+  }
+
+  /** Snap the clock back to the real current instant and run at real time. */
+  resumeLive(): void {
+    this.epochMs = Date.now()
+    this.timeRate = 1
+    this.paused = false
+  }
+
   /** Jump the camera to a given view span without changing the anchor. */
   setViewSpanMetres(span: number): void {
     const halfFov = (this.engine.fovDegrees * Math.PI) / 360
@@ -275,6 +295,7 @@ export class AtlasViewer {
       epochMs: this.epochMs,
       fps: this.fps,
       drawCalls: stats.drawCalls,
+      registered: stats.registered,
       activeLayers: stats.activeLayers,
       addressPath: this.addressPath(),
     })

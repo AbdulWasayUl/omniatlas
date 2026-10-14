@@ -63,6 +63,29 @@ follow-up work (see [PRODUCT_SPEC.md](PRODUCT_SPEC.md#solar-system-expansion-pos
 
 Exit: navigate from Earth surface to any supported major body with correct frames, time, units, and sources. — met for the bodies above; still open for objects outside the curated set.
 
+## The overhaul (2026-10-14)
+
+Milestones 1 and 4 were delivered on a renderer that could not be extended past the solar
+system, for the reasons set out in [ARCHITECTURE.md](ARCHITECTURE.md). That renderer was
+replaced rather than extended. The plan, including the research it came from, is in
+[OVERHAUL_PLAN.md](OVERHAUL_PLAN.md).
+
+Done:
+
+- Float64 world model, four reference frames, six render layers, floating origin.
+- A camera with no outward bound, multiplicative zoom in altitude above the surface, and
+  a van Wijk-Nuij geodesic for flights.
+- Scale compression deleted; true scale everywhere, with markers, a view-span readout, a
+  scale ladder and light-travel time in its place.
+- Label and marker engine on a 2D overlay, with declutter and marker picking.
+- Bloom and AgX tone mapping.
+- New design system and chrome: top bar, cosmic address, scale ladder, command palette,
+  inspector, time bar.
+- Build-time ETL for every dataset, each with a manifest and a licence file.
+- The stellar layer: 329,860 real stars with physically-derived apparent magnitude,
+  constellation figures that come apart as you leave the Sun, and exoplanet host flags.
+- vitest, with precision and reference-frame tests.
+
 ## Milestone 5 — local stellar neighborhood
 
 - Gaia ingest prototype, HEALPix NESTED partitioning, magnitude LODs, and binary point tiles.

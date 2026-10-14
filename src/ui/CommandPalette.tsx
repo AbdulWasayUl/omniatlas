@@ -18,7 +18,13 @@ import { useViewStore } from '../state/useViewStore'
  */
 export function CommandPalette({ viewer, onClose }: { viewer: AtlasViewer | null; onClose: () => void }) {
   const [query, setQuery] = useState('')
-  const [cursor, setCursor] = useState(0)
+  // The cursor is stored against the query it belongs to, so changing the query
+  // resets the highlight during render rather than in a follow-up effect that would
+  // render once with a stale selection and then render again.
+  const [cursorState, setCursorState] = useState({ query: '', index: 0 })
+  const cursor = cursorState.query === query ? cursorState.index : 0
+  const setCursor = (next: number | ((current: number) => number)) =>
+    setCursorState({ query, index: typeof next === 'function' ? next(cursor) : next })
   const inputRef = useRef<HTMLInputElement>(null)
   const select = useViewStore((state) => state.select)
 
@@ -66,10 +72,6 @@ export function CommandPalette({ viewer, onClose }: { viewer: AtlasViewer | null
     scored.sort((a, b) => a.tier - b.tier || a.item.name.length - b.item.name.length)
     return scored.slice(0, 40).map((s) => s.item)
   }, [query, candidates])
-
-  useEffect(() => {
-    setCursor(0)
-  }, [query])
 
   const commit = (id: string) => {
     select(id)

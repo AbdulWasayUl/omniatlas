@@ -112,6 +112,15 @@ export class Engine {
   private height = 1
   /** When set, layers composite into this target instead of the default framebuffer. */
   renderTarget: THREE.WebGLRenderTarget | null = null
+
+  /**
+   * Draw calls and triangles for the SCENE passes only, captured before any
+   * post-processing runs. Reading `renderer.info` at snapshot time instead reports
+   * whatever the last pass was, which for us is a single fullscreen quad — the stats
+   * overlay cheerfully claimed the whole solar system cost one draw call.
+   */
+  private sceneDrawCalls = 0
+  private sceneTriangles = 0
   private readonly ctx: FrameContext
 
   constructor(options: EngineOptions) {
@@ -281,17 +290,19 @@ export class Engine {
       gl.clearDepth()
       gl.render(layer.scene, layer.camera)
     }
+
+    this.sceneDrawCalls = gl.info.render.calls
+    this.sceneTriangles = gl.info.render.triangles
   }
 
   /** Snapshot for the stats overlay. */
   stats(): { activeLayers: string[]; registered: number; failed: number; drawCalls: number; triangles: number } {
-    const info = this.renderer.info.render
     return {
       activeLayers: this.layersByOrder.filter((l) => l.active).map((l) => l.id),
       registered: this.registry.size,
       failed: this.failedModules.length,
-      drawCalls: info.calls,
-      triangles: info.triangles,
+      drawCalls: this.sceneDrawCalls,
+      triangles: this.sceneTriangles,
     }
   }
 

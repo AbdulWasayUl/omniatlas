@@ -45,14 +45,10 @@ export function AppChrome({ viewer }: { viewer: AtlasViewer | null }) {
 
       if (event.key === ' ') {
         event.preventDefault()
-        if (viewer) viewer.paused = !viewer.paused
+        viewer?.setPaused(!viewer.paused)
       }
       if (event.key === 'n' || event.key === 'N') {
-        if (viewer) {
-          viewer.epochMs = Date.now()
-          viewer.timeRate = 1
-          viewer.paused = false
-        }
+        viewer?.resumeLive()
       }
     }
     window.addEventListener('keydown', onKeyDown)
@@ -91,12 +87,12 @@ export function AppChrome({ viewer }: { viewer: AtlasViewer | null }) {
 
       <Inspector viewer={viewer} />
 
-      <TimeBar viewer={viewer} epochMs={snapshot?.epochMs ?? Date.now()} />
+      <TimeBar viewer={viewer} epochMs={snapshot?.epochMs ?? null} />
 
       {showStats && snapshot && (
         <div className="stats" aria-hidden="true">
           <div>{snapshot.fps.toFixed(0)} fps</div>
-          <div>{snapshot.drawCalls} draw calls</div>
+          <div>{snapshot.drawCalls} draw calls · {snapshot.registered} objects</div>
           <div>{snapshot.activeLayers.join(' · ') || 'no layers'}</div>
         </div>
       )}
@@ -137,8 +133,9 @@ function TopBar({
         <span>ATLAS</span>
       </div>
       <div className="topbar-spacer" />
-      <button type="button" className="search-trigger" onClick={onSearch}>
-        <span>Search the atlas</span>
+      <button type="button" className="search-trigger" onClick={onSearch} aria-label="Search the atlas">
+        <span className="search-label-long">Search the atlas</span>
+        <span className="search-label-short" aria-hidden="true">Search</span>
         <kbd>⌘K</kbd>
       </button>
       <button type="button" className="tool-button" aria-pressed={statsOn} onClick={onToggleStats}>
@@ -233,7 +230,7 @@ function Hud({
 /** Discrete rate ladder. Continuous rate sliders are impossible to return to 1× on. */
 const RATES = [0, 1, 60, 3600, 86_400, 86_400 * 30, 86_400 * 365.25]
 
-function TimeBar({ viewer, epochMs }: { viewer: AtlasViewer | null; epochMs: number }) {
+function TimeBar({ viewer, epochMs }: { viewer: AtlasViewer | null; epochMs: number | null }) {
   const [rateIndex, setRateIndex] = useState(1)
   const [live, setLive] = useState(true)
 
@@ -241,17 +238,14 @@ function TimeBar({ viewer, epochMs }: { viewer: AtlasViewer | null; epochMs: num
     const next = Math.max(0, Math.min(index, RATES.length - 1))
     setRateIndex(next)
     setLive(next === 1)
-    if (viewer) {
-      viewer.timeRate = RATES[next]
-      viewer.paused = RATES[next] === 0
-    }
+    viewer?.setTimeRate(RATES[next])
   }
 
   return (
     <footer className="timebar">
       <div className="time-now">
         {live && <span className="live-dot" aria-hidden="true" />}
-        <span className="time-stamp num">{formatUtc(epochMs)} UTC</span>
+        <span className="time-stamp num">{epochMs === null ? '—' : `${formatUtc(epochMs)} UTC`}</span>
       </div>
 
       <div className="rate-group">
@@ -274,10 +268,9 @@ function TimeBar({ viewer, epochMs }: { viewer: AtlasViewer | null; epochMs: num
         </button>
         <button
           type="button"
-          className="tool-button"
-          style={{ marginLeft: 8 }}
+          className="tool-button now-button"
           onClick={() => {
-            if (viewer) viewer.epochMs = Date.now()
+            viewer?.resumeLive()
             apply(1)
           }}
         >

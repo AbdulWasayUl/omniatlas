@@ -20,7 +20,9 @@
 /** Astronomical unit (IAU 2012 definition, exact). */
 export const AU_M = 1.495978707e11
 /** Parsec, derived from the AU and the arcsecond (exact under IAU 2015). */
-export const PC_M = 3.0856775814913673e16
+// 3.0856775814913673e16 to full published precision; written as the shortest literal
+// that round-trips to the same float64, so the source says exactly what runs.
+export const PC_M = 3.085677581491367e16
 /** Light-year (IAU: Julian year x c, exact). */
 export const LY_M = 9.4607304725808e15
 /** Kiloparsec. */
@@ -170,7 +172,7 @@ export const ZERO3D: Readonly<Vec3d> = Object.freeze({ x: 0, y: 0, z: 0 })
 export type FrameId = 'icrf' | 'ecliptic' | 'galactic' | 'supergalactic'
 
 /** Obliquity of the ecliptic at J2000.0 = 23 deg 26' 21.448" (IAU 1976 / Lieske). */
-export const OBLIQUITY_J2000_DEG = 23.439291111111111
+export const OBLIQUITY_J2000_DEG = 23.43929111111111
 const OBLIQUITY_J2000_RAD = (OBLIQUITY_J2000_DEG * Math.PI) / 180
 
 /**
