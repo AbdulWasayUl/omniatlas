@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { AtlasViewer } from '../core/AtlasViewer'
+import { applyUrlState, parseUrlState, startUrlSync } from '../state/urlState'
 import { useViewStore } from '../state/useViewStore'
 
 /**
@@ -25,6 +26,7 @@ export function SceneHost({ onViewer }: { onViewer?: (viewer: AtlasViewer | null
     const canvas = canvasRef.current
     const labelCanvas = labelRef.current
     if (!canvas || !labelCanvas) return
+    let stopUrlSync: (() => void) | null = null
 
     const viewer = new AtlasViewer({
       canvas,
@@ -48,6 +50,12 @@ export function SceneHost({ onViewer }: { onViewer?: (viewer: AtlasViewer | null
       onSnapshot: setSnapshot,
       onSelect: select,
       onReady: () => {
+        // Restore the shared view before revealing the scene, so a deep link never
+        // shows the default camera for a frame and then jumps.
+        const urlState = parseUrlState()
+        applyUrlState(viewer, urlState)
+        if (urlState.focus) select(urlState.focus)
+        stopUrlSync = startUrlSync(viewer)
         setReady(true)
         setFailedModules(viewer.engine.failedModules.map((f) => f.id))
       },
@@ -57,6 +65,7 @@ export function SceneHost({ onViewer }: { onViewer?: (viewer: AtlasViewer | null
 
     return () => {
       onViewer?.(null)
+      stopUrlSync?.()
       viewer.dispose()
     }
     // The viewer is created once and owns its own lifecycle; re-running this effect
