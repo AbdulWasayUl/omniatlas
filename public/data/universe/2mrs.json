@@ -1,0 +1,361 @@
+{
+  "dataset": "2MASS Redshift Survey (2MRS) — all-sky galaxy redshift catalogue",
+  "file": "2mrs.bin",
+  "kind": "MEASURED",
+  "recordCount": 44599,
+  "recordBytes": 14,
+  "totalBytes": 624386,
+  "byteOrder": "little-endian",
+  "layout": "struct-of-arrays (all of field 0, then all of field 1, ...)",
+  "coordinateFrame": "Galactic (l, b) as published, IAU 1958 system tied to J2000 equatorial. Galactic is the natural frame here because the survey gap is defined in it. Convert to equatorial/supergalactic downstream if needed.",
+  "epoch": "J2000.0",
+  "distanceKind": {
+    "value": "redshift_space",
+    "note": "THIS CATALOGUE CONTAINS NO MEASURED DISTANCES. Each record carries a heliocentric/barycentric recession velocity cz only. Any radius the renderer draws is a redshift-space position: it contains peculiar-velocity distortion (Fingers-of-God in clusters, Kaiser squashing on large scales) and must be labelled as such, never as a real-space position.",
+    "recommendedRadius": "For cz < 30000 km/s use the low-z approximation d ~ cz / H0 with H0 from cosmology.json (67.4 km/s/Mpc). Beyond that, integrate the comoving distance using z = cz/c. cz is in the barycentric frame, NOT the CMB frame: subtract the solar apex motion (~369.8 km/s toward l=264.021, b=48.253) before comparing with CF4 Vcmb."
+  },
+  "fields": [
+    {
+      "name": "cz",
+      "dtype": "int32",
+      "byteOffset": 0,
+      "byteLength": 178396,
+      "unit": "km/s",
+      "description": "Recession velocity corrected to the solar-system barycentre (VizieR column cz). Sentinel -2147483648 (INT32_MIN) means \"no redshift\"; check flags bit 0.",
+      "quantization": null,
+      "dequantize": "value"
+    },
+    {
+      "name": "glon",
+      "dtype": "uint16",
+      "byteOffset": 178396,
+      "byteLength": 89198,
+      "unit": "deg",
+      "description": "Galactic longitude l, 0..360.",
+      "quantization": {
+        "scale": 0.0054931640625,
+        "offset": 0,
+        "maxErrorDeg": 0.00274658203125
+      },
+      "dequantize": "deg = value * 0.0054931640625"
+    },
+    {
+      "name": "glat",
+      "dtype": "int16",
+      "byteOffset": 267594,
+      "byteLength": 89198,
+      "unit": "deg",
+      "description": "Galactic latitude b, -90..+90.",
+      "quantization": {
+        "scale": 0.0027466658528397473,
+        "offset": 0,
+        "maxErrorDeg": 0.0013733329264198737
+      },
+      "dequantize": "deg = value * 0.0027466658528397473"
+    },
+    {
+      "name": "eCz",
+      "dtype": "uint16",
+      "byteOffset": 356792,
+      "byteLength": 89198,
+      "unit": "km/s",
+      "description": "Uncertainty in cz. 65535 = unknown.",
+      "quantization": null,
+      "dequantize": "value"
+    },
+    {
+      "name": "ktmag",
+      "dtype": "uint16",
+      "byteOffset": 445990,
+      "byteLength": 89198,
+      "unit": "mag",
+      "description": "Extinction-corrected total extrapolated 2MASS Ks magnitude (Ktmag). 65535 = unknown. Survey limit Ks <= 11.75.",
+      "quantization": {
+        "scale": 0.001,
+        "offset": 0
+      },
+      "dequantize": "mag = value * 1e-3"
+    },
+    {
+      "name": "tType",
+      "dtype": "int8",
+      "byteOffset": 535188,
+      "byteLength": 44599,
+      "unit": null,
+      "description": "Leading numeric morphological T-type from the ZCAT-convention type string (-9 = unclassified early .. 99 = peculiar/irregular codes). -128 is reserved for \"not given\" but is unused in this release: every row carries a type string.",
+      "quantization": null,
+      "dequantize": "value"
+    },
+    {
+      "name": "flags",
+      "dtype": "uint8",
+      "byteOffset": 579787,
+      "byteLength": 44599,
+      "unit": null,
+      "description": "bit0 = redshift present (cz valid); bit1 = lies inside the formal zone-of-avoidance limit for its longitude; bit2 = redshift measured by 2MRS itself (n_cz = 6).",
+      "quantization": null,
+      "dequantize": "value"
+    }
+  ],
+  "statistics": {
+    "withRedshift": 43533,
+    "withoutRedshift": 1066,
+    "czKmS": {
+      "min": -300,
+      "max": 51864
+    },
+    "approxRedshiftRange": {
+      "zMin": -0.001001,
+      "zMax": 0.173
+    }
+  },
+  "zoneOfAvoidance": {
+    "description": "The Milky Way blocks the view of the extragalactic sky near the galactic plane. 2MRS has no coverage there. Render this as an explicit, labelled wedge — \"obscured by the Milky Way - no survey coverage\" - never as empty space, which would read as a real void.",
+    "formalSelection": {
+      "source": "Huchra et al. 2012, ApJS 199, 26, Sect. 2 (survey definition)",
+      "rule": "|b| > 5 deg for 30 deg < l < 330 deg; |b| > 8 deg for l < 30 deg or l > 330 deg; Ks <= 11.75",
+      "wedgeHalfOpeningDeg": {
+        "lBetween30And330": 5,
+        "lElse": 8
+      },
+      "skyFractionObscured": 0.09583
+    },
+    "measured": {
+      "method": "Galaxy surface density computed in 36 longitude bins x 1 deg |b| rings (solid-angle normalised). The coverage limit for a bin is the largest |b| for which every ring below it has density < 25% of that bin's own mean density over 15 deg < |b| < 45 deg.",
+      "maxLimitAbsBDeg": 10,
+      "meanSkyFractionObscured": 0.09823,
+      "perLongitudeBin": [
+        {
+          "lCenterDeg": 5,
+          "measuredLimitAbsBDeg": 8,
+          "formalLimitAbsBDeg": 8,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 15,
+          "measuredLimitAbsBDeg": 8,
+          "formalLimitAbsBDeg": 8,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 25,
+          "measuredLimitAbsBDeg": 9,
+          "formalLimitAbsBDeg": 8,
+          "galaxiesBelowMeasuredLimit": 4
+        },
+        {
+          "lCenterDeg": 35,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 45,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 55,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 65,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 75,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 85,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 95,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 105,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 115,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 125,
+          "measuredLimitAbsBDeg": 6,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 3
+        },
+        {
+          "lCenterDeg": 135,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 145,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 155,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 165,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 175,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 185,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 195,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 205,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 215,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 225,
+          "measuredLimitAbsBDeg": 6,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 4
+        },
+        {
+          "lCenterDeg": 235,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 245,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 255,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 265,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 275,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 285,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 295,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 305,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 315,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 325,
+          "measuredLimitAbsBDeg": 5,
+          "formalLimitAbsBDeg": 5,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 335,
+          "measuredLimitAbsBDeg": 8,
+          "formalLimitAbsBDeg": 8,
+          "galaxiesBelowMeasuredLimit": 0
+        },
+        {
+          "lCenterDeg": 345,
+          "measuredLimitAbsBDeg": 10,
+          "formalLimitAbsBDeg": 8,
+          "galaxiesBelowMeasuredLimit": 11
+        },
+        {
+          "lCenterDeg": 355,
+          "measuredLimitAbsBDeg": 8,
+          "formalLimitAbsBDeg": 8,
+          "galaxiesBelowMeasuredLimit": 0
+        }
+      ]
+    },
+    "actualGalaxyCountsInsideTheGap": {
+      "belowFormalLimit": 0,
+      "absBLessThan5Deg": 0,
+      "absBLessThan8Deg": 1895,
+      "note": "Exactly zero. The published catalogue applies the |b| cut strictly, so inside the wedge the data is not sparse — it is absent. Any structure a renderer appears to show there is interpolation, and must not be drawn."
+    }
+  },
+  "sourceUrl": "https://vizier.cds.unistra.fr/viz-bin/VizieR-3?-source=J/ApJS/199/26/table3",
+  "vizierCatalogue": "J/ApJS/199/26",
+  "vizierTable": "J/ApJS/199/26/table3",
+  "sourceVersion": "Huchra, Macri, Masters et al. 2012, ApJS 199, 26 (2012ApJS..199...26H)",
+  "retrieved": "2026-10-14",
+  "licence": "CC BY 4.0 (CDS VizieR service) — underlying catalogue (c) the cited authors / AAS",
+  "attribution": "2MASS Redshift Survey — Huchra, Macri, Masters et al. (2012), ApJS 199, 26. Retrieved from VizieR (CDS, Strasbourg).",
+  "sha256": "7cd2f8d573715e35c766fbe2342934365c6883cf601e369d8fa112a4cbd0da36"
+}

@@ -1,0 +1,117 @@
+/*
+ * Design tokens.
+ *
+ * Dark-first, built as an instrument panel rather than a terminal. Two rules shape it:
+ * every text colour here clears WCAG AA against the surface it is used on, and there is
+ * exactly one translucent surface in the product. The previous UI used
+ * `backdrop-filter: blur(18px)` on every panel, which forces the compositor to read
+ * back the WebGL layer on every frame the canvas changes — which is every frame.
+ */
+
+:root {
+  /* --- surfaces ------------------------------------------------------------ */
+  --bg: #05070a;
+  --surface-0: #07090e;
+  --surface-1: #0f1218;
+  --surface-2: #171b22;
+  --surface-3: #20242d;
+  --surface-4: #2d333e;
+
+  --line: #20242d;
+  --line-strong: #2d333e;
+  --line-hair: rgb(255 255 255 / 6%);
+
+  /* --- text ----------------------------------------------------------------
+   * Contrast ratios are against --surface-1. --text-4 is below AA and is reserved
+   * for disabled and purely decorative marks; scripts/check-contrast.mjs enforces it.
+   */
+  --text-1: #f2f6f9; /* 17.3:1 */
+  --text-2: #bdc5cb; /* 10.7:1 */
+  --text-3: #8a949b; /*  6.1:1 — the floor for body text */
+  --text-4: #616a71; /*  3.4:1 — disabled / decorative only */
+
+  /* --- accent --------------------------------------------------------------- */
+  --accent: #60c2ff;
+  --accent-hi: #8bdbff;
+  --accent-tint: #0e2036;
+  --live: #5edb81;
+  --warn: #faab3f;
+  --danger: #fa6863;
+
+  /* --- object classes -------------------------------------------------------
+   * All at equal lightness so no class visually dominates. Colour is reinforcement
+   * only; the glyph carries the encoding, because several of these hues collapse
+   * under deuteranopia.
+   */
+  --class-star: #dcbc33;
+  --class-planet: #7dc1ff;
+  --class-moon: #a0c4d4;
+  --class-dwarf-planet: #d1a8ff;
+  --class-asteroid: #ffa460;
+  --class-comet: #4cd7c8;
+  --class-spacecraft: #81d584;
+  --class-galaxy: #f59cd8;
+  --class-nebula: #ff9395;
+  --class-cluster: #a5b6ff;
+  --class-black-hole: #aebde5;
+
+  /* --- geometry -------------------------------------------------------------- */
+  --r-panel: 8px;
+  --r-control: 6px;
+  --r-pill: 999px;
+  --sp: 4px;
+
+  --gutter: 24px;
+  --topbar-h: 48px;
+  --address-h: 32px;
+  --inspector-w: 360px;
+  --timebar-h: 56px;
+  --ladder-w: 48px;
+
+  /* --- z ladder --------------------------------------------------------------- */
+  --z-scene: 30;
+  --z-hud: 900;
+  --z-chrome: 1000;
+  --z-inspector: 1100;
+  --z-sheet: 1200;
+  --z-palette: 1400;
+  --z-modal: 1500;
+  --z-toast: 1600;
+
+  /* --- motion ----------------------------------------------------------------- */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-micro: cubic-bezier(0.4, 0, 0.2, 1);
+  --d-press: 90ms;
+  --d-micro: 120ms;
+  --d-standard: 180ms;
+  --d-enter: 220ms;
+  --d-sheet: 320ms;
+
+  /* --- type ------------------------------------------------------------------- */
+  --font-ui: 'Inter Variable', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Inter Tight Variable', 'Inter Tight', var(--font-ui);
+  --font-mono: 'DM Mono', ui-monospace, 'SF Mono', monospace;
+
+  color-scheme: dark;
+}
+
+/*
+ * Raise the dim tier and harden hairlines when the platform asks for more contrast.
+ */
+@media (prefers-contrast: more) {
+  :root {
+    --text-3: #bdc5cb;
+    --text-4: #8a949b;
+    --line: #2d333e;
+    --line-hair: rgb(255 255 255 / 14%);
+  }
+}
+
+@media (forced-colors: active) {
+  .panel,
+  .hud-card,
+  .inspector {
+    border: 1px solid CanvasText;
+  }
+}

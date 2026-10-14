@@ -1,12 +1,15 @@
-import { SceneManager } from './components/scene/SceneManager'
-import { Interface } from './components/ui/Interface'
-import './styles/ui.css'
+import { useState } from 'react'
+import type { AtlasViewer } from './core/AtlasViewer'
+import { AppChrome } from './ui/AppChrome'
+import { SceneHost } from './ui/SceneHost'
 
 function App() {
+  const [viewer, setViewer] = useState<AtlasViewer | null>(null)
+
   return (
     <main className="app-shell">
-      <SceneManager />
-      <Interface />
+      <SceneHost onViewer={setViewer} />
+      <AppChrome viewer={viewer} />
     </main>
   )
 }

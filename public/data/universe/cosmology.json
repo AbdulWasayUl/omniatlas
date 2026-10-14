@@ -1,0 +1,126 @@
+{
+  "dataset": "Frozen cosmological parameters for OmniAtlas",
+  "kind": "MEASURED (parameters) / DERIVED (distances computed from them)",
+  "retrieved": "2026-10-14",
+  "source": {
+    "name": "Planck 2018 results. VI. Cosmological parameters",
+    "citation": "Planck Collaboration, Aghanim N. et al. 2020, A&A 641, A6 (2018 results; 2020A&A...641A...6P)",
+    "dataset": "TT,TE,EE+lowE+lensing",
+    "url": "https://doi.org/10.1051/0004-6361/201833910",
+    "arxiv": "arXiv:1807.06209",
+    "licence": "Values quoted from the published paper; numerical facts, freely citable with attribution."
+  },
+  "parameters": {
+    "H0": {
+      "value": 67.4,
+      "unit": "km/s/Mpc",
+      "uncertainty": 0.5,
+      "description": "Hubble constant today."
+    },
+    "h": {
+      "value": 0.674,
+      "unit": null,
+      "description": "H0 / 100."
+    },
+    "OmegaM": {
+      "value": 0.315,
+      "unit": null,
+      "uncertainty": 0.007,
+      "description": "Total matter density parameter."
+    },
+    "OmegaLambda": {
+      "value": 0.685,
+      "unit": null,
+      "uncertainty": 0.007,
+      "description": "Dark-energy density parameter."
+    },
+    "OmegaK": {
+      "value": 0,
+      "unit": null,
+      "description": "Curvature — assumed exactly flat, as the base LCDM model does."
+    },
+    "OmegaR": {
+      "value": 0.000091354,
+      "unit": null,
+      "description": "Radiation (photons + 3 massless neutrinos), Omega_r h^2 = 4.15e-5. Negligible below z ~ 100 but included in the integrals."
+    },
+    "ageGyr": {
+      "value": 13.787,
+      "unit": "Gyr",
+      "uncertainty": 0.02,
+      "description": "Age of the universe."
+    },
+    "sigma8": {
+      "value": 0.811,
+      "unit": null,
+      "uncertainty": 0.006
+    },
+    "ns": {
+      "value": 0.965,
+      "unit": null,
+      "uncertainty": 0.004
+    },
+    "TcmbK": {
+      "value": 2.7255,
+      "unit": "K",
+      "description": "CMB monopole temperature (Fixsen 2009)."
+    }
+  },
+  "lastScattering": {
+    "z": 1089.9,
+    "zRounded": 1089,
+    "description": "Recombination / the surface of last scattering — the CMB. The limit of what can be seen.",
+    "comovingDistanceMpc": 13864.7,
+    "comovingDistanceGly": 45.22,
+    "publishedPlanckValueMpc": 13869.6,
+    "publishedPlanckNote": "Planck 2018 VI quotes the comoving angular-diameter distance D_M(z*) = 13869.6 Mpc for the base model. Our value is computed here from the frozen parameters above and agrees to better than 1%; prefer our computed value so the number and the transform cannot drift apart.",
+    "lookbackTimeGyr": 13.786620000000001,
+    "uiLabel": "the limit of what can be seen — 13.787 billion years of light travel. NOT \"the edge of the universe\"."
+  },
+  "particleHorizon": {
+    "description": "Comoving distance light could have travelled since t=0 (z -> infinity): the radius of the observable universe. This — not the CMB shell — is the ~14,300 Mpc / 46.5 Gly figure usually quoted. The CMB shell sits just inside it.",
+    "comovingDistanceMpc": 14145.3,
+    "comovingDistanceGly": 46.136,
+    "commonlyQuotedMpc": 14300,
+    "commonlyQuotedGly": 46.5
+  },
+  "derived": {
+    "hubbleDistanceMpc": 4448,
+    "hubbleTimeGyr": 14.507,
+    "mpcPerGly": 306.601394,
+    "speedOfLightKmS": 299792.458
+  },
+  "distanceRecipes": {
+    "note": "Which transform to use at which scale. Never mix them silently.",
+    "rules": [
+      "Where a distance modulus exists (UNGC, Cosmicflows-4), use it directly: d_L = 10**(DM/5 - 5) Mpc. No cosmology is assumed and no H0 enters.",
+      "Below z ~ 0.1 (2MRS, essentially all of it), d ~ cz / H0 is accurate to better than ~5%.",
+      "Beyond that, integrate D_C = (c/H0) * int_0^z dz'/E(z'), E(z) = sqrt(Om(1+z)^3 + Or(1+z)^4 + OL).",
+      "Luminosity distance d_L = (1+z) D_C; angular-diameter distance d_A = D_C / (1+z). For a flat universe these differ from D_C by factors that matter past z ~ 0.1."
+    ]
+  },
+  "h0Tension": {
+    "description": "The early-universe (CMB) and late-universe (distance-ladder) measurements of H0 disagree at about 5 sigma. This is an open problem in cosmology, not a rounding error, and the UI surfaces it rather than hiding it.",
+    "planck2018": {
+      "H0": 67.4,
+      "uncertainty": 0.5,
+      "method": "CMB + LCDM, early universe",
+      "source": "Planck Collaboration 2020, A&A 641, A6"
+    },
+    "sh0es": {
+      "H0": 73.04,
+      "uncertainty": 1.04,
+      "method": "Cepheid-calibrated SNe Ia distance ladder, late universe",
+      "source": "Riess et al. 2022, ApJ 934, L7 (2022ApJ...934L...7R)"
+    },
+    "cosmicflows4Internal": {
+      "H0": 74.6,
+      "uncertainty": 0.8,
+      "method": "Cosmicflows-4 internal zero point",
+      "source": "Tully et al. 2023, ApJ 944, 94",
+      "warning": "CF4 distances are calibrated to H0 = 74.6 while this module uses 67.4. Mixing a CF4 distance with a cz/H0 distance puts a ~10% radial seam exactly at the scale transition. Use the CF4 distance modulus directly wherever CF4 is being rendered and disclose the scale."
+    },
+    "tensionSigma": 4.89,
+    "uiNote": "How fast the universe expands is measured two ways that do not agree: 67.4 km/s/Mpc from the cosmic microwave background, 73.0 from nearby supernovae. OmniAtlas renders with the Planck value; distances beyond the Local Group carry this ~8% systematic."
+  }
+}

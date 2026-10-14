@@ -1,10 +1,5 @@
-@import './styles/global.css';
-
-/* Minimal reset/extra global rules if needed */
-html, body, #root {
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-}
+@import '@fontsource-variable/inter/index.css';
+@import '@fontsource-variable/inter-tight/index.css';
+@import '@fontsource/dm-mono/400.css';
+@import './styles/tokens.css';
+@import './styles/app.css';

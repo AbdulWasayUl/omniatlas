@@ -1,0 +1,224 @@
+{
+  "format": "struct-of-arrays",
+  "endianness": "little",
+  "binary": "ngc.bin",
+  "recordCount": 14026,
+  "bytesPerRecord": 32,
+  "totalBytes": 448832,
+  "sourceRows": {
+    "database_files/NGC.csv": 13962,
+    "database_files/addendum.csv": 64,
+    "skippedWithoutCoordinates": [
+      "IC1064",
+      "IC1326",
+      "IC1642",
+      "IC2688",
+      "IC2915",
+      "IC3398",
+      "IC5112"
+    ]
+  },
+  "frame": "ICRS (J2000 equatorial)",
+  "epoch": "J2000.0",
+  "note": "Tightly packed struct-of-arrays: every field is one contiguous run of recordCount values at the stated byteOffset. Index i of each array refers to the same object; designations are in ngc-ids.json at the same index. Fields are ordered 4-byte, then 2-byte, then 1-byte, so every byteOffset is a multiple of its dtype size and each field can be wrapped in a zero-copy typed-array view over the ArrayBuffer.",
+  "fields": [
+    {
+      "name": "raMicroDeg",
+      "dtype": "uint32",
+      "byteOffset": 0,
+      "byteLength": 56104,
+      "count": 14026,
+      "units": "microdegree",
+      "dequantize": "raDeg = raMicroDeg * 1e-6",
+      "frame": "ICRS / J2000 equatorial"
+    },
+    {
+      "name": "decMicroDeg",
+      "dtype": "int32",
+      "byteOffset": 56104,
+      "byteLength": 56104,
+      "count": 14026,
+      "units": "microdegree",
+      "dequantize": "decDeg = decMicroDeg * 1e-6",
+      "frame": "ICRS / J2000 equatorial"
+    },
+    {
+      "name": "redshift",
+      "dtype": "float32",
+      "byteOffset": 112208,
+      "byteLength": 56104,
+      "count": 14026,
+      "units": "dimensionless (heliocentric z)",
+      "nullValue": "NaN"
+    },
+    {
+      "name": "distancePc",
+      "dtype": "float32",
+      "byteOffset": 168312,
+      "byteLength": 56104,
+      "count": 14026,
+      "units": "parsec",
+      "nullValue": "NaN (direction-only object)",
+      "note": "kind 1 = 1000/parallax_mas; kind 2 = Hubble distance z*c/H0 with H0 = 67.66 km/s/Mpc, c = 299792.458 km/s (Planck 2018)"
+    },
+    {
+      "name": "vmag",
+      "dtype": "int16",
+      "byteOffset": 224416,
+      "byteLength": 28052,
+      "count": 14026,
+      "units": "mag (V)",
+      "dequantize": "vmag = code * 0.01",
+      "nullValue": -32768
+    },
+    {
+      "name": "bmag",
+      "dtype": "int16",
+      "byteOffset": 252468,
+      "byteLength": 28052,
+      "count": 14026,
+      "units": "mag (B)",
+      "dequantize": "bmag = code * 0.01",
+      "nullValue": -32768
+    },
+    {
+      "name": "majAx",
+      "dtype": "uint16",
+      "byteOffset": 280520,
+      "byteLength": 28052,
+      "count": 14026,
+      "units": "arcmin",
+      "dequantize": "majAxArcmin = code * 0.01",
+      "nullValue": 65535
+    },
+    {
+      "name": "minAx",
+      "dtype": "uint16",
+      "byteOffset": 308572,
+      "byteLength": 28052,
+      "count": 14026,
+      "units": "arcmin",
+      "dequantize": "minAxArcmin = code * 0.01",
+      "nullValue": 65535
+    },
+    {
+      "name": "posAng",
+      "dtype": "uint16",
+      "byteOffset": 336624,
+      "byteLength": 28052,
+      "count": 14026,
+      "units": "degree, major-axis position angle north eastwards",
+      "dequantize": "posAngDeg = code * 0.1",
+      "nullValue": 65535
+    },
+    {
+      "name": "surfBr",
+      "dtype": "int16",
+      "byteOffset": 364676,
+      "byteLength": 28052,
+      "count": 14026,
+      "units": "mag/arcsec^2 (B-band, within the 25 mag isophote; galaxies only)",
+      "dequantize": "surfBr = code * 0.01",
+      "nullValue": -32768
+    },
+    {
+      "name": "type",
+      "dtype": "uint8",
+      "byteOffset": 392728,
+      "byteLength": 14026,
+      "count": 14026,
+      "enum": [
+        "G",
+        "GPair",
+        "GTrpl",
+        "GGroup",
+        "OCl",
+        "GCl",
+        "Cl+N",
+        "*Ass",
+        "PN",
+        "HII",
+        "DrkN",
+        "EmN",
+        "Neb",
+        "RfN",
+        "SNR",
+        "Nova",
+        "*",
+        "**",
+        "Other",
+        "Dup",
+        "NonEx"
+      ]
+    },
+    {
+      "name": "distanceKind",
+      "dtype": "uint8",
+      "byteOffset": 406754,
+      "byteLength": 14026,
+      "count": 14026,
+      "enum": [
+        "none (direction-only)",
+        "parallax",
+        "hubble-from-redshift"
+      ]
+    },
+    {
+      "name": "messier",
+      "dtype": "uint8",
+      "byteOffset": 420780,
+      "byteLength": 14026,
+      "count": 14026,
+      "note": "0 = not a Messier object, else the Messier number 1..110"
+    },
+    {
+      "name": "flags",
+      "dtype": "uint8",
+      "byteOffset": 434806,
+      "byteLength": 14026,
+      "count": 14026,
+      "bits": {
+        "0": "from addendum.csv",
+        "1": "has common name",
+        "2": "duplicate entry",
+        "3": "nonexistent object"
+      }
+    }
+  ],
+  "placement": {
+    "threeDimensional": 10510,
+    "fromParallax": 569,
+    "fromRedshift": 9941,
+    "directionOnly": 3516,
+    "directionOnlyExtragalacticWithNonPositiveRedshift": 41,
+    "parallaxIgnoredBecauseExtragalactic": 168,
+    "redshiftIgnoredBecauseGalactic": 654,
+    "hubbleDistancesBelowZ001": 2577,
+    "rule": [
+      "Extragalactic types (G, GPair, GTrpl, GGroup) with a positive heliocentric redshift get a Hubble distance. Their OpenNGC parallax is ignored: it is SIMBADs \"main value\", which for a galaxy is a contaminated foreground measurement (it would place M31 at 167 pc).",
+      "Galactic types with a positive parallax get 1000/parallax_mas. Their redshift is ignored: it is a peculiar radial velocity, not cosmological expansion, and cz/H0 would place the Orion Nebula at 412 kpc instead of 412 pc.",
+      "Everything else is direction-only (distancePc = NaN, distanceKind = 0) and must be drawn on the celestial sphere, not in depth. No distance is estimated, interpolated or invented.",
+      "Notably M31/NGC0224 is direction-only here: it is blueshifted, so Hubbles law yields nothing, and its true 785 kpc rests on Cepheid/TRGB work that OpenNGC does not carry."
+    ],
+    "cosmology": {
+      "H0": 67.66,
+      "c": 299792.458,
+      "source": "Planck 2018 TT,TE,EE+lowE+lensing+BAO",
+      "formula": "distancePc = z * c / H0 * 1e6  (valid only for z << 1)",
+      "caveat": "Below z ~ 0.01 (~44 Mpc) peculiar velocities of several hundred km/s are a large fraction of cz, so those 2577 Hubble distances are indicative only. Badge them DERIVED, never MEASURED."
+    }
+  },
+  "companions": {
+    "ngc-ids.json": "index-aligned designations, constellations and Hubble morphological types",
+    "ngc-names.json": "objects carrying a common name and/or a Messier number"
+  },
+  "sourceName": "OpenNGC",
+  "sourceUrl": "https://github.com/mattiaverga/OpenNGC",
+  "sourceFile": "https://codeload.github.com/mattiaverga/OpenNGC/tar.gz/refs/tags/v20260501",
+  "sourceVersion": "v20260501",
+  "sourceSha256": "b10c86c2008f51f4fe653face1923390431894930ef23d381c2d1e8075d04265",
+  "retrieved": "2026-10-14",
+  "licence": "CC-BY-SA-4.0",
+  "attribution": "OpenNGC — Mattia Verga, release v20260501 (https://github.com/mattiaverga/OpenNGC), CC BY-SA 4.0",
+  "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+}

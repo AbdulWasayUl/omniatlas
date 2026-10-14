@@ -1,0 +1,5165 @@
+{
+  "count": 232,
+  "withCommonName": 151,
+  "withMessier": 110,
+  "note": "\"i\" indexes into ngc.bin. These are the objects search and labels need.",
+  "objects": [
+    {
+      "i": 359,
+      "designation": "IC0348",
+      "names": [
+        "omi Per Cloud"
+      ],
+      "messier": null,
+      "type": "Cl+N",
+      "constellation": "Per",
+      "raDeg": 56.142458,
+      "decDeg": 32.162833,
+      "vmag": null,
+      "bmag": null,
+      "majAxArcmin": 10,
+      "minAxArcmin": 10,
+      "distancePc": 325,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "BD +31 0643",
+        "HIP 017465",
+        "LBN 758",
+        "MWSC 0301"
+      ]
+    },
+    {
+      "i": 360,
+      "designation": "IC0349",
+      "names": [
+        "Barnard's Merope Nebula"
+      ],
+      "messier": null,
+      "type": "RfN",
+      "constellation": "Tau",
+      "raDeg": 56.583792,
+      "decDeg": 23.939806,
+      "vmag": null,
+      "bmag": null,
+      "majAxArcmin": 25.7,
+      "minAxArcmin": null,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": []
+    },
+    {
+      "i": 419,
+      "designation": "IC0405",
+      "names": [
+        "Flaming Star Nebula"
+      ],
+      "messier": null,
+      "type": "Neb",
+      "constellation": "Aur",
+      "raDeg": 79.122833,
+      "decDeg": 34.356167,
+      "vmag": null,
+      "bmag": 10,
+      "majAxArcmin": 50,
+      "minAxArcmin": 30,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "C 031",
+        "LBN 795"
+      ]
+    },
+    {
+      "i": 448,
+      "designation": "IC0434",
+      "names": [
+        "Flame Nebula",
+        "Orion B"
+      ],
+      "messier": null,
+      "type": "HII",
+      "constellation": "Ori",
+      "raDeg": 85.253667,
+      "decDeg": -2.453778,
+      "vmag": null,
+      "bmag": 11,
+      "majAxArcmin": 90,
+      "minAxArcmin": 30,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "LBN 953"
+      ]
+    },
+    {
+      "i": 457,
+      "designation": "IC0443",
+      "names": [
+        "Gem A"
+      ],
+      "messier": null,
+      "type": "SNR",
+      "constellation": "Gem",
+      "raDeg": 94.155875,
+      "decDeg": 22.531667,
+      "vmag": null,
+      "bmag": 12,
+      "majAxArcmin": 50,
+      "minAxArcmin": 40,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "LBN 844",
+        "LEDA 2817561"
+      ]
+    },
+    {
+      "i": 1389,
+      "designation": "IC1318",
+      "names": [
+        "gam Cyg"
+      ],
+      "messier": null,
+      "type": "*",
+      "constellation": "Cyg",
+      "raDeg": 305.557042,
+      "decDeg": 40.256694,
+      "vmag": 2.23,
+      "bmag": 2.9,
+      "majAxArcmin": null,
+      "minAxArcmin": null,
+      "distancePc": 562,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "BD +39 4159",
+        "HD 194093",
+        "HIP 100453"
+      ]
+    },
+    {
+      "i": 2325,
+      "designation": "IC2220",
+      "names": [
+        "Toby Jug Nebula"
+      ],
+      "messier": null,
+      "type": "RfN",
+      "constellation": "Car",
+      "raDeg": 119.212292,
+      "decDeg": -59.125778,
+      "vmag": null,
+      "bmag": null,
+      "majAxArcmin": 5,
+      "minAxArcmin": null,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "ESO 124-003",
+        "HD 065750",
+        "HIP 038834",
+        "IRAS 07559-5859"
+      ]
+    },
+    {
+      "i": 2499,
+      "designation": "IC2391",
+      "names": [
+        "omi Vel Cluster"
+      ],
+      "messier": null,
+      "type": "OCl",
+      "constellation": "Vel",
+      "raDeg": 130.132833,
+      "decDeg": -53.035472,
+      "vmag": 2.5,
+      "bmag": null,
+      "majAxArcmin": 29.1,
+      "minAxArcmin": null,
+      "distancePc": 152,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "C 085",
+        "MWSC 1529"
+      ]
+    },
+    {
+      "i": 2541,
+      "designation": "IC2431 NED02",
+      "names": [
+        "Browning"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Cnc",
+      "raDeg": 136.144667,
+      "decDeg": 14.595778,
+      "vmag": 14.04,
+      "bmag": 14.61,
+      "majAxArcmin": 0.6,
+      "minAxArcmin": 0.48,
+      "distancePc": 220971766,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "IRAS 09018+1447",
+        "MCG +03-23-030 NED02",
+        "PGC 025476",
+        "UGC 04756 NED02"
+      ]
+    },
+    {
+      "i": 2690,
+      "designation": "IC2574",
+      "names": [
+        "Coddington's Nebula"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "UMa",
+      "raDeg": 157.097833,
+      "decDeg": 68.412139,
+      "vmag": 10.46,
+      "bmag": 10.82,
+      "majAxArcmin": 12.91,
+      "minAxArcmin": 5.57,
+      "distancePc": 708939,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J10282348+6824437",
+        "MCG +12-10-038",
+        "PGC 030819",
+        "UGC 05666"
+      ]
+    },
+    {
+      "i": 2718,
+      "designation": "IC2602",
+      "names": [
+        "tet Car Cluster"
+      ],
+      "messier": null,
+      "type": "OCl",
+      "constellation": "Car",
+      "raDeg": 160.739458,
+      "decDeg": -64.394194,
+      "vmag": null,
+      "bmag": null,
+      "majAxArcmin": 48,
+      "minAxArcmin": null,
+      "distancePc": 152,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "C 102",
+        "MWSC 1841"
+      ]
+    },
+    {
+      "i": 3068,
+      "designation": "IC2944",
+      "names": [
+        "lam Cen Nebula"
+      ],
+      "messier": null,
+      "type": "Cl+N",
+      "constellation": "Cen",
+      "raDeg": 173.945542,
+      "decDeg": -63.019833,
+      "vmag": null,
+      "bmag": 4.5,
+      "majAxArcmin": 7.2,
+      "minAxArcmin": null,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "C 100",
+        "HD 100841",
+        "HIP 056561",
+        "MWSC 1957"
+      ]
+    },
+    {
+      "i": 4786,
+      "designation": "IC4604",
+      "names": [
+        "rho Oph Nebula"
+      ],
+      "messier": null,
+      "type": "Neb",
+      "constellation": "Oph",
+      "raDeg": 246.379875,
+      "decDeg": -23.436583,
+      "vmag": null,
+      "bmag": 5.1,
+      "majAxArcmin": 60,
+      "minAxArcmin": 25,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "LBN 1111"
+      ]
+    },
+    {
+      "i": 4885,
+      "designation": "IC4703",
+      "names": [
+        "Eagle Nebula",
+        "Star Queen"
+      ],
+      "messier": null,
+      "type": "Neb",
+      "constellation": "Se2",
+      "raDeg": 274.73425,
+      "decDeg": -13.845389,
+      "vmag": 6,
+      "bmag": 6.58,
+      "majAxArcmin": 5.05,
+      "minAxArcmin": 5.05,
+      "distancePc": 1767,
+      "distanceKind": "parallax",
+      "identifiers": []
+    },
+    {
+      "i": 4897,
+      "designation": "IC4715",
+      "names": [
+        "Small Sgr Star Cloud"
+      ],
+      "messier": 24,
+      "type": "*Ass",
+      "constellation": "Sgr",
+      "raDeg": 274.233833,
+      "decDeg": -18.514556,
+      "vmag": 4.5,
+      "bmag": null,
+      "majAxArcmin": 120,
+      "minAxArcmin": 60,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": []
+    },
+    {
+      "i": 4907,
+      "designation": "IC4725",
+      "names": [],
+      "messier": 25,
+      "type": "OCl",
+      "constellation": "Sgr",
+      "raDeg": 277.944875,
+      "decDeg": -19.114944,
+      "vmag": 4.6,
+      "bmag": 5.29,
+      "majAxArcmin": 14.1,
+      "minAxArcmin": null,
+      "distancePc": 665,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 2940"
+      ]
+    },
+    {
+      "i": 5259,
+      "designation": "IC5070",
+      "names": [
+        "Pelican Nebula"
+      ],
+      "messier": null,
+      "type": "HII",
+      "constellation": "Cyg",
+      "raDeg": 312.753,
+      "decDeg": 44.4015,
+      "vmag": null,
+      "bmag": 8,
+      "majAxArcmin": 60,
+      "minAxArcmin": 50,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "LBN 350"
+      ]
+    },
+    {
+      "i": 5334,
+      "designation": "IC5146",
+      "names": [
+        "Cocoon Nebula"
+      ],
+      "messier": null,
+      "type": "Cl+N",
+      "constellation": "Cyg",
+      "raDeg": 328.369833,
+      "decDeg": 47.266917,
+      "vmag": 7.2,
+      "bmag": 7.82,
+      "majAxArcmin": 10,
+      "minAxArcmin": 10,
+      "distancePc": 824,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "C 019",
+        "LBN 424",
+        "MWSC 3571"
+      ]
+    },
+    {
+      "i": 5628,
+      "designation": "NGC0040",
+      "names": [
+        "Bow-Tie nebula"
+      ],
+      "messier": null,
+      "type": "PN",
+      "constellation": "Cep",
+      "raDeg": 3.254292,
+      "decDeg": 72.521944,
+      "vmag": 11.89,
+      "bmag": 11.27,
+      "majAxArcmin": 0.8,
+      "minAxArcmin": null,
+      "distancePc": 1984,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "C 002",
+        "IRAS 00102+7214",
+        "PN G120.0+09.8"
+      ]
+    },
+    {
+      "i": 5698,
+      "designation": "NGC0104",
+      "names": [
+        "47 Tuc Cluster"
+      ],
+      "messier": null,
+      "type": "GCl",
+      "constellation": "Tuc",
+      "raDeg": 6.022333,
+      "decDeg": -72.081444,
+      "vmag": 4.09,
+      "bmag": 5.78,
+      "majAxArcmin": 31.8,
+      "minAxArcmin": null,
+      "distancePc": 5126,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "2MASX J00240535-7204531",
+        "C 106",
+        "MWSC 0038"
+      ]
+    },
+    {
+      "i": 5803,
+      "designation": "NGC0205",
+      "names": [],
+      "messier": 110,
+      "type": "G",
+      "constellation": "And",
+      "raDeg": 10.092,
+      "decDeg": 41.685306,
+      "vmag": 8.15,
+      "bmag": 8.9,
+      "majAxArcmin": 16.22,
+      "minAxArcmin": 9.59,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "2MASX J00402207+4141070",
+        "IRAS 00376+4124",
+        "MCG +07-02-014",
+        "PGC 002429",
+        "UGC 00426"
+      ]
+    },
+    {
+      "i": 5819,
+      "designation": "NGC0221",
+      "names": [],
+      "messier": 32,
+      "type": "G",
+      "constellation": "And",
+      "raDeg": 10.674292,
+      "decDeg": 40.865278,
+      "vmag": 8.13,
+      "bmag": 8.89,
+      "majAxArcmin": 7.74,
+      "minAxArcmin": 4.86,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "2MASX J00424182+4051546",
+        "IRAS 00399+4035",
+        "MCG +07-02-015",
+        "PGC 002555",
+        "UGC 00452"
+      ]
+    },
+    {
+      "i": 5822,
+      "designation": "NGC0224",
+      "names": [
+        "Andromeda Galaxy"
+      ],
+      "messier": 31,
+      "type": "G",
+      "constellation": "And",
+      "raDeg": 10.684792,
+      "decDeg": 41.269056,
+      "vmag": 3.44,
+      "bmag": 4.29,
+      "majAxArcmin": 177.83,
+      "minAxArcmin": 69.66,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "2MASX J00424433+4116074",
+        "IRAS 00400+4059",
+        "MCG +07-02-016",
+        "PGC 002557",
+        "UGC 00454"
+      ]
+    },
+    {
+      "i": 5857,
+      "designation": "NGC0253",
+      "names": [
+        "Sculptor Filament",
+        "Silver Coin"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Scl",
+      "raDeg": 11.888,
+      "decDeg": -25.288222,
+      "vmag": 11.11,
+      "bmag": 7.94,
+      "majAxArcmin": 26.79,
+      "minAxArcmin": 4.58,
+      "distancePc": 3828269,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J00473313-2517196",
+        "C 065",
+        "ESO 474-029",
+        "ESO-LV 474-0290",
+        "IRAS 00450-2533",
+        "MCG -04-03-009",
+        "PGC 002789",
+        "UGCA 013"
+      ]
+    },
+    {
+      "i": 5896,
+      "designation": "NGC0292",
+      "names": [
+        "Small Magellanic Cloud"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Tuc",
+      "raDeg": 13.186583,
+      "decDeg": -72.828611,
+      "vmag": 2.3,
+      "bmag": 2.75,
+      "majAxArcmin": 299.92,
+      "minAxArcmin": 179.89,
+      "distancePc": 2153401,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "ESO 029-021",
+        "PGC 003085"
+      ]
+    },
+    {
+      "i": 6073,
+      "designation": "NGC0457",
+      "names": [
+        "Owl Cluster"
+      ],
+      "messier": null,
+      "type": "OCl",
+      "constellation": "Cas",
+      "raDeg": 19.886042,
+      "decDeg": 58.290694,
+      "vmag": 6.4,
+      "bmag": 6.97,
+      "majAxArcmin": 7.8,
+      "minAxArcmin": null,
+      "distancePc": 3145,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "C 013",
+        "MWSC 0114"
+      ]
+    },
+    {
+      "i": 6205,
+      "designation": "NGC0581",
+      "names": [],
+      "messier": 103,
+      "type": "OCl",
+      "constellation": "Cas",
+      "raDeg": 23.340875,
+      "decDeg": 60.658,
+      "vmag": 7.4,
+      "bmag": 7.72,
+      "majAxArcmin": 4.5,
+      "minAxArcmin": null,
+      "distancePc": 2681,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 0124"
+      ]
+    },
+    {
+      "i": 6222,
+      "designation": "NGC0598",
+      "names": [
+        "Triangulum Galaxy",
+        "Triangulum Pinwheel"
+      ],
+      "messier": 33,
+      "type": "G",
+      "constellation": "Tri",
+      "raDeg": 23.462042,
+      "decDeg": 30.660222,
+      "vmag": 5.79,
+      "bmag": 6.35,
+      "majAxArcmin": 62.09,
+      "minAxArcmin": 36.73,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "2MASX J01335090+3039357",
+        "IRAS 01310+3024",
+        "MCG +05-04-069",
+        "PGC 005818",
+        "UGC 01117"
+      ]
+    },
+    {
+      "i": 6252,
+      "designation": "NGC0628",
+      "names": [],
+      "messier": 74,
+      "type": "G",
+      "constellation": "Psc",
+      "raDeg": 24.173958,
+      "decDeg": 15.783667,
+      "vmag": 9.31,
+      "bmag": 9.71,
+      "majAxArcmin": 9.89,
+      "minAxArcmin": 9.33,
+      "distancePc": 9694737,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J01364177+1547004",
+        "IRAS 01340+1532",
+        "MCG +03-05-011",
+        "PGC 005974",
+        "UGC 01149"
+      ]
+    },
+    {
+      "i": 6279,
+      "designation": "NGC0650",
+      "names": [
+        "Barbell Nebula",
+        "Cork Nebula",
+        "Little Dumbbell Nebula"
+      ],
+      "messier": 76,
+      "type": "PN",
+      "constellation": "Per",
+      "raDeg": 25.582042,
+      "decDeg": 51.575472,
+      "vmag": 10.1,
+      "bmag": 12.2,
+      "majAxArcmin": 1.12,
+      "minAxArcmin": null,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "2MASX J01421808+5134243",
+        "IRAS 01391+5119",
+        "PN G130.9-10.5"
+      ]
+    },
+    {
+      "i": 6511,
+      "designation": "NGC0869",
+      "names": [
+        "h Persei Cluster"
+      ],
+      "messier": null,
+      "type": "OCl",
+      "constellation": "Per",
+      "raDeg": 34.744,
+      "decDeg": 57.11725,
+      "vmag": 3.7,
+      "bmag": 4.3,
+      "majAxArcmin": 14.4,
+      "minAxArcmin": null,
+      "distancePc": 2537,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 0175"
+      ]
+    },
+    {
+      "i": 6526,
+      "designation": "NGC0884",
+      "names": [
+        "chi Persei Cluster"
+      ],
+      "messier": null,
+      "type": "OCl",
+      "constellation": "Per",
+      "raDeg": 35.63375,
+      "decDeg": 57.144111,
+      "vmag": 3.8,
+      "bmag": 4.4,
+      "majAxArcmin": 10.5,
+      "minAxArcmin": null,
+      "distancePc": 2515,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 0184"
+      ]
+    },
+    {
+      "i": 6689,
+      "designation": "NGC1039",
+      "names": [],
+      "messier": 34,
+      "type": "OCl",
+      "constellation": "Per",
+      "raDeg": 40.530833,
+      "decDeg": 42.746139,
+      "vmag": 5.2,
+      "bmag": 5.37,
+      "majAxArcmin": 22.5,
+      "minAxArcmin": null,
+      "distancePc": 512,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 0223"
+      ]
+    },
+    {
+      "i": 6702,
+      "designation": "NGC1049",
+      "names": [
+        "Fornax Dwarf Cluster 3"
+      ],
+      "messier": null,
+      "type": "GCl",
+      "constellation": "For",
+      "raDeg": 39.950583,
+      "decDeg": -34.25825,
+      "vmag": null,
+      "bmag": 13.59,
+      "majAxArcmin": 1.2,
+      "minAxArcmin": 1.2,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "2MASX J02394816-3415285",
+        "ESO 356-003",
+        "MCG -06-06-017"
+      ]
+    },
+    {
+      "i": 6721,
+      "designation": "NGC1068",
+      "names": [],
+      "messier": 77,
+      "type": "G",
+      "constellation": "Cet",
+      "raDeg": 40.669625,
+      "decDeg": -0.013278,
+      "vmag": 9.29,
+      "bmag": 9.74,
+      "majAxArcmin": 6.11,
+      "minAxArcmin": 5.61,
+      "distancePc": 16881603,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J02424077-0000478",
+        "IRAS 02401-0013",
+        "MCG +00-07-083",
+        "PGC 010266",
+        "UGC 02188"
+      ]
+    },
+    {
+      "i": 6939,
+      "designation": "NGC1275",
+      "names": [
+        "Perseus A"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Per",
+      "raDeg": 49.950667,
+      "decDeg": 41.511694,
+      "vmag": 12.24,
+      "bmag": 12.61,
+      "majAxArcmin": 2.16,
+      "minAxArcmin": 1.45,
+      "distancePc": 77806024,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J03194823+4130420",
+        "C 024",
+        "IRAS 03164+4119",
+        "MCG +07-07-063",
+        "PGC 012429",
+        "SDSS J031948.15+413042.1",
+        "UGC 02669"
+      ]
+    },
+    {
+      "i": 6981,
+      "designation": "NGC1316",
+      "names": [
+        "Fornax A"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "For",
+      "raDeg": 50.673833,
+      "decDeg": -37.208222,
+      "vmag": 8.48,
+      "bmag": 9.41,
+      "majAxArcmin": 13.46,
+      "minAxArcmin": 7.71,
+      "distancePc": 26190855,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J03224178-3712295",
+        "ESO 357-022",
+        "ESO-LV 357-0220",
+        "IRAS 03208-3723",
+        "MCG -06-08-005",
+        "PGC 012651",
+        "Fornax A"
+      ]
+    },
+    {
+      "i": 6985,
+      "designation": "NGC1317",
+      "names": [
+        "Fornax B"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "For",
+      "raDeg": 50.684542,
+      "decDeg": -37.103694,
+      "vmag": 10.88,
+      "bmag": 11.85,
+      "majAxArcmin": 3.1,
+      "minAxArcmin": 2.58,
+      "distancePc": 28525921,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J03224428-3706136",
+        "ESO 357-023",
+        "ESO-LV 357-0230",
+        "IRAS 03208-3716",
+        "MCG -06-08-006",
+        "PGC 012653"
+      ]
+    },
+    {
+      "i": 7109,
+      "designation": "NGC1432",
+      "names": [
+        "Maia Nebula"
+      ],
+      "messier": null,
+      "type": "HII",
+      "constellation": "Tau",
+      "raDeg": 56.456625,
+      "decDeg": 24.367861,
+      "vmag": null,
+      "bmag": null,
+      "majAxArcmin": 60,
+      "minAxArcmin": 40,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "BD +23 0516",
+        "HD 023408",
+        "HIP 017573",
+        "LBN 771"
+      ]
+    },
+    {
+      "i": 7112,
+      "designation": "NGC1435",
+      "names": [
+        "Merope Nebula"
+      ],
+      "messier": null,
+      "type": "Neb",
+      "constellation": "Tau",
+      "raDeg": 56.542042,
+      "decDeg": 23.764972,
+      "vmag": null,
+      "bmag": null,
+      "majAxArcmin": 30,
+      "minAxArcmin": 30,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": []
+    },
+    {
+      "i": 7179,
+      "designation": "NGC1499",
+      "names": [
+        "California Nebula"
+      ],
+      "messier": null,
+      "type": "Neb",
+      "constellation": "Per",
+      "raDeg": 60.810083,
+      "decDeg": 36.367472,
+      "vmag": null,
+      "bmag": 5,
+      "majAxArcmin": 160,
+      "minAxArcmin": 40,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "LBN 756"
+      ]
+    },
+    {
+      "i": 7242,
+      "designation": "NGC1555",
+      "names": [
+        "Hind's Nebula",
+        "Hind's Variable Nebula"
+      ],
+      "messier": null,
+      "type": "RfN",
+      "constellation": "Tau",
+      "raDeg": 65.497625,
+      "decDeg": 19.535167,
+      "vmag": null,
+      "bmag": 9.98,
+      "majAxArcmin": 1.82,
+      "minAxArcmin": 1.35,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "BD +19 0706",
+        "HIP 020390",
+        "IRAS 04190+1924",
+        "IRAS 04190+1924"
+      ]
+    },
+    {
+      "i": 7594,
+      "designation": "NGC1904",
+      "names": [],
+      "messier": 79,
+      "type": "GCl",
+      "constellation": "Lep",
+      "raDeg": 81.044125,
+      "decDeg": -24.524222,
+      "vmag": 8.16,
+      "bmag": 9.21,
+      "majAxArcmin": 7.2,
+      "minAxArcmin": null,
+      "distancePc": 27027,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 0528"
+      ]
+    },
+    {
+      "i": 7599,
+      "designation": "NGC1909",
+      "names": [
+        "the Witch Head Nebula"
+      ],
+      "messier": null,
+      "type": "RfN",
+      "constellation": "Eri",
+      "raDeg": 76.231,
+      "decDeg": -7.265639,
+      "vmag": null,
+      "bmag": null,
+      "majAxArcmin": 180,
+      "minAxArcmin": 60,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "LBN 959"
+      ]
+    },
+    {
+      "i": 7602,
+      "designation": "NGC1912",
+      "names": [],
+      "messier": 38,
+      "type": "OCl",
+      "constellation": "Aur",
+      "raDeg": 82.177042,
+      "decDeg": 35.854917,
+      "vmag": 6.4,
+      "bmag": 6.69,
+      "majAxArcmin": 9.6,
+      "minAxArcmin": null,
+      "distancePc": 1144,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 0557"
+      ]
+    },
+    {
+      "i": 7642,
+      "designation": "NGC1952",
+      "names": [
+        "Crab Nebula"
+      ],
+      "messier": 1,
+      "type": "SNR",
+      "constellation": "Tau",
+      "raDeg": 83.633208,
+      "decDeg": 22.014472,
+      "vmag": 8.4,
+      "bmag": null,
+      "majAxArcmin": 8,
+      "minAxArcmin": 4,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "IRAS 05315+2158",
+        "LBN 833"
+      ]
+    },
+    {
+      "i": 7650,
+      "designation": "NGC1960",
+      "names": [],
+      "messier": 36,
+      "type": "OCl",
+      "constellation": "Aur",
+      "raDeg": 84.073917,
+      "decDeg": 34.14075,
+      "vmag": 6,
+      "bmag": 6.09,
+      "majAxArcmin": 7.2,
+      "minAxArcmin": null,
+      "distancePc": 1198,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 0594"
+      ]
+    },
+    {
+      "i": 7666,
+      "designation": "NGC1976",
+      "names": [
+        "Great Orion Nebula",
+        "Orion Nebula"
+      ],
+      "messier": 42,
+      "type": "Cl+N",
+      "constellation": "Ori",
+      "raDeg": 83.818667,
+      "decDeg": -5.389667,
+      "vmag": 4,
+      "bmag": 4,
+      "majAxArcmin": 90,
+      "minAxArcmin": 60,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "LBN 974",
+        "MWSC 0582"
+      ]
+    },
+    {
+      "i": 7667,
+      "designation": "NGC1977",
+      "names": [
+        "the Running Man Nebula"
+      ],
+      "messier": null,
+      "type": "Cl+N",
+      "constellation": "Ori",
+      "raDeg": 83.815833,
+      "decDeg": -4.844333,
+      "vmag": null,
+      "bmag": null,
+      "majAxArcmin": 10.2,
+      "minAxArcmin": null,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "MWSC 0587"
+      ]
+    },
+    {
+      "i": 7670,
+      "designation": "NGC1980",
+      "names": [
+        "Lower Sword"
+      ],
+      "messier": null,
+      "type": "Cl+N",
+      "constellation": "Ori",
+      "raDeg": 83.858292,
+      "decDeg": -5.909889,
+      "vmag": 2.5,
+      "bmag": null,
+      "majAxArcmin": 9.3,
+      "minAxArcmin": null,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "LBN 977",
+        "MWSC 0586"
+      ]
+    },
+    {
+      "i": 7671,
+      "designation": "NGC1981",
+      "names": [
+        "Upper Sword"
+      ],
+      "messier": null,
+      "type": "Cl+N",
+      "constellation": "Ori",
+      "raDeg": 83.789958,
+      "decDeg": -4.425056,
+      "vmag": 4.2,
+      "bmag": null,
+      "majAxArcmin": 9,
+      "minAxArcmin": null,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "MWSC 0579"
+      ]
+    },
+    {
+      "i": 7672,
+      "designation": "NGC1982",
+      "names": [
+        "Mairan's Nebula"
+      ],
+      "messier": 43,
+      "type": "HII",
+      "constellation": "Ori",
+      "raDeg": 83.88075,
+      "decDeg": -5.267472,
+      "vmag": 9,
+      "bmag": 9,
+      "majAxArcmin": 20,
+      "minAxArcmin": 15,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "2MASS J05353135-0516026"
+      ]
+    },
+    {
+      "i": 7680,
+      "designation": "NGC1990",
+      "names": [
+        "Alnilam"
+      ],
+      "messier": null,
+      "type": "*",
+      "constellation": "Ori",
+      "raDeg": 84.053417,
+      "decDeg": -1.201917,
+      "vmag": 1.69,
+      "bmag": 1.51,
+      "majAxArcmin": null,
+      "minAxArcmin": null,
+      "distancePc": 606,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "BD -01 0969",
+        "HD 037128",
+        "HIP 026311",
+        "IDS 05311-0116 A",
+        "TYC 4766-2450-1",
+        "WDS J05362-0112A",
+        "Eps Ori",
+        "46 Ori"
+      ]
+    },
+    {
+      "i": 7758,
+      "designation": "NGC2068",
+      "names": [],
+      "messier": 78,
+      "type": "RfN",
+      "constellation": "Ori",
+      "raDeg": 86.690917,
+      "decDeg": 0.079306,
+      "vmag": 8,
+      "bmag": 8,
+      "majAxArcmin": 4.5,
+      "minAxArcmin": null,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "MWSC 0664"
+      ]
+    },
+    {
+      "i": 7760,
+      "designation": "NGC2070",
+      "names": [
+        "30 Dor Cluster",
+        "Tarantula Nebula"
+      ],
+      "messier": null,
+      "type": "HII",
+      "constellation": "Dor",
+      "raDeg": 84.6765,
+      "decDeg": -69.100889,
+      "vmag": 7.25,
+      "bmag": 5,
+      "majAxArcmin": 16,
+      "minAxArcmin": 16,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "C 103"
+      ]
+    },
+    {
+      "i": 7789,
+      "designation": "NGC2099",
+      "names": [],
+      "messier": 37,
+      "type": "OCl",
+      "constellation": "Aur",
+      "raDeg": 88.076458,
+      "decDeg": 32.553,
+      "vmag": 5.6,
+      "bmag": 6.19,
+      "majAxArcmin": 11.4,
+      "minAxArcmin": null,
+      "distancePc": 1502,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 0689"
+      ]
+    },
+    {
+      "i": 7861,
+      "designation": "NGC2168",
+      "names": [],
+      "messier": 35,
+      "type": "OCl",
+      "constellation": "Gem",
+      "raDeg": 92.271083,
+      "decDeg": 24.338639,
+      "vmag": 5.1,
+      "bmag": 5.31,
+      "majAxArcmin": 24,
+      "minAxArcmin": null,
+      "distancePc": 885,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 0754"
+      ]
+    },
+    {
+      "i": 7867,
+      "designation": "NGC2174",
+      "names": [
+        "Monkey Head Nebula"
+      ],
+      "messier": null,
+      "type": "Neb",
+      "constellation": "Ori",
+      "raDeg": 92.348417,
+      "decDeg": 20.659583,
+      "vmag": null,
+      "bmag": null,
+      "majAxArcmin": 40,
+      "minAxArcmin": 30,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": []
+    },
+    {
+      "i": 7932,
+      "designation": "NGC2237",
+      "names": [
+        "Rosette A"
+      ],
+      "messier": null,
+      "type": "Neb",
+      "constellation": "Mon",
+      "raDeg": 97.727542,
+      "decDeg": 5.049167,
+      "vmag": null,
+      "bmag": null,
+      "majAxArcmin": 80,
+      "minAxArcmin": 50,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": []
+    },
+    {
+      "i": 7933,
+      "designation": "NGC2238",
+      "names": [
+        "Rosette Nebula"
+      ],
+      "messier": null,
+      "type": "HII",
+      "constellation": "Mon",
+      "raDeg": 97.668208,
+      "decDeg": 5.013056,
+      "vmag": null,
+      "bmag": 6,
+      "majAxArcmin": 80,
+      "minAxArcmin": 60,
+      "distancePc": 1563,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "C 049",
+        "LBN 948"
+      ]
+    },
+    {
+      "i": 7941,
+      "designation": "NGC2246",
+      "names": [
+        "Rosette B"
+      ],
+      "messier": null,
+      "type": "Neb",
+      "constellation": "Mon",
+      "raDeg": 98.140833,
+      "decDeg": 5.128278,
+      "vmag": null,
+      "bmag": null,
+      "majAxArcmin": 10,
+      "minAxArcmin": 10,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": []
+    },
+    {
+      "i": 7956,
+      "designation": "NGC2261",
+      "names": [
+        "Hubble's Nebula"
+      ],
+      "messier": null,
+      "type": "RfN",
+      "constellation": "Mon",
+      "raDeg": 99.789625,
+      "decDeg": 8.744333,
+      "vmag": 11.85,
+      "bmag": 12.46,
+      "majAxArcmin": 2,
+      "minAxArcmin": 1,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "C 046",
+        "LBN 920"
+      ]
+    },
+    {
+      "i": 7959,
+      "designation": "NGC2264",
+      "names": [
+        "Christmas Tree Cluster"
+      ],
+      "messier": null,
+      "type": "Cl+N",
+      "constellation": "Mon",
+      "raDeg": 100.242708,
+      "decDeg": 9.895472,
+      "vmag": 3.9,
+      "bmag": null,
+      "majAxArcmin": 11.4,
+      "minAxArcmin": null,
+      "distancePc": 739,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "LBN 911",
+        "MWSC 0954"
+      ]
+    },
+    {
+      "i": 7984,
+      "designation": "NGC2287",
+      "names": [],
+      "messier": 41,
+      "type": "OCl",
+      "constellation": "CMa",
+      "raDeg": 101.49975,
+      "decDeg": -20.754222,
+      "vmag": 4.5,
+      "bmag": 4.89,
+      "majAxArcmin": 12,
+      "minAxArcmin": null,
+      "distancePc": 735,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 0978"
+      ]
+    },
+    {
+      "i": 7998,
+      "designation": "NGC2301",
+      "names": [
+        "Great Bird Cluster"
+      ],
+      "messier": null,
+      "type": "OCl",
+      "constellation": "Mon",
+      "raDeg": 102.93875,
+      "decDeg": 0.459194,
+      "vmag": 6,
+      "bmag": 6.3,
+      "majAxArcmin": 10.2,
+      "minAxArcmin": null,
+      "distancePc": 881,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 1000"
+      ]
+    },
+    {
+      "i": 8020,
+      "designation": "NGC2323",
+      "names": [],
+      "messier": 50,
+      "type": "OCl",
+      "constellation": "Mon",
+      "raDeg": 105.668625,
+      "decDeg": -8.364028,
+      "vmag": 5.9,
+      "bmag": 6.27,
+      "majAxArcmin": 14.1,
+      "minAxArcmin": null,
+      "distancePc": 999,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 1072"
+      ]
+    },
+    {
+      "i": 8058,
+      "designation": "NGC2360",
+      "names": [
+        "Caroline's Cluster"
+      ],
+      "messier": null,
+      "type": "OCl",
+      "constellation": "CMa",
+      "raDeg": 109.429667,
+      "decDeg": -15.641306,
+      "vmag": 7.2,
+      "bmag": 7.62,
+      "majAxArcmin": 9,
+      "minAxArcmin": null,
+      "distancePc": 1109,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "C 058",
+        "MWSC 1165"
+      ]
+    },
+    {
+      "i": 8092,
+      "designation": "NGC2392",
+      "names": [
+        "Eskimo Nebula"
+      ],
+      "messier": null,
+      "type": "PN",
+      "constellation": "Gem",
+      "raDeg": 112.294833,
+      "decDeg": 20.911833,
+      "vmag": 9.61,
+      "bmag": 10.12,
+      "majAxArcmin": 0.86,
+      "minAxArcmin": null,
+      "distancePc": 1998,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "C 039",
+        "IRAS 07262+2100",
+        "PN G197.8+17.3"
+      ]
+    },
+    {
+      "i": 8126,
+      "designation": "NGC2422",
+      "names": [],
+      "messier": 47,
+      "type": "OCl",
+      "constellation": "Pup",
+      "raDeg": 114.145917,
+      "decDeg": -14.482611,
+      "vmag": 4.4,
+      "bmag": 4.42,
+      "majAxArcmin": 19.8,
+      "minAxArcmin": null,
+      "distancePc": 483,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 1278"
+      ]
+    },
+    {
+      "i": 8143,
+      "designation": "NGC2437",
+      "names": [],
+      "messier": 46,
+      "type": "OCl",
+      "constellation": "Pup",
+      "raDeg": 115.445083,
+      "decDeg": -14.81,
+      "vmag": 6.1,
+      "bmag": 6.33,
+      "majAxArcmin": 21,
+      "minAxArcmin": null,
+      "distancePc": 1665,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 1313"
+      ]
+    },
+    {
+      "i": 8153,
+      "designation": "NGC2447",
+      "names": [],
+      "messier": 93,
+      "type": "OCl",
+      "constellation": "Pup",
+      "raDeg": 116.121792,
+      "decDeg": -23.853083,
+      "vmag": 6.2,
+      "bmag": 6.57,
+      "majAxArcmin": 15,
+      "minAxArcmin": null,
+      "distancePc": 1041,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 1324"
+      ]
+    },
+    {
+      "i": 8246,
+      "designation": "NGC2537",
+      "names": [
+        "Bear Claw Nebula",
+        "Bear-Paw Galaxy"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Lyn",
+      "raDeg": 123.311,
+      "decDeg": 45.989806,
+      "vmag": 11.71,
+      "bmag": 12.27,
+      "majAxArcmin": 2.07,
+      "minAxArcmin": 1.96,
+      "distancePc": 6606423,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J08131464+4559232",
+        "IRAS 08096+4608",
+        "MCG +08-15-050",
+        "PGC 023040",
+        "SDSS J081314.72+455921.9",
+        "UGC 04274"
+      ]
+    },
+    {
+      "i": 8258,
+      "designation": "NGC2548",
+      "names": [],
+      "messier": 48,
+      "type": "OCl",
+      "constellation": "Hya",
+      "raDeg": 123.429917,
+      "decDeg": -5.750444,
+      "vmag": 5.8,
+      "bmag": 6.11,
+      "majAxArcmin": 28.2,
+      "minAxArcmin": null,
+      "distancePc": 775,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 1454"
+      ]
+    },
+    {
+      "i": 8284,
+      "designation": "NGC2573",
+      "names": [
+        "Polarissima Australis"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Oct",
+      "raDeg": 25.405542,
+      "decDeg": -89.334528,
+      "vmag": 13.53,
+      "bmag": 14.12,
+      "majAxArcmin": 1.92,
+      "minAxArcmin": 0.74,
+      "distancePc": 36399572,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J01413509-8920041",
+        "ESO 001-001",
+        "ESO-LV 1-0010",
+        "IRAS 02425-8934",
+        "PGC 006249"
+      ]
+    },
+    {
+      "i": 8345,
+      "designation": "NGC2632",
+      "names": [
+        "Beehive",
+        "Praesepe Cluster"
+      ],
+      "messier": 44,
+      "type": "OCl",
+      "constellation": "Cnc",
+      "raDeg": 130.0925,
+      "decDeg": 19.672056,
+      "vmag": 3.1,
+      "bmag": 3.46,
+      "majAxArcmin": 108.6,
+      "minAxArcmin": null,
+      "distancePc": 186,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 1527"
+      ]
+    },
+    {
+      "i": 8397,
+      "designation": "NGC2682",
+      "names": [],
+      "messier": 67,
+      "type": "OCl",
+      "constellation": "Cnc",
+      "raDeg": 132.833875,
+      "decDeg": 11.811944,
+      "vmag": 6.9,
+      "bmag": 7.6,
+      "majAxArcmin": 33,
+      "minAxArcmin": null,
+      "distancePc": 883,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 1585"
+      ]
+    },
+    {
+      "i": 8400,
+      "designation": "NGC2685",
+      "names": [
+        "Helix Galaxy"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "UMa",
+      "raDeg": 133.894625,
+      "decDeg": 58.734389,
+      "vmag": 11.35,
+      "bmag": 12.16,
+      "majAxArcmin": 4.33,
+      "minAxArcmin": 2.31,
+      "distancePc": 12915977,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J08553474+5844038",
+        "MCG +10-13-039",
+        "PGC 025065",
+        "SDSS J085534.71+584403.8",
+        "UGC 04666"
+      ]
+    },
+    {
+      "i": 8457,
+      "designation": "NGC2736",
+      "names": [
+        "Pencil Nebula"
+      ],
+      "messier": null,
+      "type": "HII",
+      "constellation": "Vel",
+      "raDeg": 135.070583,
+      "decDeg": -45.948056,
+      "vmag": null,
+      "bmag": null,
+      "majAxArcmin": 30,
+      "minAxArcmin": 7,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": []
+    },
+    {
+      "i": 8772,
+      "designation": "NGC3031",
+      "names": [
+        "Bode's Galaxy"
+      ],
+      "messier": 81,
+      "type": "G",
+      "constellation": "UMa",
+      "raDeg": 148.888208,
+      "decDeg": 69.065306,
+      "vmag": 6.92,
+      "bmag": 7.79,
+      "majAxArcmin": 21.63,
+      "minAxArcmin": 11.25,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "2MASX J09553318+6903549",
+        "IRAS 09514+6918",
+        "MCG +12-10-010",
+        "PGC 028630",
+        "SDSS J095533.16+690355.1",
+        "UGC 05318"
+      ]
+    },
+    {
+      "i": 8775,
+      "designation": "NGC3034",
+      "names": [
+        "Cigar Galaxy"
+      ],
+      "messier": 82,
+      "type": "G",
+      "constellation": "UMa",
+      "raDeg": 148.969708,
+      "decDeg": 69.679389,
+      "vmag": 8.3,
+      "bmag": 8.94,
+      "majAxArcmin": 10.99,
+      "minAxArcmin": 5.11,
+      "distancePc": 3234533,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J09555243+6940469",
+        "IRAS 09517+6954",
+        "MCG +12-10-011",
+        "PGC 028655",
+        "SDSS J095551.73+694048.6",
+        "UGC 05322"
+      ]
+    },
+    {
+      "i": 8866,
+      "designation": "NGC3115",
+      "names": [
+        "Spindle Galaxy"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Sex",
+      "raDeg": 151.30825,
+      "decDeg": -7.718583,
+      "vmag": 9.09,
+      "bmag": 10.08,
+      "majAxArcmin": 7.1,
+      "minAxArcmin": 3.01,
+      "distancePc": 9845386,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J10051397-0743068",
+        "C 053",
+        "MCG -01-26-018",
+        "PGC 029265",
+        "UGCA 199"
+      ]
+    },
+    {
+      "i": 8883,
+      "designation": "NGC3132",
+      "names": [
+        "Eight-Burst Nebula"
+      ],
+      "messier": null,
+      "type": "PN",
+      "constellation": "Vel",
+      "raDeg": 151.757208,
+      "decDeg": -40.436583,
+      "vmag": 9.2,
+      "bmag": 8.2,
+      "majAxArcmin": 0.5,
+      "minAxArcmin": null,
+      "distancePc": 865,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "C 074",
+        "ESO 316-027",
+        "IRAS 10049-4011",
+        "PN G272.1+12.3"
+      ]
+    },
+    {
+      "i": 8925,
+      "designation": "NGC3172",
+      "names": [
+        "Polarissima Borealis"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "UMi",
+      "raDeg": 176.808333,
+      "decDeg": 89.093056,
+      "vmag": null,
+      "bmag": 15,
+      "majAxArcmin": 1.14,
+      "minAxArcmin": 1,
+      "distancePc": 90079525,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J11471192+8905357",
+        "MCG +15-01-011",
+        "PGC 036847"
+      ]
+    },
+    {
+      "i": 8996,
+      "designation": "NGC3242",
+      "names": [
+        "Jupiter's Ghost Nebula"
+      ],
+      "messier": null,
+      "type": "PN",
+      "constellation": "Hya",
+      "raDeg": 156.192,
+      "decDeg": -18.642222,
+      "vmag": 7.7,
+      "bmag": 8.6,
+      "majAxArcmin": 0.42,
+      "minAxArcmin": null,
+      "distancePc": 1466,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "C 059",
+        "ESO 568-005",
+        "IRAS 10223-1823",
+        "PN G261.0+32.0"
+      ]
+    },
+    {
+      "i": 9137,
+      "designation": "NGC3351",
+      "names": [],
+      "messier": 95,
+      "type": "G",
+      "constellation": "Leo",
+      "raDeg": 160.990417,
+      "decDeg": 11.703806,
+      "vmag": 9.77,
+      "bmag": 10.58,
+      "majAxArcmin": 7.23,
+      "minAxArcmin": 4.45,
+      "distancePc": 11343019,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J10435773+1142129",
+        "IRAS 10413+1158",
+        "MCG +02-28-001",
+        "PGC 032007",
+        "SDSS J104357.69+114213.6",
+        "SDSS J104357.70+114213.7",
+        "UGC 05850"
+      ]
+    },
+    {
+      "i": 9154,
+      "designation": "NGC3368",
+      "names": [],
+      "messier": 96,
+      "type": "G",
+      "constellation": "Leo",
+      "raDeg": 161.690583,
+      "decDeg": 11.819944,
+      "vmag": 9.21,
+      "bmag": 10.08,
+      "majAxArcmin": 8.26,
+      "minAxArcmin": 5.51,
+      "distancePc": 13345771,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J10464574+1149117",
+        "IRAS 10441+1205",
+        "MCG +02-28-006",
+        "PGC 032192",
+        "SDSS J104645.67+114911.8",
+        "UGC 05882"
+      ]
+    },
+    {
+      "i": 9158,
+      "designation": "NGC3372",
+      "names": [
+        "Carina Nebula",
+        "eta Car Nebula"
+      ],
+      "messier": null,
+      "type": "HII",
+      "constellation": "Car",
+      "raDeg": 161.285542,
+      "decDeg": -59.866694,
+      "vmag": null,
+      "bmag": 3,
+      "majAxArcmin": 120,
+      "minAxArcmin": 120,
+      "distancePc": 2632,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "C 092"
+      ]
+    },
+    {
+      "i": 9166,
+      "designation": "NGC3379",
+      "names": [],
+      "messier": 105,
+      "type": "G",
+      "constellation": "Leo",
+      "raDeg": 161.956625,
+      "decDeg": 12.581611,
+      "vmag": 9.27,
+      "bmag": 10.23,
+      "majAxArcmin": 4.89,
+      "minAxArcmin": 4.25,
+      "distancePc": 12946993,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J10474959+1234538",
+        "MCG +02-28-011",
+        "PGC 032256",
+        "UGC 05902"
+      ]
+    },
+    {
+      "i": 9328,
+      "designation": "NGC3532",
+      "names": [
+        "Wishing Well Cluster"
+      ],
+      "messier": null,
+      "type": "OCl",
+      "constellation": "Car",
+      "raDeg": 166.44925,
+      "decDeg": -58.7705,
+      "vmag": 3,
+      "bmag": 3.28,
+      "majAxArcmin": 12,
+      "minAxArcmin": null,
+      "distancePc": 484,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "C 091",
+        "MWSC 1890"
+      ]
+    },
+    {
+      "i": 9359,
+      "designation": "NGC3556",
+      "names": [],
+      "messier": 108,
+      "type": "G",
+      "constellation": "UMa",
+      "raDeg": 167.879042,
+      "decDeg": 55.674111,
+      "vmag": 10.05,
+      "bmag": 10.7,
+      "majAxArcmin": 3.98,
+      "minAxArcmin": 1.66,
+      "distancePc": 10315058,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J11113096+5540268",
+        "IRAS 11085+5556",
+        "MCG +09-18-098",
+        "PGC 034030",
+        "SDSS J111131.06+554027.4",
+        "UGC 06225"
+      ]
+    },
+    {
+      "i": 9365,
+      "designation": "NGC3561",
+      "names": [
+        "the Guitar"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "UMa",
+      "raDeg": 167.805,
+      "decDeg": 28.696472,
+      "vmag": 14.7,
+      "bmag": 14.46,
+      "majAxArcmin": 1.71,
+      "minAxArcmin": 1.71,
+      "distancePc": 127387425,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J11111316+2841473",
+        "IRAS 11085+2859",
+        "MCG +05-27-010",
+        "PGC 033991",
+        "SDSS J111113.18+284147.0",
+        "SDSS J111113.19+284147.0",
+        "SDSS J111113.19+284147.1",
+        "UGC 06224 NED02"
+      ]
+    },
+    {
+      "i": 9393,
+      "designation": "NGC3587",
+      "names": [
+        "Owl Nebula"
+      ],
+      "messier": 97,
+      "type": "PN",
+      "constellation": "UMa",
+      "raDeg": 168.698792,
+      "decDeg": 55.019028,
+      "vmag": 9.9,
+      "bmag": 11.6,
+      "majAxArcmin": 3.58,
+      "minAxArcmin": null,
+      "distancePc": 879,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "IRAS 11119+5517",
+        "PN G148.4+57.0",
+        "SDSS J111447.71+550108.5"
+      ]
+    },
+    {
+      "i": 9430,
+      "designation": "NGC3623",
+      "names": [],
+      "messier": 65,
+      "type": "G",
+      "constellation": "Leo",
+      "raDeg": 169.733,
+      "decDeg": 13.092361,
+      "vmag": 9.32,
+      "bmag": 10.14,
+      "majAxArcmin": 7.64,
+      "minAxArcmin": 1.97,
+      "distancePc": 11254402,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J11185595+1305319",
+        "IRAS 11163+1322",
+        "MCG +02-29-018",
+        "PGC 034612",
+        "UGC 06328"
+      ]
+    },
+    {
+      "i": 9434,
+      "designation": "NGC3627",
+      "names": [],
+      "messier": 66,
+      "type": "G",
+      "constellation": "Leo",
+      "raDeg": 170.062333,
+      "decDeg": 12.991528,
+      "vmag": 8.92,
+      "bmag": 9.73,
+      "majAxArcmin": 10.28,
+      "minAxArcmin": 4.61,
+      "distancePc": 10368229,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J11201502+1259286",
+        "IRAS 11176+1315",
+        "MCG +02-29-019",
+        "PGC 034695",
+        "SDSS J112014.98+125929.4",
+        "UGC 06346"
+      ]
+    },
+    {
+      "i": 9585,
+      "designation": "NGC3766",
+      "names": [
+        "Pearl Cluster"
+      ],
+      "messier": null,
+      "type": "OCl",
+      "constellation": "Cen",
+      "raDeg": 174.059958,
+      "decDeg": -61.605167,
+      "vmag": 5.3,
+      "bmag": 5.66,
+      "majAxArcmin": 6.9,
+      "minAxArcmin": null,
+      "distancePc": 2179,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "C 097",
+        "MWSC 1958"
+      ]
+    },
+    {
+      "i": 9746,
+      "designation": "NGC3918",
+      "names": [
+        "Blue Planetary"
+      ],
+      "messier": null,
+      "type": "PN",
+      "constellation": "Cen",
+      "raDeg": 177.574792,
+      "decDeg": -57.182333,
+      "vmag": 8.1,
+      "bmag": 8.4,
+      "majAxArcmin": 0.32,
+      "minAxArcmin": null,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "ESO 170-013",
+        "IRAS 11478-5654"
+      ]
+    },
+    {
+      "i": 9758,
+      "designation": "NGC3928",
+      "names": [
+        "Miniature Spiral"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "UMa",
+      "raDeg": 177.948417,
+      "decDeg": 48.683139,
+      "vmag": 12.48,
+      "bmag": 13.15,
+      "majAxArcmin": 1.36,
+      "minAxArcmin": 1.25,
+      "distancePc": 14568691,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J11514768+4840593",
+        "IRAS 11491+4857",
+        "MCG +08-22-019",
+        "PGC 037136",
+        "SDSS J115147.62+484059.2",
+        "SDSS J115147.62+484059.3",
+        "UGC 06834"
+      ]
+    },
+    {
+      "i": 9824,
+      "designation": "NGC3992",
+      "names": [],
+      "messier": 109,
+      "type": "G",
+      "constellation": "UMa",
+      "raDeg": 179.399917,
+      "decDeg": 53.374528,
+      "vmag": 9.88,
+      "bmag": 10.48,
+      "majAxArcmin": 8.07,
+      "minAxArcmin": 5.64,
+      "distancePc": 15490311,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J11573598+5322282",
+        "IRAS 11549+5339",
+        "MCG +09-20-044",
+        "PGC 037617",
+        "SDSS J115735.96+532228.9",
+        "UGC 06937"
+      ]
+    },
+    {
+      "i": 9874,
+      "designation": "NGC4038",
+      "names": [
+        "Antennae Galaxies"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Crv",
+      "raDeg": 180.470875,
+      "decDeg": -18.867611,
+      "vmag": 10.2,
+      "bmag": 10.85,
+      "majAxArcmin": 5.42,
+      "minAxArcmin": 3.78,
+      "distancePc": 24781839,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASS J12015301-1852034",
+        "C 060",
+        "ESO 572-047",
+        "ESO-LV 572-0470",
+        "ESO-LV 572-0481",
+        "MCG -03-31-014",
+        "PGC 037967",
+        "UGCA 264"
+      ]
+    },
+    {
+      "i": 9875,
+      "designation": "NGC4039",
+      "names": [
+        "Antennae Galaxies"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Crv",
+      "raDeg": 180.472958,
+      "decDeg": -18.886194,
+      "vmag": null,
+      "bmag": 11.04,
+      "majAxArcmin": 5.36,
+      "minAxArcmin": 2.73,
+      "distancePc": 24254566,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASS J12015350-1853103",
+        "C 061",
+        "ESO 572-048",
+        "ESO-LV 572-0471",
+        "ESO-LV 572-0480",
+        "MCG -03-31-015",
+        "PGC 037969",
+        "UGCA 265"
+      ]
+    },
+    {
+      "i": 10036,
+      "designation": "NGC4192",
+      "names": [],
+      "messier": 98,
+      "type": "G",
+      "constellation": "Com",
+      "raDeg": 183.451208,
+      "decDeg": 14.900333,
+      "vmag": 10.84,
+      "bmag": 10.82,
+      "majAxArcmin": 11.04,
+      "minAxArcmin": 2.66,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "2MASX J12134829+1454016",
+        "IRAS 12112+1510",
+        "MCG +03-31-079",
+        "PGC 039028",
+        "SDSS J121348.28+145401.6",
+        "UGC 07231"
+      ]
+    },
+    {
+      "i": 10038,
+      "designation": "NGC4194",
+      "names": [
+        "Medusa Galaxy Merger"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "UMa",
+      "raDeg": 183.539458,
+      "decDeg": 54.526833,
+      "vmag": 12.77,
+      "bmag": 12.95,
+      "majAxArcmin": 1.64,
+      "minAxArcmin": 1.14,
+      "distancePc": 36244492,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J12140957+5431360",
+        "IRAS 12116+5448",
+        "MCG +09-20-119",
+        "PGC 039068",
+        "SDSS J121409.45+543136.5",
+        "SDSS J121409.46+543136.6",
+        "SDSS J121409.47+543136.6",
+        "SDSS J121409.63+543135.8",
+        "UGC 07241"
+      ]
+    },
+    {
+      "i": 10102,
+      "designation": "NGC4254",
+      "names": [
+        "Coma Pinwheel",
+        "Virgo Cluster Pinwheel"
+      ],
+      "messier": 99,
+      "type": "G",
+      "constellation": "Com",
+      "raDeg": 184.706667,
+      "decDeg": 14.4165,
+      "vmag": 9.84,
+      "bmag": 10.4,
+      "majAxArcmin": 5.04,
+      "minAxArcmin": 4.74,
+      "distancePc": 35606447,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J12184962+1424593",
+        "IRAS 12162+1441",
+        "MCG +03-31-099",
+        "PGC 039578",
+        "SDSS J121849.60+142459.4",
+        "UGC 07345"
+      ]
+    },
+    {
+      "i": 10106,
+      "designation": "NGC4258",
+      "names": [],
+      "messier": 106,
+      "type": "G",
+      "constellation": "CVn",
+      "raDeg": 184.739583,
+      "decDeg": 47.303972,
+      "vmag": 9.29,
+      "bmag": 9.12,
+      "majAxArcmin": 16.98,
+      "minAxArcmin": 7.24,
+      "distancePc": 6827966,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J12185761+4718133",
+        "MCG +08-22-104",
+        "PGC 039600",
+        "SDSS J121857.50+471814.2",
+        "UGC 07353"
+      ]
+    },
+    {
+      "i": 10152,
+      "designation": "NGC4303",
+      "names": [],
+      "messier": 61,
+      "type": "G",
+      "constellation": "Vir",
+      "raDeg": 185.47875,
+      "decDeg": 4.473639,
+      "vmag": 10.25,
+      "bmag": 10.16,
+      "majAxArcmin": 6.89,
+      "minAxArcmin": 6.56,
+      "distancePc": 23173434,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J12215494+0428249",
+        "IRAS 12194+0444",
+        "MCG +01-32-022",
+        "PGC 040001",
+        "SDSS J122154.92+042825.6",
+        "UGC 07420"
+      ]
+    },
+    {
+      "i": 10172,
+      "designation": "NGC4321",
+      "names": [],
+      "messier": 100,
+      "type": "G",
+      "constellation": "Com",
+      "raDeg": 185.728458,
+      "decDeg": 15.821806,
+      "vmag": 9.47,
+      "bmag": 10.01,
+      "majAxArcmin": 6.1,
+      "minAxArcmin": 5.62,
+      "distancePc": 23266482,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J12225489+1549205",
+        "IRAS 12204+1605",
+        "MCG +03-32-015",
+        "PGC 040153",
+        "SDSS J122254.91+154920.2",
+        "UGC 07450"
+      ]
+    },
+    {
+      "i": 10228,
+      "designation": "NGC4374",
+      "names": [],
+      "messier": 84,
+      "type": "G",
+      "constellation": "Vir",
+      "raDeg": 186.265583,
+      "decDeg": 12.886972,
+      "vmag": 9.79,
+      "bmag": 10.01,
+      "majAxArcmin": 7.41,
+      "minAxArcmin": 6.44,
+      "distancePc": 14488935,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J12250377+1253130",
+        "IRAS 12224+1309",
+        "MCG +02-32-034",
+        "PGC 040455",
+        "SDSS J122503.74+125312.8",
+        "UGC 07494"
+      ]
+    },
+    {
+      "i": 10236,
+      "designation": "NGC4382",
+      "names": [],
+      "messier": 85,
+      "type": "G",
+      "constellation": "Com",
+      "raDeg": 186.350458,
+      "decDeg": 18.1915,
+      "vmag": 9.05,
+      "bmag": 9.94,
+      "majAxArcmin": 6.95,
+      "minAxArcmin": 5.35,
+      "distancePc": 11387328,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J12252405+1811278",
+        "MCG +03-32-029",
+        "PGC 040515",
+        "SDSS J122524.06+181127.7",
+        "UGC 07508"
+      ]
+    },
+    {
+      "i": 10260,
+      "designation": "NGC4406",
+      "names": [],
+      "messier": 86,
+      "type": "G",
+      "constellation": "Vir",
+      "raDeg": 186.548917,
+      "decDeg": 12.946222,
+      "vmag": 8.86,
+      "bmag": 9.74,
+      "majAxArcmin": 11.53,
+      "minAxArcmin": 8.43,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "2MASX J12261181+1256454",
+        "MCG +02-32-046",
+        "PGC 040653",
+        "SDSS J122611.75+125646.3",
+        "UGC 07532"
+      ]
+    },
+    {
+      "i": 10293,
+      "designation": "NGC4435",
+      "names": [
+        "Eyes"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Vir",
+      "raDeg": 186.918708,
+      "decDeg": 13.078944,
+      "vmag": 10.96,
+      "bmag": 11.53,
+      "majAxArcmin": 3.03,
+      "minAxArcmin": 2.14,
+      "distancePc": 12406427,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J12274050+1304444",
+        "IRAS 12251+1321",
+        "MCG +02-32-064",
+        "PGC 040898",
+        "SDSS J122740.46+130444.4",
+        "UGC 07575"
+      ]
+    },
+    {
+      "i": 10296,
+      "designation": "NGC4438",
+      "names": [
+        "Eyes"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Vir",
+      "raDeg": 186.939958,
+      "decDeg": 13.008833,
+      "vmag": 10.92,
+      "bmag": 10.97,
+      "majAxArcmin": 9.16,
+      "minAxArcmin": 4.02,
+      "distancePc": 1462186,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J12274565+1300309",
+        "IRAS 12252+1317",
+        "MCG +02-32-065",
+        "PGC 040914",
+        "SDSS J122745.63+130031.7",
+        "UGC 07574"
+      ]
+    },
+    {
+      "i": 10332,
+      "designation": "NGC4472",
+      "names": [],
+      "messier": 49,
+      "type": "G",
+      "constellation": "Vir",
+      "raDeg": 187.444833,
+      "decDeg": 8.000472,
+      "vmag": 8.28,
+      "bmag": 9.35,
+      "majAxArcmin": 10.21,
+      "minAxArcmin": 8.38,
+      "distancePc": 14045848,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J12294679+0800014",
+        "MCG +01-32-083",
+        "PGC 041220",
+        "SDSS J122946.76+080001.7",
+        "UGC 07629"
+      ]
+    },
+    {
+      "i": 10346,
+      "designation": "NGC4486",
+      "names": [
+        "Virgo Galaxy"
+      ],
+      "messier": 87,
+      "type": "G",
+      "constellation": "Vir",
+      "raDeg": 187.705917,
+      "decDeg": 12.391111,
+      "vmag": 9,
+      "bmag": 9.65,
+      "majAxArcmin": 7.11,
+      "minAxArcmin": 6.67,
+      "distancePc": 18609641,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J12304942+1223279",
+        "IRAS 12282+1240",
+        "MCG +02-32-105",
+        "PGC 041361",
+        "SDSS J123049.41+122328.1",
+        "UGC 07654"
+      ]
+    },
+    {
+      "i": 10365,
+      "designation": "NGC4501",
+      "names": [],
+      "messier": 88,
+      "type": "G",
+      "constellation": "Com",
+      "raDeg": 187.9965,
+      "decDeg": 14.420389,
+      "vmag": 10.33,
+      "bmag": 10.24,
+      "majAxArcmin": 8.65,
+      "minAxArcmin": 4.38,
+      "distancePc": 33683451,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J12315921+1425134",
+        "IRAS 12294+1441",
+        "MCG +03-32-059",
+        "PGC 041517",
+        "UGC 07675"
+      ]
+    },
+    {
+      "i": 10414,
+      "designation": "NGC4548",
+      "names": [],
+      "messier": 91,
+      "type": "G",
+      "constellation": "Com",
+      "raDeg": 188.860208,
+      "decDeg": 14.496333,
+      "vmag": 10.96,
+      "bmag": 10.94,
+      "majAxArcmin": 5.55,
+      "minAxArcmin": 4.52,
+      "distancePc": 7284345,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J12352642+1429467",
+        "IRAS 12328+1446",
+        "MCG +03-32-075",
+        "PGC 041934",
+        "SDSS J123526.45+142946.8",
+        "UGC 07753"
+      ]
+    },
+    {
+      "i": 10418,
+      "designation": "NGC4552",
+      "names": [],
+      "messier": 89,
+      "type": "G",
+      "constellation": "Vir",
+      "raDeg": 188.915875,
+      "decDeg": 12.556333,
+      "vmag": 10.08,
+      "bmag": 10.68,
+      "majAxArcmin": 8.13,
+      "minAxArcmin": 8,
+      "distancePc": 4049812,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J12353988+1233217",
+        "MCG +02-32-149",
+        "PGC 041968",
+        "SDSS J123539.80+123322.8",
+        "UGC 07760"
+      ]
+    },
+    {
+      "i": 10434,
+      "designation": "NGC4565",
+      "names": [
+        "Needle Galaxy"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Com",
+      "raDeg": 189.086583,
+      "decDeg": 25.987667,
+      "vmag": 10.86,
+      "bmag": 10.05,
+      "majAxArcmin": 16.75,
+      "minAxArcmin": 2.89,
+      "distancePc": 18653950,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J12362080+2559146",
+        "C 038",
+        "IRAS 12338+2615",
+        "MCG +04-30-006",
+        "PGC 042038",
+        "UGC 07772"
+      ]
+    },
+    {
+      "i": 10439,
+      "designation": "NGC4567",
+      "names": [
+        "Butterfly Galaxies",
+        "Siamese Twins"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Vir",
+      "raDeg": 189.136292,
+      "decDeg": 11.258,
+      "vmag": 11.32,
+      "bmag": 11.93,
+      "majAxArcmin": 2.74,
+      "minAxArcmin": 2.15,
+      "distancePc": 33674589,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J12363270+1115283",
+        "MCG +02-32-151",
+        "PGC 042064",
+        "SDSS J123632.70+111528.7",
+        "SDSS J123632.71+111528.8",
+        "UGC 07777"
+      ]
+    },
+    {
+      "i": 10440,
+      "designation": "NGC4568",
+      "names": [
+        "Butterfly Galaxies",
+        "Siamese Twins"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Vir",
+      "raDeg": 189.14275,
+      "decDeg": 11.238889,
+      "vmag": 10.8,
+      "bmag": 11.62,
+      "majAxArcmin": 4.31,
+      "minAxArcmin": 1.87,
+      "distancePc": 32965650,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J12363429+1114190",
+        "MCG +02-32-152",
+        "PGC 042069",
+        "SDSS J123634.26+111419.9",
+        "SDSS J123634.26+111420.0",
+        "UGC 07776"
+      ]
+    },
+    {
+      "i": 10441,
+      "designation": "NGC4569",
+      "names": [],
+      "messier": 90,
+      "type": "G",
+      "constellation": "Vir",
+      "raDeg": 189.207458,
+      "decDeg": 13.162944,
+      "vmag": 9.54,
+      "bmag": 10.18,
+      "majAxArcmin": 9.12,
+      "minAxArcmin": 3.82,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "2MASX J12364981+1309463",
+        "IRAS 12343+1326",
+        "MCG +02-32-155",
+        "PGC 042089",
+        "SDSS J123649.79+130946.5",
+        "UGC 07786"
+      ]
+    },
+    {
+      "i": 10451,
+      "designation": "NGC4579",
+      "names": [],
+      "messier": 58,
+      "type": "G",
+      "constellation": "Vir",
+      "raDeg": 189.431333,
+      "decDeg": 11.818194,
+      "vmag": 10.3,
+      "bmag": 10.44,
+      "majAxArcmin": 5.01,
+      "minAxArcmin": 3.84,
+      "distancePc": 24901472,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J12374359+1149051",
+        "IRAS 12351+1205",
+        "MCG +02-32-160",
+        "PGC 042168",
+        "SDSS J123743.52+114905.4",
+        "UGC 07796"
+      ]
+    },
+    {
+      "i": 10462,
+      "designation": "NGC4590",
+      "names": [],
+      "messier": 68,
+      "type": "GCl",
+      "constellation": "Hya",
+      "raDeg": 189.866708,
+      "decDeg": -26.743028,
+      "vmag": 7.96,
+      "bmag": 10.26,
+      "majAxArcmin": 6.6,
+      "minAxArcmin": null,
+      "distancePc": 16181,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 2059"
+      ]
+    },
+    {
+      "i": 10466,
+      "designation": "NGC4594",
+      "names": [
+        "Sombrero Galaxy"
+      ],
+      "messier": 104,
+      "type": "G",
+      "constellation": "Vir",
+      "raDeg": 189.997625,
+      "decDeg": -11.623056,
+      "vmag": 8.59,
+      "bmag": 9.15,
+      "majAxArcmin": 8.45,
+      "minAxArcmin": 4.91,
+      "distancePc": 16137217,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J12395949-1137230",
+        "IRAS 12373-1120",
+        "MCG -02-32-020",
+        "PGC 042407",
+        "UGCA 293"
+      ]
+    },
+    {
+      "i": 10485,
+      "designation": "NGC4609",
+      "names": [
+        "Coalsack Cluster"
+      ],
+      "messier": null,
+      "type": "OCl",
+      "constellation": "Cru",
+      "raDeg": 190.570125,
+      "decDeg": -62.99575,
+      "vmag": 6.9,
+      "bmag": 7.32,
+      "majAxArcmin": 5.4,
+      "minAxArcmin": null,
+      "distancePc": 1515,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "C 098",
+        "MWSC 2062"
+      ]
+    },
+    {
+      "i": 10497,
+      "designation": "NGC4621",
+      "names": [],
+      "messier": 59,
+      "type": "G",
+      "constellation": "Vir",
+      "raDeg": 190.509333,
+      "decDeg": 11.647028,
+      "vmag": 9.56,
+      "bmag": 10.57,
+      "majAxArcmin": 4.55,
+      "minAxArcmin": 3.21,
+      "distancePc": 6371587,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J12420232+1138489",
+        "MCG +02-32-183",
+        "PGC 042628",
+        "SDSS J124202.25+113848.8",
+        "UGC 07858"
+      ]
+    },
+    {
+      "i": 10509,
+      "designation": "NGC4631",
+      "names": [
+        "Whale Galaxy"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "CVn",
+      "raDeg": 190.533375,
+      "decDeg": 32.5415,
+      "vmag": 9.24,
+      "bmag": 9.47,
+      "majAxArcmin": 14.45,
+      "minAxArcmin": 2.2,
+      "distancePc": 8954782,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J12420800+3232294",
+        "C 032",
+        "IRAS 12396+3249",
+        "MCG +06-28-020",
+        "PGC 042637",
+        "UGC 07865"
+      ]
+    },
+    {
+      "i": 10529,
+      "designation": "NGC4649",
+      "names": [],
+      "messier": 60,
+      "type": "G",
+      "constellation": "Vir",
+      "raDeg": 190.916583,
+      "decDeg": 11.552694,
+      "vmag": 8.79,
+      "bmag": 9.79,
+      "majAxArcmin": 6.78,
+      "minAxArcmin": 5.45,
+      "distancePc": 15020639,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASS J12434000+1133099",
+        "2MASX J12434000+1133093",
+        "MCG +02-33-002",
+        "PGC 042831",
+        "SDSS J124339.97+113309.7",
+        "UGC 07898"
+      ]
+    },
+    {
+      "i": 10532,
+      "designation": "NGC4651",
+      "names": [
+        "Umbrella Galaxy"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Com",
+      "raDeg": 190.927625,
+      "decDeg": 16.393389,
+      "vmag": 10.82,
+      "bmag": 11.37,
+      "majAxArcmin": 3.87,
+      "minAxArcmin": 2.58,
+      "distancePc": 10323920,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J12434262+1623362",
+        "IRAS 12412+1639",
+        "MCG +03-33-001",
+        "PGC 042833",
+        "SDSS J124342.64+162335.9",
+        "UGC 07901"
+      ]
+    },
+    {
+      "i": 10559,
+      "designation": "NGC4676",
+      "names": [
+        "Mice Galaxy"
+      ],
+      "messier": null,
+      "type": "GPair",
+      "constellation": "Com",
+      "raDeg": 191.544583,
+      "decDeg": 30.727222,
+      "vmag": null,
+      "bmag": null,
+      "majAxArcmin": 3,
+      "minAxArcmin": null,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "IRAS 12437+3059"
+      ]
+    },
+    {
+      "i": 10626,
+      "designation": "NGC4736",
+      "names": [],
+      "messier": 94,
+      "type": "G",
+      "constellation": "CVn",
+      "raDeg": 192.721083,
+      "decDeg": 41.120444,
+      "vmag": 8.24,
+      "bmag": 8.71,
+      "majAxArcmin": 7.74,
+      "minAxArcmin": 6.68,
+      "distancePc": 4253632,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J12505314+4107125",
+        "IRAS 12485+4123",
+        "MCG +07-26-058",
+        "PGC 043495",
+        "UGC 07996"
+      ]
+    },
+    {
+      "i": 10645,
+      "designation": "NGC4755",
+      "names": [
+        "Herschel's Jewel Box",
+        "kappa Crucis Cluster"
+      ],
+      "messier": null,
+      "type": "OCl",
+      "constellation": "Cru",
+      "raDeg": 193.4045,
+      "decDeg": -60.356306,
+      "vmag": null,
+      "bmag": null,
+      "majAxArcmin": 7.8,
+      "minAxArcmin": null,
+      "distancePc": 2165,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "C 094",
+        "MWSC 2072"
+      ]
+    },
+    {
+      "i": 10724,
+      "designation": "NGC4826",
+      "names": [
+        "Black Eye Galaxy",
+        "Evil Eye Galaxy"
+      ],
+      "messier": 64,
+      "type": "G",
+      "constellation": "Com",
+      "raDeg": 194.181833,
+      "decDeg": 21.682972,
+      "vmag": 8.52,
+      "bmag": 9.27,
+      "majAxArcmin": 10.52,
+      "minAxArcmin": 5.33,
+      "distancePc": 5941793,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J12564369+2140575",
+        "IRAS 12542+2157",
+        "MCG +04-31-001",
+        "PGC 044182",
+        "UGC 08062"
+      ]
+    },
+    {
+      "i": 10910,
+      "designation": "NGC4990",
+      "names": [
+        "Cocoon Galaxy"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Vir",
+      "raDeg": 197.322042,
+      "decDeg": -5.272806,
+      "vmag": 13.82,
+      "bmag": 14.09,
+      "majAxArcmin": 0.9,
+      "minAxArcmin": 0.81,
+      "distancePc": 46670322,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J13091728-0516219",
+        "IRAS 13067-0500",
+        "MCG -01-34-004",
+        "PGC 045608"
+      ]
+    },
+    {
+      "i": 10947,
+      "designation": "NGC5024",
+      "names": [],
+      "messier": 53,
+      "type": "GCl",
+      "constellation": "Com",
+      "raDeg": 198.230125,
+      "decDeg": 18.169111,
+      "vmag": 7.79,
+      "bmag": 8.95,
+      "majAxArcmin": 9,
+      "minAxArcmin": null,
+      "distancePc": 63694,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 2094"
+      ]
+    },
+    {
+      "i": 10978,
+      "designation": "NGC5055",
+      "names": [
+        "Sunflower Galaxy"
+      ],
+      "messier": 63,
+      "type": "G",
+      "constellation": "CVn",
+      "raDeg": 198.955542,
+      "decDeg": 42.029278,
+      "vmag": 8.61,
+      "bmag": 9.32,
+      "majAxArcmin": 11.83,
+      "minAxArcmin": 7.16,
+      "distancePc": 7434995,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J13154932+4201454",
+        "IRAS 13135+4217",
+        "MCG +07-27-054",
+        "PGC 046153",
+        "SDSS J131549.26+420145.8",
+        "UGC 08334"
+      ]
+    },
+    {
+      "i": 11061,
+      "designation": "NGC5128",
+      "names": [
+        "Centaurus A"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Cen",
+      "raDeg": 201.365083,
+      "decDeg": -43.019111,
+      "vmag": 7.22,
+      "bmag": 7.79,
+      "majAxArcmin": 25.88,
+      "minAxArcmin": 19.77,
+      "distancePc": 8090763,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J13252775-4301073",
+        "C 077",
+        "ESO 270-009",
+        "ESO-LV 270-0090",
+        "IRAS 13225-4245",
+        "MCG -07-28-001",
+        "PGC 046957"
+      ]
+    },
+    {
+      "i": 11072,
+      "designation": "NGC5139",
+      "names": [
+        "Omega Centauri"
+      ],
+      "messier": null,
+      "type": "GCl",
+      "constellation": "Cen",
+      "raDeg": 201.691208,
+      "decDeg": -47.476861,
+      "vmag": 5.33,
+      "bmag": 6.12,
+      "majAxArcmin": 27,
+      "minAxArcmin": null,
+      "distancePc": 7310,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "C 080",
+        "MWSC 2120"
+      ]
+    },
+    {
+      "i": 11130,
+      "designation": "NGC5194",
+      "names": [
+        "Whirlpool Galaxy"
+      ],
+      "messier": 51,
+      "type": "G",
+      "constellation": "CVn",
+      "raDeg": 202.469625,
+      "decDeg": 47.195167,
+      "vmag": 8.36,
+      "bmag": 8.61,
+      "majAxArcmin": 13.71,
+      "minAxArcmin": 11.67,
+      "distancePc": 6867844,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J13295269+4711429",
+        "IRAS 13277+4727",
+        "MCG +08-25-012",
+        "PGC 047404",
+        "UGC 08493"
+      ]
+    },
+    {
+      "i": 11176,
+      "designation": "NGC5236",
+      "names": [
+        "Southern Pinwheel Galaxy"
+      ],
+      "messier": 83,
+      "type": "G",
+      "constellation": "Hya",
+      "raDeg": 204.253958,
+      "decDeg": -29.865417,
+      "vmag": 7.21,
+      "bmag": 7.82,
+      "majAxArcmin": 13.61,
+      "minAxArcmin": 13.21,
+      "distancePc": 7678692,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J13370091-2951567",
+        "ESO 444-081",
+        "ESO-LV 444-0810",
+        "IRAS 13341-2936",
+        "MCG -05-32-050",
+        "PGC 048082",
+        "UGCA 366"
+      ]
+    },
+    {
+      "i": 11217,
+      "designation": "NGC5272",
+      "names": [],
+      "messier": 3,
+      "type": "GCl",
+      "constellation": "CVn",
+      "raDeg": 205.546792,
+      "decDeg": 28.375444,
+      "vmag": 6.39,
+      "bmag": null,
+      "majAxArcmin": 16.2,
+      "minAxArcmin": null,
+      "distancePc": 40816,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 2152"
+      ]
+    },
+    {
+      "i": 11408,
+      "designation": "NGC5457",
+      "names": [],
+      "messier": 101,
+      "type": "G",
+      "constellation": "UMa",
+      "raDeg": 210.80225,
+      "decDeg": 54.348944,
+      "vmag": 7.9,
+      "bmag": 8.36,
+      "majAxArcmin": 23.99,
+      "minAxArcmin": 23.07,
+      "distancePc": 3593433,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "IRAS 14013+5435",
+        "MCG +09-23-028",
+        "PGC 050063",
+        "SDSS J140312.52+542056.2",
+        "UGC 08981"
+      ]
+    },
+    {
+      "i": 11879,
+      "designation": "NGC5904",
+      "names": [],
+      "messier": 5,
+      "type": "GCl",
+      "constellation": "Se1",
+      "raDeg": 229.640625,
+      "decDeg": 2.082694,
+      "vmag": 5.95,
+      "bmag": 7.34,
+      "majAxArcmin": 15,
+      "minAxArcmin": null,
+      "distancePc": 8780,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 2286"
+      ]
+    },
+    {
+      "i": 12084,
+      "designation": "NGC6087",
+      "names": [
+        "S Nor Cluster"
+      ],
+      "messier": null,
+      "type": "OCl",
+      "constellation": "Nor",
+      "raDeg": 244.71075,
+      "decDeg": -57.934583,
+      "vmag": 5.4,
+      "bmag": 5.85,
+      "majAxArcmin": 10.2,
+      "minAxArcmin": null,
+      "distancePc": 976,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "C 089",
+        "MWSC 2382"
+      ]
+    },
+    {
+      "i": 12096,
+      "designation": "NGC6093",
+      "names": [],
+      "messier": 80,
+      "type": "GCl",
+      "constellation": "Sco",
+      "raDeg": 244.260458,
+      "decDeg": -22.975111,
+      "vmag": 7.3,
+      "bmag": null,
+      "majAxArcmin": 5.7,
+      "minAxArcmin": null,
+      "distancePc": 19960,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 2376"
+      ]
+    },
+    {
+      "i": 12124,
+      "designation": "NGC6121",
+      "names": [],
+      "messier": 4,
+      "type": "GCl",
+      "constellation": "Sco",
+      "raDeg": 245.8975,
+      "decDeg": -26.525528,
+      "vmag": 5.4,
+      "bmag": null,
+      "majAxArcmin": 28.2,
+      "minAxArcmin": null,
+      "distancePc": 2002,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 2396"
+      ]
+    },
+    {
+      "i": 12176,
+      "designation": "NGC6171",
+      "names": [],
+      "messier": 107,
+      "type": "GCl",
+      "constellation": "Oph",
+      "raDeg": 248.133,
+      "decDeg": -13.053639,
+      "vmag": 8.85,
+      "bmag": 9.96,
+      "majAxArcmin": 7.8,
+      "minAxArcmin": null,
+      "distancePc": 6707,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 2422"
+      ]
+    },
+    {
+      "i": 12197,
+      "designation": "NGC6188",
+      "names": [
+        "Rim Nebula"
+      ],
+      "messier": null,
+      "type": "Neb",
+      "constellation": "Ara",
+      "raDeg": 250.024333,
+      "decDeg": -48.662278,
+      "vmag": null,
+      "bmag": null,
+      "majAxArcmin": 20,
+      "minAxArcmin": 12,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": []
+    },
+    {
+      "i": 12214,
+      "designation": "NGC6205",
+      "names": [
+        "Hercules Globular Cluster"
+      ],
+      "messier": 13,
+      "type": "GCl",
+      "constellation": "Her",
+      "raDeg": 250.423458,
+      "decDeg": 36.461306,
+      "vmag": 5.8,
+      "bmag": null,
+      "majAxArcmin": 16.5,
+      "minAxArcmin": null,
+      "distancePc": 12300,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "2MASX J16414163+3627407",
+        "MWSC 2445"
+      ]
+    },
+    {
+      "i": 12228,
+      "designation": "NGC6218",
+      "names": [],
+      "messier": 12,
+      "type": "GCl",
+      "constellation": "Oph",
+      "raDeg": 251.8105,
+      "decDeg": -1.947833,
+      "vmag": 6.07,
+      "bmag": 8.52,
+      "majAxArcmin": 11.1,
+      "minAxArcmin": null,
+      "distancePc": 6313,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 2464"
+      ]
+    },
+    {
+      "i": 12267,
+      "designation": "NGC6254",
+      "names": [],
+      "messier": 10,
+      "type": "GCl",
+      "constellation": "Oph",
+      "raDeg": 254.287458,
+      "decDeg": -4.099333,
+      "vmag": 4.98,
+      "bmag": null,
+      "majAxArcmin": 9.3,
+      "minAxArcmin": null,
+      "distancePc": 6636,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 2498"
+      ]
+    },
+    {
+      "i": 12279,
+      "designation": "NGC6266",
+      "names": [],
+      "messier": 62,
+      "type": "GCl",
+      "constellation": "Oph",
+      "raDeg": 255.3025,
+      "decDeg": -30.112361,
+      "vmag": 7.39,
+      "bmag": 8.55,
+      "majAxArcmin": 7.8,
+      "minAxArcmin": null,
+      "distancePc": 6892,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 2512"
+      ]
+    },
+    {
+      "i": 12286,
+      "designation": "NGC6273",
+      "names": [],
+      "messier": 19,
+      "type": "GCl",
+      "constellation": "Oph",
+      "raDeg": 255.657,
+      "decDeg": -26.267944,
+      "vmag": 5.57,
+      "bmag": 8.45,
+      "majAxArcmin": 7.5,
+      "minAxArcmin": null,
+      "distancePc": 10695,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 2519"
+      ]
+    },
+    {
+      "i": 12317,
+      "designation": "NGC6302",
+      "names": [
+        "Bug Nebula",
+        "Butterfly Nebula"
+      ],
+      "messier": null,
+      "type": "PN",
+      "constellation": "Sco",
+      "raDeg": 258.435958,
+      "decDeg": -37.103139,
+      "vmag": 9.6,
+      "bmag": 12.8,
+      "majAxArcmin": 0.74,
+      "minAxArcmin": null,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "2MASX J17134463-3706111",
+        "C 069",
+        "ESO 392-005",
+        "IRAS 17103-3702",
+        "PN G349.5+01.0"
+      ]
+    },
+    {
+      "i": 12324,
+      "designation": "NGC6309",
+      "names": [
+        "Box Nebula"
+      ],
+      "messier": null,
+      "type": "PN",
+      "constellation": "Oph",
+      "raDeg": 258.517917,
+      "decDeg": -12.910556,
+      "vmag": 11.5,
+      "bmag": 10.8,
+      "majAxArcmin": 0.26,
+      "minAxArcmin": null,
+      "distancePc": 3030,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "IRAS 17112-1251",
+        "PN G009.6+14.8"
+      ]
+    },
+    {
+      "i": 12348,
+      "designation": "NGC6333",
+      "names": [],
+      "messier": 9,
+      "type": "GCl",
+      "constellation": "Oph",
+      "raDeg": 259.799083,
+      "decDeg": -18.51625,
+      "vmag": 8.42,
+      "bmag": 9.36,
+      "majAxArcmin": 6.9,
+      "minAxArcmin": null,
+      "distancePc": 8953,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 2567"
+      ]
+    },
+    {
+      "i": 12356,
+      "designation": "NGC6341",
+      "names": [],
+      "messier": 92,
+      "type": "GCl",
+      "constellation": "Her",
+      "raDeg": 259.280292,
+      "decDeg": 43.136528,
+      "vmag": 6.52,
+      "bmag": null,
+      "majAxArcmin": 14.4,
+      "minAxArcmin": null,
+      "distancePc": 17794,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 2557"
+      ]
+    },
+    {
+      "i": 12374,
+      "designation": "NGC6357",
+      "names": [
+        "the War and Peace Nebula"
+      ],
+      "messier": null,
+      "type": "Cl+N",
+      "constellation": "Sco",
+      "raDeg": 261.181542,
+      "decDeg": -34.201333,
+      "vmag": null,
+      "bmag": null,
+      "majAxArcmin": 3.9,
+      "minAxArcmin": null,
+      "distancePc": 1764,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 2588"
+      ]
+    },
+    {
+      "i": 12388,
+      "designation": "NGC6369",
+      "names": [
+        "Little Ghost Nebula"
+      ],
+      "messier": null,
+      "type": "PN",
+      "constellation": "Oph",
+      "raDeg": 262.335417,
+      "decDeg": -23.759444,
+      "vmag": 11.4,
+      "bmag": 12.9,
+      "majAxArcmin": 0.63,
+      "minAxArcmin": null,
+      "distancePc": 1139,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "ESO 520-003",
+        "IRAS 17262-2343",
+        "PN G002.4+05.8"
+      ]
+    },
+    {
+      "i": 12421,
+      "designation": "NGC6402",
+      "names": [],
+      "messier": 14,
+      "type": "GCl",
+      "constellation": "Oph",
+      "raDeg": 264.400667,
+      "decDeg": -3.245917,
+      "vmag": 5.73,
+      "bmag": 9.55,
+      "majAxArcmin": 9.9,
+      "minAxArcmin": null,
+      "distancePc": 16978,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 2643"
+      ]
+    },
+    {
+      "i": 12424,
+      "designation": "NGC6405",
+      "names": [
+        "Butterfly Cluster"
+      ],
+      "messier": 6,
+      "type": "OCl",
+      "constellation": "Sco",
+      "raDeg": 265.086458,
+      "decDeg": -32.254167,
+      "vmag": 4.2,
+      "bmag": 4.48,
+      "majAxArcmin": 15.6,
+      "minAxArcmin": null,
+      "distancePc": 462,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 2661"
+      ]
+    },
+    {
+      "i": 12465,
+      "designation": "NGC6445",
+      "names": [
+        "Little Gem"
+      ],
+      "messier": null,
+      "type": "PN",
+      "constellation": "Sgr",
+      "raDeg": 267.31275,
+      "decDeg": -20.0095,
+      "vmag": 11.2,
+      "bmag": 13.2,
+      "majAxArcmin": 0.55,
+      "minAxArcmin": null,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "ESO 589-009",
+        "PN G008.0+03.9"
+      ]
+    },
+    {
+      "i": 12497,
+      "designation": "NGC6475",
+      "names": [
+        "Ptolemy's Cluster"
+      ],
+      "messier": 7,
+      "type": "OCl",
+      "constellation": "Sco",
+      "raDeg": 268.46325,
+      "decDeg": -34.792833,
+      "vmag": 3.3,
+      "bmag": 3.45,
+      "majAxArcmin": 22.2,
+      "minAxArcmin": null,
+      "distancePc": 280,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 2739"
+      ]
+    },
+    {
+      "i": 12516,
+      "designation": "NGC6494",
+      "names": [],
+      "messier": 23,
+      "type": "OCl",
+      "constellation": "Sgr",
+      "raDeg": 269.269875,
+      "decDeg": -18.985333,
+      "vmag": 5.5,
+      "bmag": 6.03,
+      "majAxArcmin": 16.8,
+      "minAxArcmin": null,
+      "distancePc": 739,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 2757"
+      ]
+    },
+    {
+      "i": 12536,
+      "designation": "NGC6514",
+      "names": [
+        "Trifid Nebula"
+      ],
+      "messier": 20,
+      "type": "Neb",
+      "constellation": "Sgr",
+      "raDeg": 270.675458,
+      "decDeg": -22.971889,
+      "vmag": 8.5,
+      "bmag": 6.3,
+      "majAxArcmin": 28,
+      "minAxArcmin": 28,
+      "distancePc": 1266,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "LBN 27",
+        "MWSC 2789"
+      ]
+    },
+    {
+      "i": 12545,
+      "designation": "NGC6523",
+      "names": [
+        "Lagoon Nebula"
+      ],
+      "messier": 8,
+      "type": "Neb",
+      "constellation": "Sgr",
+      "raDeg": 270.921958,
+      "decDeg": -24.380167,
+      "vmag": 5.8,
+      "bmag": 5,
+      "majAxArcmin": 45,
+      "minAxArcmin": 30,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "LBN 25"
+      ]
+    },
+    {
+      "i": 12553,
+      "designation": "NGC6531",
+      "names": [],
+      "messier": 21,
+      "type": "OCl",
+      "constellation": "Sgr",
+      "raDeg": 271.056042,
+      "decDeg": -22.490056,
+      "vmag": 5.9,
+      "bmag": null,
+      "majAxArcmin": 6,
+      "minAxArcmin": null,
+      "distancePc": 1253,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 2796"
+      ]
+    },
+    {
+      "i": 12559,
+      "designation": "NGC6537",
+      "names": [
+        "Red Spider Nebula"
+      ],
+      "messier": null,
+      "type": "PN",
+      "constellation": "Sgr",
+      "raDeg": 271.304583,
+      "decDeg": -19.842972,
+      "vmag": 11.6,
+      "bmag": 12.5,
+      "majAxArcmin": 0.17,
+      "minAxArcmin": null,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "2MASX J18051311-1950348",
+        "ESO 590-001",
+        "PN G010.1+00.7"
+      ]
+    },
+    {
+      "i": 12565,
+      "designation": "NGC6543",
+      "names": [
+        "Cat's Eye Nebula"
+      ],
+      "messier": null,
+      "type": "PN",
+      "constellation": "Dra",
+      "raDeg": 269.639125,
+      "decDeg": 66.633194,
+      "vmag": 9.01,
+      "bmag": 9.79,
+      "majAxArcmin": 0.9,
+      "minAxArcmin": null,
+      "distancePc": 1625,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "2MASX J17583335+6637591",
+        "C 006",
+        "IRAS 17584+6638",
+        "PN G096.4+29.9"
+      ]
+    },
+    {
+      "i": 12635,
+      "designation": "NGC6611",
+      "names": [
+        "Eagle Nebula"
+      ],
+      "messier": 16,
+      "type": "Neb",
+      "constellation": "Se2",
+      "raDeg": 274.700708,
+      "decDeg": -13.807222,
+      "vmag": 6,
+      "bmag": 6.58,
+      "majAxArcmin": 120,
+      "minAxArcmin": 25,
+      "distancePc": 1767,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "LBN 67",
+        "MWSC 2886"
+      ]
+    },
+    {
+      "i": 12637,
+      "designation": "NGC6613",
+      "names": [],
+      "messier": 18,
+      "type": "OCl",
+      "constellation": "Sgr",
+      "raDeg": 274.993708,
+      "decDeg": -17.101972,
+      "vmag": 6.9,
+      "bmag": 7.24,
+      "majAxArcmin": 6,
+      "minAxArcmin": null,
+      "distancePc": 1563,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 2892"
+      ]
+    },
+    {
+      "i": 12642,
+      "designation": "NGC6618",
+      "names": [
+        "Checkmark Nebula",
+        "Lobster Nebula",
+        "Swan Nebula",
+        "omega Nebula"
+      ],
+      "messier": 17,
+      "type": "Neb",
+      "constellation": "Sgr",
+      "raDeg": 275.196292,
+      "decDeg": -16.171528,
+      "vmag": 7,
+      "bmag": 6,
+      "majAxArcmin": 12.6,
+      "minAxArcmin": null,
+      "distancePc": 1667,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "LBN 60",
+        "MWSC 2896"
+      ]
+    },
+    {
+      "i": 12652,
+      "designation": "NGC6626",
+      "names": [],
+      "messier": 28,
+      "type": "GCl",
+      "constellation": "Sgr",
+      "raDeg": 276.137042,
+      "decDeg": -24.869833,
+      "vmag": 6.9,
+      "bmag": null,
+      "majAxArcmin": 5.1,
+      "minAxArcmin": null,
+      "distancePc": 6410,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 2908"
+      ]
+    },
+    {
+      "i": 12665,
+      "designation": "NGC6637",
+      "names": [],
+      "messier": 69,
+      "type": "GCl",
+      "constellation": "Sgr",
+      "raDeg": 277.846792,
+      "decDeg": -32.347972,
+      "vmag": 8.31,
+      "bmag": 9.32,
+      "majAxArcmin": 5.7,
+      "minAxArcmin": null,
+      "distancePc": 11696,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 2936"
+      ]
+    },
+    {
+      "i": 12685,
+      "designation": "NGC6656",
+      "names": [],
+      "messier": 22,
+      "type": "GCl",
+      "constellation": "Sgr",
+      "raDeg": 279.100833,
+      "decDeg": -23.903417,
+      "vmag": 6.17,
+      "bmag": 7.16,
+      "majAxArcmin": 12.6,
+      "minAxArcmin": null,
+      "distancePc": 3789,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 2961"
+      ]
+    },
+    {
+      "i": 12713,
+      "designation": "NGC6681",
+      "names": [],
+      "messier": 70,
+      "type": "GCl",
+      "constellation": "Sgr",
+      "raDeg": 280.802667,
+      "decDeg": -32.291889,
+      "vmag": 9.06,
+      "bmag": 9.76,
+      "majAxArcmin": 6.6,
+      "minAxArcmin": null,
+      "distancePc": 7905,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 2981"
+      ]
+    },
+    {
+      "i": 12727,
+      "designation": "NGC6694",
+      "names": [],
+      "messier": 26,
+      "type": "OCl",
+      "constellation": "Sct",
+      "raDeg": 281.32775,
+      "decDeg": -9.383611,
+      "vmag": 8.87,
+      "bmag": 8,
+      "majAxArcmin": 6,
+      "minAxArcmin": null,
+      "distancePc": 1908,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 2987"
+      ]
+    },
+    {
+      "i": 12738,
+      "designation": "NGC6705",
+      "names": [
+        "Amas de l'Ecu de Sobieski",
+        "Wild Duck Cluster"
+      ],
+      "messier": 11,
+      "type": "OCl",
+      "constellation": "Sct",
+      "raDeg": 282.774958,
+      "decDeg": -6.270028,
+      "vmag": 5.8,
+      "bmag": 6.32,
+      "majAxArcmin": 9,
+      "minAxArcmin": null,
+      "distancePc": 2342,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 3008"
+      ]
+    },
+    {
+      "i": 12748,
+      "designation": "NGC6715",
+      "names": [],
+      "messier": 54,
+      "type": "GCl",
+      "constellation": "Sgr",
+      "raDeg": 283.763625,
+      "decDeg": -30.4785,
+      "vmag": 7.7,
+      "bmag": null,
+      "majAxArcmin": 5.1,
+      "minAxArcmin": null,
+      "distancePc": 37453,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 3023"
+      ]
+    },
+    {
+      "i": 12753,
+      "designation": "NGC6720",
+      "names": [
+        "Ring Nebula"
+      ],
+      "messier": 57,
+      "type": "PN",
+      "constellation": "Lyr",
+      "raDeg": 283.395875,
+      "decDeg": 33.028583,
+      "vmag": 8.8,
+      "bmag": 9.7,
+      "majAxArcmin": 1.27,
+      "minAxArcmin": null,
+      "distancePc": 787,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "IRAS 18517+3257",
+        "PN G063.1+13.9"
+      ]
+    },
+    {
+      "i": 12774,
+      "designation": "NGC6741",
+      "names": [
+        "Phantom Streak Nebula"
+      ],
+      "messier": null,
+      "type": "PN",
+      "constellation": "Aql",
+      "raDeg": 285.654167,
+      "decDeg": -0.449389,
+      "vmag": 11.5,
+      "bmag": 10.8,
+      "majAxArcmin": 0.13,
+      "minAxArcmin": null,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "IRAS 19000-0031",
+        "PN G033.8-02.6"
+      ]
+    },
+    {
+      "i": 12817,
+      "designation": "NGC6779",
+      "names": [],
+      "messier": 56,
+      "type": "GCl",
+      "constellation": "Lyr",
+      "raDeg": 289.147958,
+      "decDeg": 30.1845,
+      "vmag": 8.4,
+      "bmag": 8.9,
+      "majAxArcmin": 5.8,
+      "minAxArcmin": null,
+      "distancePc": 13245,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 3077"
+      ]
+    },
+    {
+      "i": 12848,
+      "designation": "NGC6809",
+      "names": [],
+      "messier": 55,
+      "type": "GCl",
+      "constellation": "Sgr",
+      "raDeg": 294.9975,
+      "decDeg": -30.962083,
+      "vmag": 6.49,
+      "bmag": null,
+      "majAxArcmin": 12,
+      "minAxArcmin": null,
+      "distancePc": 5760,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 3150"
+      ]
+    },
+    {
+      "i": 12859,
+      "designation": "NGC6818",
+      "names": [
+        "Little Gem Nebula"
+      ],
+      "messier": null,
+      "type": "PN",
+      "constellation": "Sgr",
+      "raDeg": 295.990542,
+      "decDeg": -14.153167,
+      "vmag": 9.3,
+      "bmag": 9.9,
+      "majAxArcmin": 0.77,
+      "minAxArcmin": null,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "IRAS 19411-1416",
+        "PN G025.8-17.9"
+      ]
+    },
+    {
+      "i": 12860,
+      "designation": "NGC6819",
+      "names": [
+        "Foxhead Cluster"
+      ],
+      "messier": null,
+      "type": "OCl",
+      "constellation": "Cyg",
+      "raDeg": 295.325375,
+      "decDeg": 40.18675,
+      "vmag": 7.3,
+      "bmag": 8.21,
+      "majAxArcmin": 6.9,
+      "minAxArcmin": null,
+      "distancePc": 2809,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 3155"
+      ]
+    },
+    {
+      "i": 12863,
+      "designation": "NGC6822",
+      "names": [
+        "Barnard's Galaxy"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Sgr",
+      "raDeg": 296.240583,
+      "decDeg": -14.803444,
+      "vmag": 10.05,
+      "bmag": 9.36,
+      "majAxArcmin": 17.38,
+      "minAxArcmin": 16.75,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "2MASX J19445619-1447512",
+        "C 057",
+        "IRAS 19420-1450",
+        "MCG -02-50-006",
+        "PGC 063616"
+      ]
+    },
+    {
+      "i": 12867,
+      "designation": "NGC6826",
+      "names": [
+        "Blinking Planetary"
+      ],
+      "messier": null,
+      "type": "PN",
+      "constellation": "Cyg",
+      "raDeg": 296.200458,
+      "decDeg": 50.525028,
+      "vmag": 9.44,
+      "bmag": 10.02,
+      "majAxArcmin": 0.42,
+      "minAxArcmin": null,
+      "distancePc": 1575,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "2MASX J19444814+5031304",
+        "C 015",
+        "IRAS 19434+5024",
+        "PN G083.5+12.7"
+      ]
+    },
+    {
+      "i": 12879,
+      "designation": "NGC6838",
+      "names": [],
+      "messier": 71,
+      "type": "GCl",
+      "constellation": "Sge",
+      "raDeg": 298.442125,
+      "decDeg": 18.778389,
+      "vmag": 6.1,
+      "bmag": 7.91,
+      "majAxArcmin": 6.9,
+      "minAxArcmin": null,
+      "distancePc": 4373,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 3200"
+      ]
+    },
+    {
+      "i": 12900,
+      "designation": "NGC6853",
+      "names": [
+        "Dumbbell Nebula"
+      ],
+      "messier": 27,
+      "type": "PN",
+      "constellation": "Vul",
+      "raDeg": 299.901583,
+      "decDeg": 22.721028,
+      "vmag": 7.4,
+      "bmag": 7.6,
+      "majAxArcmin": 6.7,
+      "minAxArcmin": null,
+      "distancePc": 376,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "2MASX J19593637+2243157",
+        "PN G060.8-03.6"
+      ]
+    },
+    {
+      "i": 12916,
+      "designation": "NGC6864",
+      "names": [],
+      "messier": 75,
+      "type": "GCl",
+      "constellation": "Sgr",
+      "raDeg": 301.520167,
+      "decDeg": -21.922222,
+      "vmag": 8.26,
+      "bmag": null,
+      "majAxArcmin": 3.6,
+      "minAxArcmin": null,
+      "distancePc": 49751,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "2MASX J20060484-2155201",
+        "MWSC 3254"
+      ]
+    },
+    {
+      "i": 12943,
+      "designation": "NGC6888",
+      "names": [
+        "Crescent Nebula"
+      ],
+      "messier": null,
+      "type": "HII",
+      "constellation": "Cyg",
+      "raDeg": 303.027292,
+      "decDeg": 38.354944,
+      "vmag": null,
+      "bmag": 7.44,
+      "majAxArcmin": 20,
+      "minAxArcmin": 10,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "BD +37 3821",
+        "C 027",
+        "HD 192163",
+        "HIP 099546",
+        "LBN 203"
+      ]
+    },
+    {
+      "i": 12962,
+      "designation": "NGC6905",
+      "names": [
+        "Blue Flash Nebula"
+      ],
+      "messier": null,
+      "type": "PN",
+      "constellation": "Del",
+      "raDeg": 305.595792,
+      "decDeg": 20.104528,
+      "vmag": 11.1,
+      "bmag": 11.9,
+      "majAxArcmin": 0.67,
+      "minAxArcmin": null,
+      "distancePc": 2503,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "2MASX J20222299+2006162",
+        "IRAS 20201+1956",
+        "PN G061.4-09.5"
+      ]
+    },
+    {
+      "i": 12970,
+      "designation": "NGC6913",
+      "names": [],
+      "messier": 29,
+      "type": "OCl",
+      "constellation": "Cyg",
+      "raDeg": 305.990708,
+      "decDeg": 38.507667,
+      "vmag": 6.6,
+      "bmag": 7.3,
+      "majAxArcmin": 3.6,
+      "minAxArcmin": null,
+      "distancePc": 1808,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 3329"
+      ]
+    },
+    {
+      "i": 13005,
+      "designation": "NGC6946",
+      "names": [
+        "Fireworks Galaxy"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Cyg",
+      "raDeg": 308.718,
+      "decDeg": 60.153917,
+      "vmag": 9.05,
+      "bmag": 9.76,
+      "majAxArcmin": 11.4,
+      "minAxArcmin": 10.84,
+      "distancePc": 664630,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASX J20345233+6009132",
+        "C 012",
+        "IRAS 20338+5958",
+        "MCG +10-29-006",
+        "PGC 065001",
+        "UGC 11597"
+      ]
+    },
+    {
+      "i": 13019,
+      "designation": "NGC6960",
+      "names": [
+        "Veil Nebula",
+        "Filamentary Nebula",
+        "Western Veil"
+      ],
+      "messier": null,
+      "type": "SNR",
+      "constellation": "Cyg",
+      "raDeg": 311.492417,
+      "decDeg": 30.595139,
+      "vmag": null,
+      "bmag": 7,
+      "majAxArcmin": 210,
+      "minAxArcmin": 160,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "C 034",
+        "LBN 191"
+      ]
+    },
+    {
+      "i": 13040,
+      "designation": "NGC6981",
+      "names": [],
+      "messier": 72,
+      "type": "GCl",
+      "constellation": "Aqr",
+      "raDeg": 313.366292,
+      "decDeg": -12.537056,
+      "vmag": 8.96,
+      "bmag": 9.95,
+      "majAxArcmin": 4.5,
+      "minAxArcmin": null,
+      "distancePc": 66667,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 3419"
+      ]
+    },
+    {
+      "i": 13052,
+      "designation": "NGC6992",
+      "names": [
+        "Eastern Veil",
+        "Network Nebula"
+      ],
+      "messier": null,
+      "type": "SNR",
+      "constellation": "Cyg",
+      "raDeg": 314.079458,
+      "decDeg": 31.74275,
+      "vmag": null,
+      "bmag": 7,
+      "majAxArcmin": 60,
+      "minAxArcmin": 8,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "C 033"
+      ]
+    },
+    {
+      "i": 13054,
+      "designation": "NGC6994",
+      "names": [],
+      "messier": 73,
+      "type": "Other",
+      "constellation": "Aqr",
+      "raDeg": 314.733208,
+      "decDeg": -12.6355,
+      "vmag": 8.9,
+      "bmag": null,
+      "majAxArcmin": null,
+      "minAxArcmin": null,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": []
+    },
+    {
+      "i": 13055,
+      "designation": "NGC6995",
+      "names": [
+        "Eastern Veil",
+        "Network Nebula"
+      ],
+      "messier": null,
+      "type": "SNR",
+      "constellation": "Cyg",
+      "raDeg": 314.294833,
+      "decDeg": 31.235167,
+      "vmag": null,
+      "bmag": 7,
+      "majAxArcmin": 12,
+      "minAxArcmin": 12,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": []
+    },
+    {
+      "i": 13060,
+      "designation": "NGC7000",
+      "names": [
+        "North America Nebula"
+      ],
+      "messier": null,
+      "type": "HII",
+      "constellation": "Cyg",
+      "raDeg": 314.821417,
+      "decDeg": 44.528778,
+      "vmag": null,
+      "bmag": 4,
+      "majAxArcmin": 120,
+      "minAxArcmin": 30,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "C 020",
+        "LBN 373"
+      ]
+    },
+    {
+      "i": 13069,
+      "designation": "NGC7009",
+      "names": [
+        "Saturn Nebula"
+      ],
+      "messier": null,
+      "type": "PN",
+      "constellation": "Aqr",
+      "raDeg": 316.044958,
+      "decDeg": -11.36325,
+      "vmag": 8,
+      "bmag": 8.3,
+      "majAxArcmin": 0.7,
+      "minAxArcmin": 0.52,
+      "distancePc": 1154,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "2MASX J21041082-1121481",
+        "C 055",
+        "IRAS 21014-1133",
+        "PN G037.7-34.5"
+      ]
+    },
+    {
+      "i": 13083,
+      "designation": "NGC7023",
+      "names": [
+        "Iris Nebula"
+      ],
+      "messier": null,
+      "type": "Neb",
+      "constellation": "Cep",
+      "raDeg": 315.398417,
+      "decDeg": 68.169556,
+      "vmag": null,
+      "bmag": 7.2,
+      "majAxArcmin": 10,
+      "minAxArcmin": 8,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "C 004",
+        "IRAS 21009+6758",
+        "LBN 487"
+      ]
+    },
+    {
+      "i": 13143,
+      "designation": "NGC7078",
+      "names": [],
+      "messier": 15,
+      "type": "GCl",
+      "constellation": "Peg",
+      "raDeg": 322.49325,
+      "decDeg": 12.166833,
+      "vmag": 6.3,
+      "bmag": 3,
+      "majAxArcmin": 11.1,
+      "minAxArcmin": null,
+      "distancePc": 19157,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "IRAS 21274+1156",
+        "MWSC 3518",
+        "PN G065.0-27.3"
+      ]
+    },
+    {
+      "i": 13154,
+      "designation": "NGC7089",
+      "names": [],
+      "messier": 2,
+      "type": "GCl",
+      "constellation": "Aqr",
+      "raDeg": 323.362542,
+      "decDeg": -0.823306,
+      "vmag": 6.25,
+      "bmag": null,
+      "majAxArcmin": 8.4,
+      "minAxArcmin": null,
+      "distancePc": 16340,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 3526"
+      ]
+    },
+    {
+      "i": 13157,
+      "designation": "NGC7092",
+      "names": [],
+      "messier": 39,
+      "type": "OCl",
+      "constellation": "Cyg",
+      "raDeg": 322.951333,
+      "decDeg": 48.438167,
+      "vmag": 4.6,
+      "bmag": 4.66,
+      "majAxArcmin": 19.5,
+      "minAxArcmin": null,
+      "distancePc": 300,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 3521"
+      ]
+    },
+    {
+      "i": 13166,
+      "designation": "NGC7099",
+      "names": [],
+      "messier": 30,
+      "type": "GCl",
+      "constellation": "Cap",
+      "raDeg": 325.09175,
+      "decDeg": -23.179083,
+      "vmag": 7.1,
+      "bmag": null,
+      "majAxArcmin": 9,
+      "minAxArcmin": null,
+      "distancePc": 14793,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 3543"
+      ]
+    },
+    {
+      "i": 13181,
+      "designation": "NGC7114",
+      "names": [
+        "Schmidt's Nova Cygni"
+      ],
+      "messier": null,
+      "type": "*",
+      "constellation": "Cyg",
+      "raDeg": 325.433458,
+      "decDeg": 42.841806,
+      "vmag": 3,
+      "bmag": 15.4,
+      "majAxArcmin": null,
+      "minAxArcmin": null,
+      "distancePc": 1371,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "UCAC2 46600206"
+      ]
+    },
+    {
+      "i": 13376,
+      "designation": "NGC7293",
+      "names": [
+        "Helix Nebula"
+      ],
+      "messier": null,
+      "type": "PN",
+      "constellation": "Aqr",
+      "raDeg": 337.410708,
+      "decDeg": -20.837333,
+      "vmag": 7.3,
+      "bmag": 7.5,
+      "majAxArcmin": 16.33,
+      "minAxArcmin": null,
+      "distancePc": 201,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "C 063",
+        "ESO 602-022",
+        "PN G036.1-57.1"
+      ]
+    },
+    {
+      "i": 13744,
+      "designation": "NGC7635",
+      "names": [
+        "Bubble Nebula"
+      ],
+      "messier": null,
+      "type": "HII",
+      "constellation": "Cas",
+      "raDeg": 350.19,
+      "decDeg": 61.212361,
+      "vmag": null,
+      "bmag": 11,
+      "majAxArcmin": 15,
+      "minAxArcmin": 8,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "C 011",
+        "LBN 548"
+      ]
+    },
+    {
+      "i": 13765,
+      "designation": "NGC7654",
+      "names": [],
+      "messier": 52,
+      "type": "OCl",
+      "constellation": "Cas",
+      "raDeg": 351.201667,
+      "decDeg": 61.593167,
+      "vmag": 6.9,
+      "bmag": null,
+      "majAxArcmin": 9.9,
+      "minAxArcmin": null,
+      "distancePc": 1678,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 3725"
+      ]
+    },
+    {
+      "i": 13775,
+      "designation": "NGC7662",
+      "names": [
+        "Copeland's Blue Snowball"
+      ],
+      "messier": null,
+      "type": "PN",
+      "constellation": "And",
+      "raDeg": 351.474583,
+      "decDeg": 42.534944,
+      "vmag": 8.3,
+      "bmag": 9.2,
+      "majAxArcmin": 0.28,
+      "minAxArcmin": null,
+      "distancePc": 83,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "2MASX J23255415+4232111",
+        "C 022",
+        "IRAS 23234+4215",
+        "PN G106.5-17.6"
+      ]
+    },
+    {
+      "i": 13962,
+      "designation": "B033",
+      "names": [
+        "Horsehead Nebula"
+      ],
+      "messier": null,
+      "type": "DrkN",
+      "constellation": "Ori",
+      "raDeg": 85.245833,
+      "decDeg": -2.458333,
+      "vmag": null,
+      "bmag": null,
+      "majAxArcmin": 6,
+      "minAxArcmin": 4,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": []
+    },
+    {
+      "i": 13963,
+      "designation": "C009",
+      "names": [
+        "Cave Nebula"
+      ],
+      "messier": null,
+      "type": "HII",
+      "constellation": "Cep",
+      "raDeg": 344.475,
+      "decDeg": 62.518333,
+      "vmag": null,
+      "bmag": null,
+      "majAxArcmin": 50,
+      "minAxArcmin": 30,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "LBN 529",
+        "SH 2-155"
+      ]
+    },
+    {
+      "i": 13964,
+      "designation": "C014",
+      "names": [
+        "Double Cluster",
+        "h & chi Persei"
+      ],
+      "messier": null,
+      "type": "*Ass",
+      "constellation": "Per",
+      "raDeg": 35.175,
+      "decDeg": 57.1375,
+      "vmag": null,
+      "bmag": null,
+      "majAxArcmin": 50,
+      "minAxArcmin": 50,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": []
+    },
+    {
+      "i": 13965,
+      "designation": "C041",
+      "names": [
+        "Hyades"
+      ],
+      "messier": null,
+      "type": "OCl",
+      "constellation": "Tau",
+      "raDeg": 66.725,
+      "decDeg": 15.866667,
+      "vmag": null,
+      "bmag": null,
+      "majAxArcmin": 329,
+      "minAxArcmin": null,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "Cl 050",
+        "Mel 025"
+      ]
+    },
+    {
+      "i": 13966,
+      "designation": "C099",
+      "names": [
+        "Coalsack Nebula"
+      ],
+      "messier": null,
+      "type": "DrkN",
+      "constellation": "Cru",
+      "raDeg": 187.829167,
+      "decDeg": -63.743333,
+      "vmag": null,
+      "bmag": null,
+      "majAxArcmin": null,
+      "minAxArcmin": null,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": []
+    },
+    {
+      "i": 13967,
+      "designation": "Cl399",
+      "names": [
+        "Brocchi's Cluster",
+        "Al Sufi's Cluster",
+        "Coathanger Asterism"
+      ],
+      "messier": null,
+      "type": "*Ass",
+      "constellation": "Vul",
+      "raDeg": 291.35,
+      "decDeg": 20.183333,
+      "vmag": 3.6,
+      "bmag": 3.93,
+      "majAxArcmin": 70,
+      "minAxArcmin": null,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": []
+    },
+    {
+      "i": 13968,
+      "designation": "ESO056-115",
+      "names": [
+        "Large Magellanic Cloud",
+        "Nubecula Major"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Dor",
+      "raDeg": 80.89375,
+      "decDeg": -69.756111,
+      "vmag": 0.29,
+      "bmag": 0.8,
+      "majAxArcmin": 646,
+      "minAxArcmin": 550,
+      "distancePc": 3877009,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "ESO-LV 0561150",
+        "IRAS 05240-6948",
+        "PGC 017223"
+      ]
+    },
+    {
+      "i": 13969,
+      "designation": "ESO097-013",
+      "names": [
+        "Circinus Galaxy"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Cir",
+      "raDeg": 213.291458,
+      "decDeg": -65.339222,
+      "vmag": 10.56,
+      "bmag": 12.02,
+      "majAxArcmin": 8.71,
+      "minAxArcmin": 4.27,
+      "distancePc": 6420326,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "2MASXJ 14130990-6520204",
+        "ESO-LV 0970130",
+        "IRAS 14092-6506",
+        "PGC 050779"
+      ]
+    },
+    {
+      "i": 13982,
+      "designation": "ESO270-017",
+      "names": [
+        "Fourcade-Figueroa"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Cen",
+      "raDeg": 203.697083,
+      "decDeg": -45.5475,
+      "vmag": 11.72,
+      "bmag": 11.76,
+      "majAxArcmin": 11.48,
+      "minAxArcmin": 1.45,
+      "distancePc": 12246916,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "ESO-LV 2700170",
+        "IRAS 13317-4517",
+        "MCG-07-28-004",
+        "PGC 047847"
+      ]
+    },
+    {
+      "i": 13986,
+      "designation": "ESO351-030",
+      "names": [
+        "Sculptor Dwarf Elliptical"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Scl",
+      "raDeg": 15.038958,
+      "decDeg": -33.709028,
+      "vmag": 8.6,
+      "bmag": 10.37,
+      "majAxArcmin": 15.26,
+      "minAxArcmin": 15.26,
+      "distancePc": 1648283,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "ESO-LV 3510300",
+        "MCG-06-03-015",
+        "PGC 003589"
+      ]
+    },
+    {
+      "i": 13987,
+      "designation": "ESO356-004",
+      "names": [
+        "Fornax Dwarf Spheroidal"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "For",
+      "raDeg": 39.997208,
+      "decDeg": -34.449194,
+      "vmag": 7.4,
+      "bmag": 9.03,
+      "majAxArcmin": 12.88,
+      "minAxArcmin": 10.47,
+      "distancePc": 815280,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "ESO-LV 3560040",
+        "MCG-06-07-001",
+        "PGC 010074",
+        "PGC 010093"
+      ]
+    },
+    {
+      "i": 14005,
+      "designation": "HCG079",
+      "names": [
+        "Seyfert's Sextet"
+      ],
+      "messier": null,
+      "type": "GGroup",
+      "constellation": "Se1",
+      "raDeg": 239.799583,
+      "decDeg": 20.758611,
+      "vmag": null,
+      "bmag": null,
+      "majAxArcmin": 2.8,
+      "minAxArcmin": null,
+      "distancePc": 63361397,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "IRAS 15570+2053"
+      ]
+    },
+    {
+      "i": 14006,
+      "designation": "HCG092",
+      "names": [
+        "Stephan's Quintet"
+      ],
+      "messier": null,
+      "type": "GGroup",
+      "constellation": "Peg",
+      "raDeg": 338.995833,
+      "decDeg": 33.958333,
+      "vmag": null,
+      "bmag": null,
+      "majAxArcmin": 4.4,
+      "minAxArcmin": null,
+      "distancePc": 95263639,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "IRAS 22337+3342"
+      ]
+    },
+    {
+      "i": 14007,
+      "designation": "M040",
+      "names": [],
+      "messier": 40,
+      "type": "**",
+      "constellation": "UMa",
+      "raDeg": 185.567083,
+      "decDeg": 58.084444,
+      "vmag": 8,
+      "bmag": null,
+      "majAxArcmin": null,
+      "minAxArcmin": null,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "WDS J12222+5805AB"
+      ]
+    },
+    {
+      "i": 14008,
+      "designation": "M102",
+      "names": [],
+      "messier": 101,
+      "type": "Dup",
+      "constellation": "UMa",
+      "raDeg": 210.80225,
+      "decDeg": 54.348944,
+      "vmag": null,
+      "bmag": null,
+      "majAxArcmin": null,
+      "minAxArcmin": null,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": []
+    },
+    {
+      "i": 14009,
+      "designation": "Mel022",
+      "names": [
+        "Pleiades"
+      ],
+      "messier": 45,
+      "type": "OCl",
+      "constellation": "Tau",
+      "raDeg": 56.869167,
+      "decDeg": 24.105278,
+      "vmag": 1.2,
+      "bmag": null,
+      "majAxArcmin": 150,
+      "minAxArcmin": 150,
+      "distancePc": 136,
+      "distanceKind": "parallax",
+      "identifiers": [
+        "MWSC 0305"
+      ]
+    },
+    {
+      "i": 14014,
+      "designation": "Mel111",
+      "names": [
+        "Coma Star Cluster"
+      ],
+      "messier": null,
+      "type": "OCl",
+      "constellation": "Com",
+      "raDeg": 186.275,
+      "decDeg": 26.1,
+      "vmag": null,
+      "bmag": null,
+      "majAxArcmin": 253.5,
+      "minAxArcmin": null,
+      "distancePc": 86,
+      "distanceKind": "parallax",
+      "identifiers": []
+    },
+    {
+      "i": 14018,
+      "designation": "PGC000143",
+      "names": [
+        "Wolf-Lundmark-Melotte",
+        "WLM Galaxy"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Cet",
+      "raDeg": 0.492333,
+      "decDeg": -15.460917,
+      "vmag": 10.76,
+      "bmag": 11.04,
+      "majAxArcmin": 10.47,
+      "minAxArcmin": 3.55,
+      "distancePc": null,
+      "distanceKind": "none",
+      "identifiers": [
+        "MCG-03-01-015",
+        "UGCA 444"
+      ]
+    },
+    {
+      "i": 14021,
+      "designation": "PGC029653",
+      "names": [
+        "Sextans A"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Sex",
+      "raDeg": 152.753333,
+      "decDeg": -4.692778,
+      "vmag": 11.77,
+      "bmag": 12.32,
+      "majAxArcmin": 5.25,
+      "minAxArcmin": 4.47,
+      "distancePc": 4789767,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "MCG-01-26-030",
+        "UGCA 205"
+      ]
+    },
+    {
+      "i": 14022,
+      "designation": "PGC088608",
+      "names": [
+        "Sextans Dwarf Spheroidal"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Sex",
+      "raDeg": 153.262083,
+      "decDeg": -1.614722,
+      "vmag": 10.4,
+      "bmag": 12,
+      "majAxArcmin": 30.2,
+      "minAxArcmin": 12.02,
+      "distancePc": 3314288,
+      "distanceKind": "hubble",
+      "identifiers": []
+    },
+    {
+      "i": 14024,
+      "designation": "UGC05373",
+      "names": [
+        "Sextans B"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Sex",
+      "raDeg": 150.000417,
+      "decDeg": 5.332222,
+      "vmag": 11.51,
+      "bmag": 11.92,
+      "majAxArcmin": 4.9,
+      "minAxArcmin": 3.09,
+      "distancePc": 4497330,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "MCG+01-26-005",
+        "PGC 028913",
+        "SDSS J100000.82+052009.5"
+      ]
+    },
+    {
+      "i": 14025,
+      "designation": "UGC05470",
+      "names": [
+        "Leo I"
+      ],
+      "messier": null,
+      "type": "G",
+      "constellation": "Leo",
+      "raDeg": 152.117083,
+      "decDeg": 12.306389,
+      "vmag": 10.36,
+      "bmag": 11.16,
+      "majAxArcmin": 11.75,
+      "minAxArcmin": 8.51,
+      "distancePc": 4178308,
+      "distanceKind": "hubble",
+      "identifiers": [
+        "MCG+02-26-027",
+        "PGC 029488"
+      ]
+    }
+  ],
+  "sourceName": "OpenNGC",
+  "sourceUrl": "https://github.com/mattiaverga/OpenNGC",
+  "sourceFile": "https://codeload.github.com/mattiaverga/OpenNGC/tar.gz/refs/tags/v20260501",
+  "sourceVersion": "v20260501",
+  "sourceSha256": "b10c86c2008f51f4fe653face1923390431894930ef23d381c2d1e8075d04265",
+  "retrieved": "2026-10-14",
+  "licence": "CC-BY-SA-4.0",
+  "attribution": "OpenNGC — Mattia Verga, release v20260501 (https://github.com/mattiaverga/OpenNGC), CC BY-SA 4.0",
+  "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+}

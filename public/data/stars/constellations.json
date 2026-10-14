@@ -1,0 +1,748 @@
+{
+  "format": "Little-endian, tightly packed struct-of-arrays: uint32 a[recordCount], then uint32 b[recordCount].",
+  "file": "constellations.bin",
+  "recordCount": 842,
+  "bytesPerRecord": 8,
+  "byteLength": 6736,
+  "sha256": "fa536091d05fa2cae355da6f70ecd893f6bc29ba83db8980ac900bd44896c6e7",
+  "fieldOrder": [
+    "a",
+    "b"
+  ],
+  "fields": [
+    {
+      "name": "a",
+      "dtype": "uint32",
+      "count": 842,
+      "byteOffset": 0,
+      "units": "global star index (l0 ++ l1)"
+    },
+    {
+      "name": "b",
+      "dtype": "uint32",
+      "count": 842,
+      "byteOffset": 3368,
+      "units": "global star index (l0 ++ l1)"
+    }
+  ],
+  "frame": "ICRS equatorial, right-handed cartesian; +x towards (RA 0h, Dec 0), +z towards Dec +90",
+  "epoch": "J2000.0 — positions are AT-HYG x0/y0/z0, the epoch-2000 cartesian columns, used verbatim",
+  "units": "index (dimensionless)",
+  "source": "Stellarium v26.3 skycultures/modern_iau/index.json — HIP id sequences, resolved against the AT-HYG `hip` column",
+  "sourceUrl": "https://raw.githubusercontent.com/Stellarium/stellarium/v26.3/skycultures/modern_iau/index.json",
+  "sourceVersion": "Stellarium v26.3",
+  "retrieved": "2026-10-14",
+  "licence": "GPL-2.0-or-later (code) / CC BY-SA 4.0 (skyculture data); the resolved indices derive from AT-HYG v4.0 (CC BY-SA 4.0)",
+  "attribution": "Constellation figures: Stellarium modern_iau skyculture (IAU), CC BY-SA 4.0 — star positions: AT-HYG v4.0, Astronomy Nexus (David Nash), CC BY-SA 4.0",
+  "rawSegments": 843,
+  "droppedSegments": 1,
+  "unresolvedHip": [
+    55203
+  ],
+  "constellations": [
+    {
+      "id": "And",
+      "name": "Andromeda",
+      "english": "Andromeda",
+      "byname": "Chained Maiden",
+      "start": 0,
+      "count": 16
+    },
+    {
+      "id": "Ant",
+      "name": "Antlia",
+      "english": "Air Pump",
+      "byname": null,
+      "start": 16,
+      "count": 2
+    },
+    {
+      "id": "Aps",
+      "name": "Apus",
+      "english": "Bird of Paradise",
+      "byname": null,
+      "start": 18,
+      "count": 3
+    },
+    {
+      "id": "Aql",
+      "name": "Aquila",
+      "english": "Eagle",
+      "byname": null,
+      "start": 21,
+      "count": 14
+    },
+    {
+      "id": "Aqr",
+      "name": "Aquarius",
+      "english": "Water Bearer",
+      "byname": null,
+      "start": 35,
+      "count": 21
+    },
+    {
+      "id": "Ara",
+      "name": "Ara",
+      "english": "Altar",
+      "byname": null,
+      "start": 56,
+      "count": 8
+    },
+    {
+      "id": "Ari",
+      "name": "Aries",
+      "english": "Ram",
+      "byname": null,
+      "start": 64,
+      "count": 3
+    },
+    {
+      "id": "Aur",
+      "name": "Auriga",
+      "english": "Charioteer",
+      "byname": null,
+      "start": 67,
+      "count": 11
+    },
+    {
+      "id": "Boo",
+      "name": "Boötes",
+      "english": "Herdsman",
+      "byname": null,
+      "start": 78,
+      "count": 13
+    },
+    {
+      "id": "CMa",
+      "name": "Canis Major",
+      "english": "Greater Dog",
+      "byname": null,
+      "start": 91,
+      "count": 12
+    },
+    {
+      "id": "CMi",
+      "name": "Canis Minor",
+      "english": "Lesser Dog",
+      "byname": null,
+      "start": 103,
+      "count": 1
+    },
+    {
+      "id": "CVn",
+      "name": "Canes Venatici",
+      "english": "Hunting Dogs",
+      "byname": null,
+      "start": 104,
+      "count": 1
+    },
+    {
+      "id": "Cae",
+      "name": "Caelum",
+      "english": "Engraving Tool",
+      "byname": null,
+      "start": 105,
+      "count": 3
+    },
+    {
+      "id": "Cam",
+      "name": "Camelopardalis",
+      "english": "Giraffe",
+      "byname": null,
+      "start": 108,
+      "count": 9
+    },
+    {
+      "id": "Cap",
+      "name": "Capricornus",
+      "english": "Capricornus",
+      "byname": "Sea Goat",
+      "start": 117,
+      "count": 9
+    },
+    {
+      "id": "Car",
+      "name": "Carina",
+      "english": "Keel",
+      "byname": null,
+      "start": 126,
+      "count": 15
+    },
+    {
+      "id": "Cas",
+      "name": "Cassiopeia",
+      "english": "Cassiopeia",
+      "byname": "Seated Queen",
+      "start": 141,
+      "count": 4
+    },
+    {
+      "id": "Cen",
+      "name": "Centaurus",
+      "english": "Centaur",
+      "byname": null,
+      "start": 145,
+      "count": 27
+    },
+    {
+      "id": "Cep",
+      "name": "Cepheus",
+      "english": "Cepheus",
+      "byname": "King",
+      "start": 172,
+      "count": 12
+    },
+    {
+      "id": "Cet",
+      "name": "Cetus",
+      "english": "Sea Monster",
+      "byname": null,
+      "start": 184,
+      "count": 14
+    },
+    {
+      "id": "Cha",
+      "name": "Chamaeleon",
+      "english": "Chameleon",
+      "byname": null,
+      "start": 198,
+      "count": 5
+    },
+    {
+      "id": "Cir",
+      "name": "Circinus",
+      "english": "Drawing Compass",
+      "byname": null,
+      "start": 203,
+      "count": 2
+    },
+    {
+      "id": "Cnc",
+      "name": "Cancer",
+      "english": "Crab",
+      "byname": null,
+      "start": 205,
+      "count": 5
+    },
+    {
+      "id": "Col",
+      "name": "Columba",
+      "english": "Dove",
+      "byname": null,
+      "start": 210,
+      "count": 5
+    },
+    {
+      "id": "Com",
+      "name": "Coma Berenices",
+      "english": "Bernice's Hair",
+      "byname": null,
+      "start": 215,
+      "count": 2
+    },
+    {
+      "id": "CrA",
+      "name": "Corona Australis",
+      "english": "Southern Crown",
+      "byname": null,
+      "start": 217,
+      "count": 4
+    },
+    {
+      "id": "CrB",
+      "name": "Corona Borealis",
+      "english": "Northern Crown",
+      "byname": null,
+      "start": 221,
+      "count": 6
+    },
+    {
+      "id": "Crt",
+      "name": "Crater",
+      "english": "Cup",
+      "byname": null,
+      "start": 227,
+      "count": 12
+    },
+    {
+      "id": "Cru",
+      "name": "Crux",
+      "english": "Southern Cross",
+      "byname": null,
+      "start": 239,
+      "count": 3
+    },
+    {
+      "id": "Crv",
+      "name": "Corvus",
+      "english": "Crow",
+      "byname": null,
+      "start": 242,
+      "count": 5
+    },
+    {
+      "id": "Cyg",
+      "name": "Cygnus",
+      "english": "Swan",
+      "byname": null,
+      "start": 247,
+      "count": 14
+    },
+    {
+      "id": "Del",
+      "name": "Delphinus",
+      "english": "Dolphin",
+      "byname": null,
+      "start": 261,
+      "count": 5
+    },
+    {
+      "id": "Dor",
+      "name": "Dorado",
+      "english": "Swordfish",
+      "byname": "Dolphinfish",
+      "start": 266,
+      "count": 8
+    },
+    {
+      "id": "Dra",
+      "name": "Draco",
+      "english": "Dragon",
+      "byname": null,
+      "start": 274,
+      "count": 18
+    },
+    {
+      "id": "Equ",
+      "name": "Equuleus",
+      "english": "Little Horse",
+      "byname": null,
+      "start": 292,
+      "count": 2
+    },
+    {
+      "id": "Eri",
+      "name": "Eridanus",
+      "english": "Eridanus",
+      "byname": "River",
+      "start": 294,
+      "count": 31
+    },
+    {
+      "id": "For",
+      "name": "Fornax",
+      "english": "Furnace",
+      "byname": null,
+      "start": 325,
+      "count": 2
+    },
+    {
+      "id": "Gem",
+      "name": "Gemini",
+      "english": "Twins",
+      "byname": null,
+      "start": 327,
+      "count": 23
+    },
+    {
+      "id": "Gru",
+      "name": "Grus",
+      "english": "Crane",
+      "byname": null,
+      "start": 350,
+      "count": 8
+    },
+    {
+      "id": "Her",
+      "name": "Hercules",
+      "english": "Hercules",
+      "byname": null,
+      "start": 358,
+      "count": 29
+    },
+    {
+      "id": "Hor",
+      "name": "Horologium",
+      "english": "Clock",
+      "byname": null,
+      "start": 387,
+      "count": 5
+    },
+    {
+      "id": "Hya",
+      "name": "Hydra",
+      "english": "Female Water Snake",
+      "byname": null,
+      "start": 392,
+      "count": 19
+    },
+    {
+      "id": "Hyi",
+      "name": "Hydrus",
+      "english": "Male Water Snake",
+      "byname": null,
+      "start": 411,
+      "count": 4
+    },
+    {
+      "id": "Ind",
+      "name": "Indus",
+      "english": "Indian",
+      "byname": null,
+      "start": 415,
+      "count": 5
+    },
+    {
+      "id": "LMi",
+      "name": "Leo Minor",
+      "english": "Lesser Lion",
+      "byname": null,
+      "start": 420,
+      "count": 5
+    },
+    {
+      "id": "Lac",
+      "name": "Lacerta",
+      "english": "Lizard",
+      "byname": null,
+      "start": 425,
+      "count": 14
+    },
+    {
+      "id": "Leo",
+      "name": "Leo",
+      "english": "Lion",
+      "byname": null,
+      "start": 439,
+      "count": 17
+    },
+    {
+      "id": "Lep",
+      "name": "Lepus",
+      "english": "Hare",
+      "byname": null,
+      "start": 456,
+      "count": 12
+    },
+    {
+      "id": "Lib",
+      "name": "Libra",
+      "english": "Scales",
+      "byname": null,
+      "start": 468,
+      "count": 7
+    },
+    {
+      "id": "Lup",
+      "name": "Lupus",
+      "english": "Wolf",
+      "byname": null,
+      "start": 475,
+      "count": 12
+    },
+    {
+      "id": "Lyn",
+      "name": "Lynx",
+      "english": "Lynx",
+      "byname": null,
+      "start": 487,
+      "count": 7
+    },
+    {
+      "id": "Lyr",
+      "name": "Lyra",
+      "english": "Lyre",
+      "byname": null,
+      "start": 494,
+      "count": 8
+    },
+    {
+      "id": "Men",
+      "name": "Mensa",
+      "english": "Table Mountain",
+      "byname": null,
+      "start": 502,
+      "count": 1
+    },
+    {
+      "id": "Mic",
+      "name": "Microscopium",
+      "english": "Microscope",
+      "byname": null,
+      "start": 503,
+      "count": 1
+    },
+    {
+      "id": "Mon",
+      "name": "Monoceros",
+      "english": "Unicorn",
+      "byname": null,
+      "start": 504,
+      "count": 13
+    },
+    {
+      "id": "Mus",
+      "name": "Musca",
+      "english": "Fly",
+      "byname": null,
+      "start": 517,
+      "count": 6
+    },
+    {
+      "id": "Nor",
+      "name": "Norma",
+      "english": "Carpenter's Square",
+      "byname": null,
+      "start": 523,
+      "count": 4
+    },
+    {
+      "id": "Oct",
+      "name": "Octans",
+      "english": "Octant",
+      "byname": null,
+      "start": 527,
+      "count": 3
+    },
+    {
+      "id": "Oph",
+      "name": "Ophiuchus",
+      "english": "Serpent Bearer",
+      "byname": null,
+      "start": 530,
+      "count": 25
+    },
+    {
+      "id": "Ori",
+      "name": "Orion",
+      "english": "Hunter",
+      "byname": null,
+      "start": 555,
+      "count": 27
+    },
+    {
+      "id": "Pav",
+      "name": "Pavo",
+      "english": "Peacock",
+      "byname": null,
+      "start": 582,
+      "count": 14
+    },
+    {
+      "id": "Peg",
+      "name": "Pegasus",
+      "english": "Winged Horse",
+      "byname": null,
+      "start": 596,
+      "count": 13
+    },
+    {
+      "id": "Per",
+      "name": "Perseus",
+      "english": "Hero",
+      "byname": null,
+      "start": 609,
+      "count": 24
+    },
+    {
+      "id": "Phe",
+      "name": "Phoenix",
+      "english": "Phoenix",
+      "byname": null,
+      "start": 633,
+      "count": 7
+    },
+    {
+      "id": "Pic",
+      "name": "Pictor",
+      "english": "Painter's Easel",
+      "byname": null,
+      "start": 640,
+      "count": 2
+    },
+    {
+      "id": "PsA",
+      "name": "Piscis Austrinus",
+      "english": "Southern Fish",
+      "byname": null,
+      "start": 642,
+      "count": 9
+    },
+    {
+      "id": "Psc",
+      "name": "Pisces",
+      "english": "Fishes",
+      "byname": null,
+      "start": 651,
+      "count": 16
+    },
+    {
+      "id": "Pup",
+      "name": "Puppis",
+      "english": "Stern",
+      "byname": null,
+      "start": 667,
+      "count": 11
+    },
+    {
+      "id": "Pyx",
+      "name": "Pyxis",
+      "english": "Mariner Compass",
+      "byname": null,
+      "start": 678,
+      "count": 3
+    },
+    {
+      "id": "Ret",
+      "name": "Reticulum",
+      "english": "Reticle",
+      "byname": null,
+      "start": 681,
+      "count": 4
+    },
+    {
+      "id": "Scl",
+      "name": "Sculptor",
+      "english": "Sculptor",
+      "byname": null,
+      "start": 685,
+      "count": 3
+    },
+    {
+      "id": "Sco",
+      "name": "Scorpius",
+      "english": "Scorpion",
+      "byname": null,
+      "start": 688,
+      "count": 18
+    },
+    {
+      "id": "Sct",
+      "name": "Scutum",
+      "english": "Shield",
+      "byname": null,
+      "start": 706,
+      "count": 4
+    },
+    {
+      "id": "Ser",
+      "name": "Serpens",
+      "english": "Serpent",
+      "byname": null,
+      "start": 710,
+      "count": 13
+    },
+    {
+      "id": "Sex",
+      "name": "Sextans",
+      "english": "Sextant",
+      "byname": null,
+      "start": 723,
+      "count": 3
+    },
+    {
+      "id": "Sge",
+      "name": "Sagitta",
+      "english": "Arrow",
+      "byname": null,
+      "start": 726,
+      "count": 4
+    },
+    {
+      "id": "Sgr",
+      "name": "Sagittarius",
+      "english": "Archer",
+      "byname": null,
+      "start": 730,
+      "count": 20
+    },
+    {
+      "id": "Tau",
+      "name": "Taurus",
+      "english": "Bull",
+      "byname": null,
+      "start": 750,
+      "count": 10
+    },
+    {
+      "id": "Tel",
+      "name": "Telescopium",
+      "english": "Telescope",
+      "byname": null,
+      "start": 760,
+      "count": 2
+    },
+    {
+      "id": "TrA",
+      "name": "Triangulum Australe",
+      "english": "Southern Triangle",
+      "byname": null,
+      "start": 762,
+      "count": 4
+    },
+    {
+      "id": "Tri",
+      "name": "Triangulum",
+      "english": "Triangle",
+      "byname": null,
+      "start": 766,
+      "count": 3
+    },
+    {
+      "id": "Tuc",
+      "name": "Tucana",
+      "english": "Toucan",
+      "byname": null,
+      "start": 769,
+      "count": 6
+    },
+    {
+      "id": "UMa",
+      "name": "Ursa Major",
+      "english": "Great Bear",
+      "byname": null,
+      "start": 775,
+      "count": 25
+    },
+    {
+      "id": "UMi",
+      "name": "Ursa Minor",
+      "english": "Lesser Bear",
+      "byname": null,
+      "start": 800,
+      "count": 7
+    },
+    {
+      "id": "Vel",
+      "name": "Vela",
+      "english": "Sails",
+      "byname": null,
+      "start": 807,
+      "count": 8
+    },
+    {
+      "id": "Vir",
+      "name": "Virgo",
+      "english": "Maiden",
+      "byname": null,
+      "start": 815,
+      "count": 20
+    },
+    {
+      "id": "Vol",
+      "name": "Volans",
+      "english": "Flying Fish",
+      "byname": null,
+      "start": 835,
+      "count": 6
+    },
+    {
+      "id": "Vul",
+      "name": "Vulpecula",
+      "english": "Fox",
+      "byname": null,
+      "start": 841,
+      "count": 1
+    }
+  ]
+}

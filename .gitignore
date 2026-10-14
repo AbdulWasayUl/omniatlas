@@ -25,3 +25,11 @@ dist-ssr
 
 # Playwright MCP QA artifacts
 .playwright-mcp/
+
+# Build-time ETL download cache
+.cache/
+
+# Build-time download cache for the ETL scripts
+.cache/
+# Playwright MCP scratch output
+.playwright-mcp/

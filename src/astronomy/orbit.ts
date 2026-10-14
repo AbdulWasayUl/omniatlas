@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import { type Vec3d, vec3d } from '../core/world'
 
 export interface KeplerianElements {
   /** Semi-major axis in kilometres. */
@@ -19,53 +19,109 @@ export interface KeplerianElements {
 }
 
 const TWO_PI = Math.PI * 2
+const DEG = Math.PI / 180
 
+/**
+ * Newton–Raphson on Kepler's equation. Starting from M is fine for near-circular
+ * orbits; starting from pi is the standard remedy for high eccentricity, where the
+ * naive guess can overshoot into a different branch.
+ */
 function solveEccentricAnomaly(meanAnomaly: number, eccentricity: number): number {
   let E = eccentricity < 0.8 ? meanAnomaly : Math.PI
-  for (let iteration = 0; iteration < 12; iteration += 1) {
+  for (let iteration = 0; iteration < 32; iteration += 1) {
     const delta = (E - eccentricity * Math.sin(E) - meanAnomaly) / (1 - eccentricity * Math.cos(E))
     E -= delta
-    if (Math.abs(delta) < 1e-10) break
+    if (Math.abs(delta) < 1e-12) break
   }
   return E
 }
 
 /**
- * Position of a body on its Keplerian orbit at `date`, expressed in the parent's
- * body-fixed equatorial frame (kilometres). Rotate by the parent's orientation
- * quaternion and add the parent's own position to place it in the scene.
+ * Position on a Keplerian orbit at `date`, in kilometres, expressed in the parent's
+ * equatorial frame. Pure float64; the caller rotates it into a world frame.
+ *
+ * Rotation order is the standard one: argument of periapsis about the orbit normal,
+ * then inclination about the node line, then the node about the reference pole.
  */
-export function keplerianPosition(elements: KeplerianElements, date: Date): THREE.Vector3 {
+export function keplerianPosition(elements: KeplerianElements, date: Date): Vec3d {
   const daysSinceEpoch = (date.getTime() - elements.epoch.getTime()) / 86_400_000
   const meanMotion = TWO_PI / elements.periodDays
-  const meanAnomaly =
-    THREE.MathUtils.degToRad(elements.meanAnomalyDegAtEpoch) + meanMotion * daysSinceEpoch
-  const normalizedMeanAnomaly = ((meanAnomaly % TWO_PI) + TWO_PI) % TWO_PI
+  const meanAnomaly = elements.meanAnomalyDegAtEpoch * DEG + meanMotion * daysSinceEpoch
+  const normalized = ((meanAnomaly % TWO_PI) + TWO_PI) % TWO_PI
 
-  const eccentricAnomaly = solveEccentricAnomaly(normalizedMeanAnomaly, elements.eccentricity)
+  const E = solveEccentricAnomaly(normalized, elements.eccentricity)
   const trueAnomaly =
     2 *
     Math.atan2(
-      Math.sqrt(1 + elements.eccentricity) * Math.sin(eccentricAnomaly / 2),
-      Math.sqrt(1 - elements.eccentricity) * Math.cos(eccentricAnomaly / 2),
+      Math.sqrt(1 + elements.eccentricity) * Math.sin(E / 2),
+      Math.sqrt(1 - elements.eccentricity) * Math.cos(E / 2),
     )
-  const radius = elements.semiMajorAxisKm * (1 - elements.eccentricity * Math.cos(eccentricAnomaly))
+  const radius = elements.semiMajorAxisKm * (1 - elements.eccentricity * Math.cos(E))
 
-  const xOrbitPlane = radius * Math.cos(trueAnomaly)
-  const yOrbitPlane = radius * Math.sin(trueAnomaly)
+  let x = radius * Math.cos(trueAnomaly)
+  let y = radius * Math.sin(trueAnomaly)
+  let z = 0
 
-  const position = new THREE.Vector3(xOrbitPlane, yOrbitPlane, 0)
-  position.applyAxisAngle(new THREE.Vector3(0, 0, 1), THREE.MathUtils.degToRad(elements.periapsisDeg))
-  position.applyAxisAngle(new THREE.Vector3(1, 0, 0), THREE.MathUtils.degToRad(elements.inclinationDeg))
-  position.applyAxisAngle(new THREE.Vector3(0, 0, 1), THREE.MathUtils.degToRad(elements.nodeDeg))
+  // Rotate by argument of periapsis about Z.
+  const w = elements.periapsisDeg * DEG
+  let cos = Math.cos(w)
+  let sin = Math.sin(w)
+  ;[x, y] = [x * cos - y * sin, x * sin + y * cos]
 
-  return position
+  // Rotate by inclination about X.
+  const i = elements.inclinationDeg * DEG
+  cos = Math.cos(i)
+  sin = Math.sin(i)
+  ;[y, z] = [y * cos - z * sin, y * sin + z * cos]
+
+  // Rotate by longitude of ascending node about Z.
+  const n = elements.nodeDeg * DEG
+  cos = Math.cos(n)
+  sin = Math.sin(n)
+  ;[x, y] = [x * cos - y * sin, x * sin + y * cos]
+
+  return vec3d(x, y, z)
 }
 
-/** Mean orbital period (days) for a circular orbit of the given radius around a body of the given mass. */
+/** Mean orbital period (days) for a circular orbit of the given radius about the given mass. */
 export function periodFromSemiMajorAxis(semiMajorAxisKm: number, parentMassKg: number): number {
   const G = 6.6743e-11
   const a = semiMajorAxisKm * 1000
-  const seconds = TWO_PI * Math.sqrt((a * a * a) / (G * parentMassKg))
-  return seconds / 86_400
+  return (TWO_PI * Math.sqrt((a * a * a) / (G * parentMassKg))) / 86_400
+}
+
+/**
+ * Sample one full orbit as a closed polyline, in kilometres in the parent's equatorial
+ * frame. Sampling is uniform in eccentric anomaly rather than in time, which puts more
+ * vertices near periapsis where the curvature is — a uniform-in-time sample of a comet
+ * orbit spends almost every vertex out at aphelion where the path is nearly straight.
+ */
+export function sampleOrbit(elements: KeplerianElements, samples = 256): Vec3d[] {
+  const points: Vec3d[] = []
+  const { eccentricity: e, semiMajorAxisKm: a } = elements
+  const w = elements.periapsisDeg * DEG
+  const i = elements.inclinationDeg * DEG
+  const n = elements.nodeDeg * DEG
+
+  for (let s = 0; s <= samples; s++) {
+    const E = (s / samples) * TWO_PI
+    const trueAnomaly = 2 * Math.atan2(Math.sqrt(1 + e) * Math.sin(E / 2), Math.sqrt(1 - e) * Math.cos(E / 2))
+    const radius = a * (1 - e * Math.cos(E))
+
+    let x = radius * Math.cos(trueAnomaly)
+    let y = radius * Math.sin(trueAnomaly)
+    let z = 0
+    let cos = Math.cos(w)
+    let sin = Math.sin(w)
+    ;[x, y] = [x * cos - y * sin, x * sin + y * cos]
+    cos = Math.cos(i)
+    sin = Math.sin(i)
+    ;[y, z] = [y * cos - z * sin, y * sin + z * cos]
+    cos = Math.cos(n)
+    sin = Math.sin(n)
+    ;[x, y] = [x * cos - y * sin, x * sin + y * cos]
+
+    points.push(vec3d(x, y, z))
+  }
+  return points
 }

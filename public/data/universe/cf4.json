@@ -1,0 +1,169 @@
+{
+  "dataset": "Cosmicflows-4 group catalogue — redshift-independent distances of galaxy groups",
+  "file": "cf4.bin",
+  "kind": "MEASURED",
+  "recordCount": 38053,
+  "recordBytes": 20,
+  "totalBytes": 761060,
+  "byteOrder": "little-endian",
+  "layout": "struct-of-arrays (all of field 0, then all of field 1, ...)",
+  "coordinateFrame": "de Vaucouleurs supergalactic (SGL/SGB), as published in the table — no frame conversion applied. Cartesian: X = d cos(SGB) cos(SGL), Y = d cos(SGB) sin(SGL), Z = d sin(SGB).",
+  "epoch": "J2000.0 (equatorial coordinates the supergalactic frame is defined against)",
+  "distanceKind": {
+    "enumField": "distanceKind",
+    "values": {
+      "0": "luminosity_distance — weighted-average distance modulus DMzp from secondary indicators (TF, FP, SBF, SNIa, SNII)",
+      "1": "trgb_cepheid — group contains >=1 TRGB / Cepheid / maser calibrator (o_DMcal > 0); DMzp is anchored on it"
+    },
+    "counts": {
+      "0": 37717,
+      "1": 336
+    },
+    "note": "All distances are luminosity distances derived from distance moduli, REDSHIFT-INDEPENDENT. They are not comoving distances and are not redshift-space positions, so this catalogue has no Fingers-of-God. CF4 is internally calibrated to H0 = 74.6 km/s/Mpc; see cosmology.json for the H0 tension note before mixing these distances with Planck-based comoving distances."
+  },
+  "fields": [
+    {
+      "name": "distMpc",
+      "dtype": "float32",
+      "byteOffset": 0,
+      "byteLength": 152212,
+      "unit": "Mpc",
+      "description": "Luminosity distance corresponding to DMzp (VizieR column Dist).",
+      "quantization": null,
+      "dequantize": "value"
+    },
+    {
+      "name": "pgc",
+      "dtype": "uint32",
+      "byteOffset": 152212,
+      "byteLength": 152212,
+      "unit": null,
+      "description": "PGC id of the dominant galaxy in the group (VizieR column 1PGC). Stable identifier.",
+      "quantization": null,
+      "dequantize": "value"
+    },
+    {
+      "name": "sgl",
+      "dtype": "uint16",
+      "byteOffset": 304424,
+      "byteLength": 76106,
+      "unit": "deg",
+      "description": "Supergalactic longitude, 0..360.",
+      "quantization": {
+        "scale": 0.0054931640625,
+        "offset": 0,
+        "maxErrorDeg": 0.00274658203125
+      },
+      "dequantize": "deg = value * 0.0054931640625"
+    },
+    {
+      "name": "sgb",
+      "dtype": "int16",
+      "byteOffset": 380530,
+      "byteLength": 76106,
+      "unit": "deg",
+      "description": "Supergalactic latitude, -90..+90.",
+      "quantization": {
+        "scale": 0.0027466658528397473,
+        "offset": 0,
+        "maxErrorDeg": 0.0013733329264198737
+      },
+      "dequantize": "deg = value * 0.0027466658528397473"
+    },
+    {
+      "name": "eDMav",
+      "dtype": "uint16",
+      "byteOffset": 456636,
+      "byteLength": 76106,
+      "unit": "mag",
+      "description": "Uncertainty in the average distance modulus (VizieR column e_DMav). This is the line-of-sight distance error that dominates; the renderer elongates each group radially by it instead of drawing a point. VALUE 0 MEANS NOT AVAILABLE, not \"zero error\": 228 records carry 0.0 in the source table and must be drawn with a fallback extent (or flagged), never as an exactly-known distance.",
+      "quantization": {
+        "scale": 0.0001,
+        "offset": 0
+      },
+      "dequantize": "mag = value * 1e-4 ; fractional radial half-extent = 10**(mag/5) - 1 ; radial extent in Mpc = distMpc * (10**(mag/5) - 1)"
+    },
+    {
+      "name": "vcmb",
+      "dtype": "int16",
+      "byteOffset": 532742,
+      "byteLength": 76106,
+      "unit": "km/s",
+      "description": "Systemic velocity in the CMB frame (VizieR column Vcmb). Independent of distMpc.",
+      "quantization": null,
+      "dequantize": "value"
+    },
+    {
+      "name": "ngal",
+      "dtype": "uint16",
+      "byteOffset": 608848,
+      "byteLength": 76106,
+      "unit": null,
+      "description": "Number of member galaxies in the group. 1 = an ungrouped single galaxy.",
+      "quantization": null,
+      "dequantize": "value"
+    },
+    {
+      "name": "distanceKind",
+      "dtype": "uint8",
+      "byteOffset": 684954,
+      "byteLength": 38053,
+      "unit": null,
+      "description": "Distance-kind enum; see distanceKind.values.",
+      "quantization": null,
+      "dequantize": "value"
+    },
+    {
+      "name": "nCalibrators",
+      "dtype": "uint8",
+      "byteOffset": 723007,
+      "byteLength": 38053,
+      "unit": null,
+      "description": "Number of member galaxies with calibrator-quality distances (o_DMcal), clamped to 255.",
+      "quantization": null,
+      "dequantize": "value"
+    }
+  ],
+  "statistics": {
+    "distanceMpc": {
+      "min": 0.1,
+      "max": 772.7
+    },
+    "fractionalDistanceError": {
+      "mean": 0.2478,
+      "max": 1.6424,
+      "note": "Derived from e_DMav; this is why groups must be drawn radially elongated."
+    },
+    "groupsWithMoreThanOneMember": 5474
+  },
+  "knownSourceDefects": {
+    "note": "These are defects in the upstream VizieR table, reproduced here verbatim because this build does not silently correct its source. Confirmed against VizieR TAP directly.",
+    "virgoClusterSglSgb": {
+      "affectedRecords": [
+        {
+          "pgc": 41220,
+          "galaxy": "NGC 4472 / M49",
+          "sourceSgl": 148.144,
+          "sourceSgb": 16.9072
+        },
+        {
+          "pgc": 41361,
+          "galaxy": "NGC 4486 / M87",
+          "sourceSgl": 283.9352,
+          "sourceSgb": 74.5198
+        }
+      ],
+      "problem": "Both records are Virgo Cluster galaxies (Vcmb = 1479 km/s; PGC 41220 is the catalogue richest nearby group at Ngal = 164, Dist = 16.2 Mpc). The Virgo Cluster true supergalactic position is SGL 102.9, SGB -2.3. The SGL/SGB values above place PGC 41220 about 47 deg away and PGC 41361 about 110 deg away. PGC 41361 SGL/SGB equal M87 GALACTIC coordinates (l = 283.78, b = 74.49) to 0.16 deg, so galactic coordinates appear to have been written into the supergalactic columns for that row.",
+      "evidence": "2MRS galaxy surface density within 2 deg: 4.9x the sky average at the true Virgo position, but 0.8x and 0.2x at these two source positions, i.e. empty sky.",
+      "rendererGuidance": "Do NOT render these two records at their stored SGL/SGB. Either drop them, or override to SGL 102.9 / SGB -2.3 and label the override. Distance, Vcmb and Ngal for PGC 41220 are correct and match the Virgo Cluster."
+    }
+  },
+  "sourceUrl": "https://vizier.cds.unistra.fr/viz-bin/VizieR-3?-source=J/ApJ/944/94/groups",
+  "vizierCatalogue": "J/ApJ/944/94",
+  "vizierTable": "J/ApJ/944/94/groups (= published tables 3 and 4 merged by CDS)",
+  "sourceVersion": "Tully, Kourkchi, Courtois et al. 2023, ApJ 944, 94 (2023ApJ...944...94T)",
+  "retrieved": "2026-10-14",
+  "licence": "CC BY 4.0 (CDS VizieR service) — underlying catalogue (c) the cited authors / AAS",
+  "attribution": "Cosmicflows-4 — Tully, Kourkchi, Courtois et al. (2023), ApJ 944, 94. Retrieved from VizieR (CDS, Strasbourg).",
+  "sha256": "0d42f25bec6fa28180b0a9c0ab39619732f9552a7cf0daa08dfff5d66b9292a5"
+}

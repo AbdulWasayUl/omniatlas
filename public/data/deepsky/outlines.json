@@ -1,0 +1,2797 @@
+{
+  "format": "struct-of-arrays",
+  "endianness": "little",
+  "binary": "outlines.bin",
+  "outlineCount": 379,
+  "distinctObjects": 193,
+  "byBrightnessLevel": {
+    "1": 107,
+    "2": 171,
+    "3": 101
+  },
+  "ringCount": 513,
+  "pointCount": 101566,
+  "totalBytes": 420490,
+  "frame": "ICRS (J2000 equatorial)",
+  "epoch": "J2000.0",
+  "units": "degrees after dequantization",
+  "quantization": {
+    "scheme": "per-outline bounding-box centre + per-outline int16 scale",
+    "dequantize": [
+      "o = ringOutline[r]",
+      "raDeg  = outlineRaMid[o]  + pointRa[p]  * outlineRaScale[o]   // then wrap into [0,360)",
+      "decDeg = outlineDecMid[o] + pointDec[p] * outlineDecScale[o]"
+    ],
+    "worstCaseErrorArcsec": 0.691,
+    "note": "RA is unwrapped per outline before quantizing so shapes straddling RA = 0 stay contiguous; dequantized RA may fall slightly outside [0,360) and must be wrapped."
+  },
+  "traversal": "for each outline o: for r in [outlineRingStart[o], +outlineRingCount[o]): draw the closed polyline pointRa/pointDec[ringPointStart[r] .. +ringPointCount[r]]",
+  "fields": [
+    {
+      "name": "outlineRaMid",
+      "dtype": "float32",
+      "byteOffset": 0,
+      "byteLength": 1516,
+      "count": 379,
+      "units": "degree",
+      "note": "RA of the outline bounding-box centre"
+    },
+    {
+      "name": "outlineDecMid",
+      "dtype": "float32",
+      "byteOffset": 1516,
+      "byteLength": 1516,
+      "count": 379,
+      "units": "degree",
+      "note": "Dec of the outline bounding-box centre"
+    },
+    {
+      "name": "outlineRaScale",
+      "dtype": "float32",
+      "byteOffset": 3032,
+      "byteLength": 1516,
+      "count": 379,
+      "units": "degree per code unit",
+      "note": "RA dequantization scale"
+    },
+    {
+      "name": "outlineDecScale",
+      "dtype": "float32",
+      "byteOffset": 4548,
+      "byteLength": 1516,
+      "count": 379,
+      "units": "degree per code unit",
+      "note": "Dec dequantization scale"
+    },
+    {
+      "name": "outlineRingStart",
+      "dtype": "uint32",
+      "byteOffset": 6064,
+      "byteLength": 1516,
+      "count": 379,
+      "units": "index",
+      "note": "first ring index for this outline"
+    },
+    {
+      "name": "outlineRingCount",
+      "dtype": "uint32",
+      "byteOffset": 7580,
+      "byteLength": 1516,
+      "count": 379,
+      "units": "count",
+      "note": "number of rings in this outline"
+    },
+    {
+      "name": "ringPointStart",
+      "dtype": "uint32",
+      "byteOffset": 9096,
+      "byteLength": 2052,
+      "count": 513,
+      "units": "index",
+      "note": "first point index for this ring"
+    },
+    {
+      "name": "ringPointCount",
+      "dtype": "uint32",
+      "byteOffset": 11148,
+      "byteLength": 2052,
+      "count": 513,
+      "units": "count",
+      "note": "number of points in this ring"
+    },
+    {
+      "name": "ringOutline",
+      "dtype": "uint16",
+      "byteOffset": 13200,
+      "byteLength": 1026,
+      "count": 513,
+      "units": "index",
+      "note": "owning outline index"
+    },
+    {
+      "name": "pointRa",
+      "dtype": "int16",
+      "byteOffset": 14226,
+      "byteLength": 203132,
+      "count": 101566,
+      "units": "code",
+      "note": "quantized RA offset"
+    },
+    {
+      "name": "pointDec",
+      "dtype": "int16",
+      "byteOffset": 217358,
+      "byteLength": 203132,
+      "count": 101566,
+      "units": "code",
+      "note": "quantized Dec offset"
+    }
+  ],
+  "outlines": [
+    {
+      "i": 0,
+      "file": "Antlia_lv1.txt",
+      "object": "Antlia",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 1,
+      "file": "C9_lv2.txt",
+      "object": "C9",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 2,
+      "file": "Cepheus_lv1.txt",
+      "object": "Cepheus",
+      "level": 1,
+      "rings": 10
+    },
+    {
+      "i": 3,
+      "file": "CoronaAustralis_lv1.txt",
+      "object": "CoronaAustralis",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 4,
+      "file": "Cygnus_lv1.txt",
+      "object": "Cygnus",
+      "level": 1,
+      "rings": 2
+    },
+    {
+      "i": 5,
+      "file": "Cygnus_lv2.txt",
+      "object": "Cygnus",
+      "level": 2,
+      "rings": 9
+    },
+    {
+      "i": 6,
+      "file": "Cygnus_lv3.txt",
+      "object": "Cygnus",
+      "level": 3,
+      "rings": 5
+    },
+    {
+      "i": 7,
+      "file": "IC0059_lv1.txt",
+      "object": "IC0059",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 8,
+      "file": "IC0059_lv2.txt",
+      "object": "IC0059",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 9,
+      "file": "IC0063_lv2.txt",
+      "object": "IC0063",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 10,
+      "file": "IC0341_lv1.txt",
+      "object": "IC0341",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 11,
+      "file": "IC0348_lv1.txt",
+      "object": "IC0348",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 12,
+      "file": "IC0348_lv2.txt",
+      "object": "IC0348",
+      "level": 2,
+      "rings": 2
+    },
+    {
+      "i": 13,
+      "file": "IC0348_lv3.txt",
+      "object": "IC0348",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 14,
+      "file": "IC0359A_lv1.txt",
+      "object": "IC0359A",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 15,
+      "file": "IC0405_lv1.txt",
+      "object": "IC0405",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 16,
+      "file": "IC0405_lv2.txt",
+      "object": "IC0405",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 17,
+      "file": "IC0405_lv3.txt",
+      "object": "IC0405",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 18,
+      "file": "IC0410_lv2.txt",
+      "object": "IC0410",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 19,
+      "file": "IC0410_lv3.txt",
+      "object": "IC0410",
+      "level": 3,
+      "rings": 4
+    },
+    {
+      "i": 20,
+      "file": "IC0417_lv2.txt",
+      "object": "IC0417",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 21,
+      "file": "IC0417_lv3.txt",
+      "object": "IC0417",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 22,
+      "file": "IC0423_lv2.txt",
+      "object": "IC0423",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 23,
+      "file": "IC0424_lv1.txt",
+      "object": "IC0424",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 24,
+      "file": "IC0424_lv2.txt",
+      "object": "IC0424",
+      "level": 2,
+      "rings": 2
+    },
+    {
+      "i": 25,
+      "file": "IC0426_lv2.txt",
+      "object": "IC0426",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 26,
+      "file": "IC0431_lv2.txt",
+      "object": "IC0431",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 27,
+      "file": "IC0432_lv3.txt",
+      "object": "IC0432",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 28,
+      "file": "IC0434_lv1.txt",
+      "object": "IC0434",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 29,
+      "file": "IC0434_lv2.txt",
+      "object": "IC0434",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 30,
+      "file": "IC0434_lv3.txt",
+      "object": "IC0434",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 31,
+      "file": "IC0435_lv2.txt",
+      "object": "IC0435",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 32,
+      "file": "IC0443_lv1.txt",
+      "object": "IC0443",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 33,
+      "file": "IC0443_lv2.txt",
+      "object": "IC0443",
+      "level": 2,
+      "rings": 2
+    },
+    {
+      "i": 34,
+      "file": "IC0443_lv3.txt",
+      "object": "IC0443",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 35,
+      "file": "IC0444_lv1.txt",
+      "object": "IC0444",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 36,
+      "file": "IC0444_lv2.txt",
+      "object": "IC0444",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 37,
+      "file": "IC0446_lv1.txt",
+      "object": "IC0446",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 38,
+      "file": "IC0446_lv2.txt",
+      "object": "IC0446",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 39,
+      "file": "IC0447_lv1.txt",
+      "object": "IC0447",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 40,
+      "file": "IC0447_lv2.txt",
+      "object": "IC0447",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 41,
+      "file": "IC0466_lv2.txt",
+      "object": "IC0466",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 42,
+      "file": "IC1274_lv3.txt",
+      "object": "IC1274",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 43,
+      "file": "IC1284_lv1.txt",
+      "object": "IC1284",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 44,
+      "file": "IC1284_lv2.txt",
+      "object": "IC1284",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 45,
+      "file": "IC1287_lv1.txt",
+      "object": "IC1287",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 46,
+      "file": "IC1287_lv2.txt",
+      "object": "IC1287",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 47,
+      "file": "IC1396_lv1.txt",
+      "object": "IC1396",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 48,
+      "file": "IC1396_lv2.txt",
+      "object": "IC1396",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 49,
+      "file": "IC1470_lv2.txt",
+      "object": "IC1470",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 50,
+      "file": "IC1805_lv1.txt",
+      "object": "IC1805",
+      "level": 1,
+      "rings": 5
+    },
+    {
+      "i": 51,
+      "file": "IC1805_lv2.txt",
+      "object": "IC1805",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 52,
+      "file": "IC1848_lv1.txt",
+      "object": "IC1848",
+      "level": 1,
+      "rings": 3
+    },
+    {
+      "i": 53,
+      "file": "IC1848_lv2.txt",
+      "object": "IC1848",
+      "level": 2,
+      "rings": 3
+    },
+    {
+      "i": 54,
+      "file": "IC2087_lv1.txt",
+      "object": "IC2087",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 55,
+      "file": "IC2128_lv1.txt",
+      "object": "IC2128",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 56,
+      "file": "IC2128_lv2.txt",
+      "object": "IC2128",
+      "level": 2,
+      "rings": 3
+    },
+    {
+      "i": 57,
+      "file": "IC2128_lv3.txt",
+      "object": "IC2128",
+      "level": 3,
+      "rings": 3
+    },
+    {
+      "i": 58,
+      "file": "IC2162_lv1.txt",
+      "object": "IC2162",
+      "level": 1,
+      "rings": 2
+    },
+    {
+      "i": 59,
+      "file": "IC2162_lv2.txt",
+      "object": "IC2162",
+      "level": 2,
+      "rings": 3
+    },
+    {
+      "i": 60,
+      "file": "IC2162_lv3.txt",
+      "object": "IC2162",
+      "level": 3,
+      "rings": 2
+    },
+    {
+      "i": 61,
+      "file": "IC2177_lv1.txt",
+      "object": "IC2177",
+      "level": 1,
+      "rings": 2
+    },
+    {
+      "i": 62,
+      "file": "IC2177_lv2.txt",
+      "object": "IC2177",
+      "level": 2,
+      "rings": 2
+    },
+    {
+      "i": 63,
+      "file": "IC2177_lv3.txt",
+      "object": "IC2177",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 64,
+      "file": "IC2220_lv2.txt",
+      "object": "IC2220",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 65,
+      "file": "IC2220_lv3.txt",
+      "object": "IC2220",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 66,
+      "file": "IC2599_lv2.txt",
+      "object": "IC2599",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 67,
+      "file": "IC2599_lv3.txt",
+      "object": "IC2599",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 68,
+      "file": "IC2872_lv2.txt",
+      "object": "IC2872",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 69,
+      "file": "IC2872_lv3.txt",
+      "object": "IC2872",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 70,
+      "file": "IC2944_lv1.txt",
+      "object": "IC2944",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 71,
+      "file": "IC2944_lv2.txt",
+      "object": "IC2944",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 72,
+      "file": "IC2944_lv3.txt",
+      "object": "IC2944",
+      "level": 3,
+      "rings": 2
+    },
+    {
+      "i": 73,
+      "file": "IC2948_lv3.txt",
+      "object": "IC2948",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 74,
+      "file": "IC2966_lv2.txt",
+      "object": "IC2966",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 75,
+      "file": "IC4592_lv1.txt",
+      "object": "IC4592",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 76,
+      "file": "IC4592_lv2.txt",
+      "object": "IC4592",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 77,
+      "file": "IC4601_lv2.txt",
+      "object": "IC4601",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 78,
+      "file": "IC4628_lv1.txt",
+      "object": "IC4628",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 79,
+      "file": "IC4628_lv2.txt",
+      "object": "IC4628",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 80,
+      "file": "IC4628_lv3.txt",
+      "object": "IC4628",
+      "level": 3,
+      "rings": 2
+    },
+    {
+      "i": 81,
+      "file": "IC4684_lv2.txt",
+      "object": "IC4684",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 82,
+      "file": "IC4701_lv2.txt",
+      "object": "IC4701",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 83,
+      "file": "IC4706_lv2.txt",
+      "object": "IC4706",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 84,
+      "file": "IC4706_lv3.txt",
+      "object": "IC4706",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 85,
+      "file": "IC4812_lv3.txt",
+      "object": "IC4812",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 86,
+      "file": "IC4954_lv2.txt",
+      "object": "IC4954",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 87,
+      "file": "IC4955_lv2.txt",
+      "object": "IC4955",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 88,
+      "file": "IC5068_lv1.txt",
+      "object": "IC5068",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 89,
+      "file": "IC5068_lv2.txt",
+      "object": "IC5068",
+      "level": 2,
+      "rings": 2
+    },
+    {
+      "i": 90,
+      "file": "IC5070_lv2.txt",
+      "object": "IC5070",
+      "level": 2,
+      "rings": 2
+    },
+    {
+      "i": 91,
+      "file": "IC5076_lv2.txt",
+      "object": "IC5076",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 92,
+      "file": "IC5146_lv1.txt",
+      "object": "IC5146",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 93,
+      "file": "IC5146_lv2.txt",
+      "object": "IC5146",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 94,
+      "file": "IC5148_lv2.txt",
+      "object": "IC5148",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 95,
+      "file": "LBN1032_lv1.txt",
+      "object": "LBN1032",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 96,
+      "file": "LBN1032_lv2.txt",
+      "object": "LBN1032",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 97,
+      "file": "LBN1032_lv3.txt",
+      "object": "LBN1032",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 98,
+      "file": "LBN1037_lv2.txt",
+      "object": "LBN1037",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 99,
+      "file": "LBN1037_lv3.txt",
+      "object": "LBN1037",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 100,
+      "file": "LMC_lv1.txt",
+      "object": "LMC",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 101,
+      "file": "LMC_lv2.txt",
+      "object": "LMC",
+      "level": 2,
+      "rings": 4
+    },
+    {
+      "i": 102,
+      "file": "M045_lv1.txt",
+      "object": "M045",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 103,
+      "file": "M045_lv2.txt",
+      "object": "M045",
+      "level": 2,
+      "rings": 2
+    },
+    {
+      "i": 104,
+      "file": "M045_lv3.txt",
+      "object": "M045",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 105,
+      "file": "NGC0246_lv2.txt",
+      "object": "NGC0246",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 106,
+      "file": "NGC0248_lv1.txt",
+      "object": "NGC0248",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 107,
+      "file": "NGC0248_lv2.txt",
+      "object": "NGC0248",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 108,
+      "file": "NGC0248_lv3.txt",
+      "object": "NGC0248",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 109,
+      "file": "NGC0249_lv1.txt",
+      "object": "NGC0249",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 110,
+      "file": "NGC0249_lv2.txt",
+      "object": "NGC0249",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 111,
+      "file": "NGC0261_lv1.txt",
+      "object": "NGC0261",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 112,
+      "file": "NGC0261_lv2.txt",
+      "object": "NGC0261",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 113,
+      "file": "NGC0281_lv1.txt",
+      "object": "NGC0281",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 114,
+      "file": "NGC0281_lv2.txt",
+      "object": "NGC0281",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 115,
+      "file": "NGC0281_lv3.txt",
+      "object": "NGC0281",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 116,
+      "file": "NGC0456_lv1.txt",
+      "object": "NGC0456",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 117,
+      "file": "NGC0456_lv2.txt",
+      "object": "NGC0456",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 118,
+      "file": "NGC0460_lv1.txt",
+      "object": "NGC0460",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 119,
+      "file": "NGC0460_lv2.txt",
+      "object": "NGC0460",
+      "level": 2,
+      "rings": 2
+    },
+    {
+      "i": 120,
+      "file": "NGC0595_lv2.txt",
+      "object": "NGC0595",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 121,
+      "file": "NGC0595_lv3.txt",
+      "object": "NGC0595",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 122,
+      "file": "NGC0604_lv2.txt",
+      "object": "NGC0604",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 123,
+      "file": "NGC0604_lv3.txt",
+      "object": "NGC0604",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 124,
+      "file": "NGC0650_lv1.txt",
+      "object": "NGC0650",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 125,
+      "file": "NGC0650_lv2.txt",
+      "object": "NGC0650",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 126,
+      "file": "NGC0650_lv3.txt",
+      "object": "NGC0650",
+      "level": 3,
+      "rings": 2
+    },
+    {
+      "i": 127,
+      "file": "NGC1333_lv1.txt",
+      "object": "NGC1333",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 128,
+      "file": "NGC1333_lv2.txt",
+      "object": "NGC1333",
+      "level": 2,
+      "rings": 2
+    },
+    {
+      "i": 129,
+      "file": "NGC1360_lv1.txt",
+      "object": "NGC1360",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 130,
+      "file": "NGC1360_lv2.txt",
+      "object": "NGC1360",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 131,
+      "file": "NGC1491_lv1.txt",
+      "object": "NGC1491",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 132,
+      "file": "NGC1491_lv2.txt",
+      "object": "NGC1491",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 133,
+      "file": "NGC1491_lv3.txt",
+      "object": "NGC1491",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 134,
+      "file": "NGC1499_lv1.txt",
+      "object": "NGC1499",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 135,
+      "file": "NGC1499_lv2.txt",
+      "object": "NGC1499",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 136,
+      "file": "NGC1514_lv1.txt",
+      "object": "NGC1514",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 137,
+      "file": "NGC1514_lv2.txt",
+      "object": "NGC1514",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 138,
+      "file": "NGC1555_lv1.txt",
+      "object": "NGC1555",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 139,
+      "file": "NGC1555_lv2.txt",
+      "object": "NGC1555",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 140,
+      "file": "NGC1579_lv1.txt",
+      "object": "NGC1579",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 141,
+      "file": "NGC1579_lv2.txt",
+      "object": "NGC1579",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 142,
+      "file": "NGC1579_lv3.txt",
+      "object": "NGC1579",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 143,
+      "file": "NGC1624_lv1.txt",
+      "object": "NGC1624",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 144,
+      "file": "NGC1624_lv2.txt",
+      "object": "NGC1624",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 145,
+      "file": "NGC1624_lv3.txt",
+      "object": "NGC1624",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 146,
+      "file": "NGC1714_lv1.txt",
+      "object": "NGC1714",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 147,
+      "file": "NGC1714_lv2.txt",
+      "object": "NGC1714",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 148,
+      "file": "NGC1714_lv3.txt",
+      "object": "NGC1714",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 149,
+      "file": "NGC1715_lv2.txt",
+      "object": "NGC1715",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 150,
+      "file": "NGC1722_lv2.txt",
+      "object": "NGC1722",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 151,
+      "file": "NGC1727_lv1.txt",
+      "object": "NGC1727",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 152,
+      "file": "NGC1727_lv2.txt",
+      "object": "NGC1727",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 153,
+      "file": "NGC1736_lv1.txt",
+      "object": "NGC1736",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 154,
+      "file": "NGC1736_lv2.txt",
+      "object": "NGC1736",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 155,
+      "file": "NGC1736_lv3.txt",
+      "object": "NGC1736",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 156,
+      "file": "NGC1737_lv1.txt",
+      "object": "NGC1737",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 157,
+      "file": "NGC1737_lv2.txt",
+      "object": "NGC1737",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 158,
+      "file": "NGC1743_lv2.txt",
+      "object": "NGC1743",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 159,
+      "file": "NGC1743_lv3.txt",
+      "object": "NGC1743",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 160,
+      "file": "NGC1745_lv2.txt",
+      "object": "NGC1745",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 161,
+      "file": "NGC1748_lv2.txt",
+      "object": "NGC1748",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 162,
+      "file": "NGC1748_lv3.txt",
+      "object": "NGC1748",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 163,
+      "file": "NGC1760_lv1.txt",
+      "object": "NGC1760",
+      "level": 1,
+      "rings": 2
+    },
+    {
+      "i": 164,
+      "file": "NGC1760_lv2.txt",
+      "object": "NGC1760",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 165,
+      "file": "NGC1760_lv3.txt",
+      "object": "NGC1760",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 166,
+      "file": "NGC1763_lv3.txt",
+      "object": "NGC1763",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 167,
+      "file": "NGC1769_lv3.txt",
+      "object": "NGC1769",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 168,
+      "file": "NGC1770_lv1.txt",
+      "object": "NGC1770",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 169,
+      "file": "NGC1770_lv2.txt",
+      "object": "NGC1770",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 170,
+      "file": "NGC1773_lv2.txt",
+      "object": "NGC1773",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 171,
+      "file": "NGC1773_lv3.txt",
+      "object": "NGC1773",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 172,
+      "file": "NGC1788_lv1.txt",
+      "object": "NGC1788",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 173,
+      "file": "NGC1788_lv2.txt",
+      "object": "NGC1788",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 174,
+      "file": "NGC1788_lv3.txt",
+      "object": "NGC1788",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 175,
+      "file": "NGC1829_lv1.txt",
+      "object": "NGC1829",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 176,
+      "file": "NGC1829_lv2.txt",
+      "object": "NGC1829",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 177,
+      "file": "NGC1833_lv1.txt",
+      "object": "NGC1833",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 178,
+      "file": "NGC1833_lv2.txt",
+      "object": "NGC1833",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 179,
+      "file": "NGC1858_lv1.txt",
+      "object": "NGC1858",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 180,
+      "file": "NGC1858_lv2.txt",
+      "object": "NGC1858",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 181,
+      "file": "NGC1858_lv3.txt",
+      "object": "NGC1858",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 182,
+      "file": "NGC1869_lv2.txt",
+      "object": "NGC1869",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 183,
+      "file": "NGC1871_lv1.txt",
+      "object": "NGC1871",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 184,
+      "file": "NGC1871_lv2.txt",
+      "object": "NGC1871",
+      "level": 2,
+      "rings": 2
+    },
+    {
+      "i": 185,
+      "file": "NGC1874_lv2.txt",
+      "object": "NGC1874",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 186,
+      "file": "NGC1895_lv2.txt",
+      "object": "NGC1895",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 187,
+      "file": "NGC1895_lv3.txt",
+      "object": "NGC1895",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 188,
+      "file": "NGC1909_lv1.txt",
+      "object": "NGC1909",
+      "level": 1,
+      "rings": 2
+    },
+    {
+      "i": 189,
+      "file": "NGC1909_lv2.txt",
+      "object": "NGC1909",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 190,
+      "file": "NGC1910_lv2.txt",
+      "object": "NGC1910",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 191,
+      "file": "NGC1914_lv1.txt",
+      "object": "NGC1914",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 192,
+      "file": "NGC1914_lv2.txt",
+      "object": "NGC1914",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 193,
+      "file": "NGC1918_lv2.txt",
+      "object": "NGC1918",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 194,
+      "file": "NGC1919_lv1.txt",
+      "object": "NGC1919",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 195,
+      "file": "NGC1920_lv1.txt",
+      "object": "NGC1920",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 196,
+      "file": "NGC1920_lv2.txt",
+      "object": "NGC1920",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 197,
+      "file": "NGC1931_lv2.txt",
+      "object": "NGC1931",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 198,
+      "file": "NGC1931_lv3.txt",
+      "object": "NGC1931",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 199,
+      "file": "NGC1934_lv1.txt",
+      "object": "NGC1934",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 200,
+      "file": "NGC1934_lv2.txt",
+      "object": "NGC1934",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 201,
+      "file": "NGC1934_lv3.txt",
+      "object": "NGC1934",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 202,
+      "file": "NGC1945_lv2.txt",
+      "object": "NGC1945",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 203,
+      "file": "NGC1948_lv2.txt",
+      "object": "NGC1948",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 204,
+      "file": "NGC1952_lv2.txt",
+      "object": "NGC1952",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 205,
+      "file": "NGC1952_lv3.txt",
+      "object": "NGC1952",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 206,
+      "file": "NGC1955_lv1.txt",
+      "object": "NGC1955",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 207,
+      "file": "NGC1955_lv2.txt",
+      "object": "NGC1955",
+      "level": 2,
+      "rings": 2
+    },
+    {
+      "i": 208,
+      "file": "NGC1955_lv3.txt",
+      "object": "NGC1955",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 209,
+      "file": "NGC1968_lv3.txt",
+      "object": "NGC1968",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 210,
+      "file": "NGC1974_lv3.txt",
+      "object": "NGC1974",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 211,
+      "file": "NGC1976_lv1.txt",
+      "object": "NGC1976",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 212,
+      "file": "NGC1976_lv2.txt",
+      "object": "NGC1976",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 213,
+      "file": "NGC1976_lv3.txt",
+      "object": "NGC1976",
+      "level": 3,
+      "rings": 2
+    },
+    {
+      "i": 214,
+      "file": "NGC2014_lv1.txt",
+      "object": "NGC2014",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 215,
+      "file": "NGC2014_lv2.txt",
+      "object": "NGC2014",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 216,
+      "file": "NGC2014_lv3.txt",
+      "object": "NGC2014",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 217,
+      "file": "NGC2018_lv2.txt",
+      "object": "NGC2018",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 218,
+      "file": "NGC2018_lv3.txt",
+      "object": "NGC2018",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 219,
+      "file": "NGC2020_lv2.txt",
+      "object": "NGC2020",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 220,
+      "file": "NGC2023_lv2.txt",
+      "object": "NGC2023",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 221,
+      "file": "NGC2023_lv3.txt",
+      "object": "NGC2023",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 222,
+      "file": "NGC2024_lv2.txt",
+      "object": "NGC2024",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 223,
+      "file": "NGC2024_lv3.txt",
+      "object": "NGC2024",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 224,
+      "file": "NGC2032_lv2.txt",
+      "object": "NGC2032",
+      "level": 2,
+      "rings": 2
+    },
+    {
+      "i": 225,
+      "file": "NGC2032_lv3.txt",
+      "object": "NGC2032",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 226,
+      "file": "NGC2040_lv3.txt",
+      "object": "NGC2040",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 227,
+      "file": "NGC2048_lv2.txt",
+      "object": "NGC2048",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 228,
+      "file": "NGC2048_lv3.txt",
+      "object": "NGC2048",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 229,
+      "file": "NGC2064_lv2.txt",
+      "object": "NGC2064",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 230,
+      "file": "NGC2068_lv1.txt",
+      "object": "NGC2068",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 231,
+      "file": "NGC2068_lv2.txt",
+      "object": "NGC2068",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 232,
+      "file": "NGC2068_lv3.txt",
+      "object": "NGC2068",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 233,
+      "file": "NGC2070_lv2.txt",
+      "object": "NGC2070",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 234,
+      "file": "NGC2070_lv3.txt",
+      "object": "NGC2070",
+      "level": 3,
+      "rings": 2
+    },
+    {
+      "i": 235,
+      "file": "NGC2071_lv2.txt",
+      "object": "NGC2071",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 236,
+      "file": "NGC2071_lv3.txt",
+      "object": "NGC2071",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 237,
+      "file": "NGC2074_lv2.txt",
+      "object": "NGC2074",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 238,
+      "file": "NGC2074_lv3.txt",
+      "object": "NGC2074",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 239,
+      "file": "NGC2075_lv2.txt",
+      "object": "NGC2075",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 240,
+      "file": "NGC2077_lv2.txt",
+      "object": "NGC2077",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 241,
+      "file": "NGC2077_lv3.txt",
+      "object": "NGC2077",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 242,
+      "file": "NGC2078_lv2.txt",
+      "object": "NGC2078",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 243,
+      "file": "NGC2078_lv3.txt",
+      "object": "NGC2078",
+      "level": 3,
+      "rings": 2
+    },
+    {
+      "i": 244,
+      "file": "NGC2081_lv3.txt",
+      "object": "NGC2081",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 245,
+      "file": "NGC2103_lv2.txt",
+      "object": "NGC2103",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 246,
+      "file": "NGC2103_lv3.txt",
+      "object": "NGC2103",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 247,
+      "file": "NGC2113_lv2.txt",
+      "object": "NGC2113",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 248,
+      "file": "NGC2122_lv1.txt",
+      "object": "NGC2122",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 249,
+      "file": "NGC2122_lv2.txt",
+      "object": "NGC2122",
+      "level": 2,
+      "rings": 2
+    },
+    {
+      "i": 250,
+      "file": "NGC2122_lv3.txt",
+      "object": "NGC2122",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 251,
+      "file": "NGC2149_lv1.txt",
+      "object": "NGC2149",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 252,
+      "file": "NGC2149_lv2.txt",
+      "object": "NGC2149",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 253,
+      "file": "NGC2163_lv1.txt",
+      "object": "NGC2163",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 254,
+      "file": "NGC2163_lv2.txt",
+      "object": "NGC2163",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 255,
+      "file": "NGC2170_lv1.txt",
+      "object": "NGC2170",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 256,
+      "file": "NGC2170_lv2.txt",
+      "object": "NGC2170",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 257,
+      "file": "NGC2174_lv1.txt",
+      "object": "NGC2174",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 258,
+      "file": "NGC2174_lv2.txt",
+      "object": "NGC2174",
+      "level": 2,
+      "rings": 2
+    },
+    {
+      "i": 259,
+      "file": "NGC2174_lv3.txt",
+      "object": "NGC2174",
+      "level": 3,
+      "rings": 2
+    },
+    {
+      "i": 260,
+      "file": "NGC2182_lv1.txt",
+      "object": "NGC2182",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 261,
+      "file": "NGC2182_lv2.txt",
+      "object": "NGC2182",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 262,
+      "file": "NGC2183_lv1.txt",
+      "object": "NGC2183",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 263,
+      "file": "NGC2183_lv2.txt",
+      "object": "NGC2183",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 264,
+      "file": "NGC2185_lv2.txt",
+      "object": "NGC2185",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 265,
+      "file": "NGC2237_lv1.txt",
+      "object": "NGC2237",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 266,
+      "file": "NGC2237_lv2.txt",
+      "object": "NGC2237",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 267,
+      "file": "NGC2245_lv1.txt",
+      "object": "NGC2245",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 268,
+      "file": "NGC2245_lv2.txt",
+      "object": "NGC2245",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 269,
+      "file": "NGC2245_lv3.txt",
+      "object": "NGC2245",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 270,
+      "file": "NGC2247_lv1.txt",
+      "object": "NGC2247",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 271,
+      "file": "NGC2247_lv2.txt",
+      "object": "NGC2247",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 272,
+      "file": "NGC2247_lv3.txt",
+      "object": "NGC2247",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 273,
+      "file": "NGC2261_lv2.txt",
+      "object": "NGC2261",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 274,
+      "file": "NGC2264_lv1.txt",
+      "object": "NGC2264",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 275,
+      "file": "NGC2264_lv2.txt",
+      "object": "NGC2264",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 276,
+      "file": "NGC2264_lv3.txt",
+      "object": "NGC2264",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 277,
+      "file": "NGC2282_lv2.txt",
+      "object": "NGC2282",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 278,
+      "file": "NGC2316_lv1.txt",
+      "object": "NGC2316",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 279,
+      "file": "NGC2316_lv2.txt",
+      "object": "NGC2316",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 280,
+      "file": "NGC2327_lv2.txt",
+      "object": "NGC2327",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 281,
+      "file": "NGC2327_lv3.txt",
+      "object": "NGC2327",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 282,
+      "file": "NGC2359_lv1.txt",
+      "object": "NGC2359",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 283,
+      "file": "NGC2359_lv2.txt",
+      "object": "NGC2359",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 284,
+      "file": "NGC2359_lv3.txt",
+      "object": "NGC2359",
+      "level": 3,
+      "rings": 2
+    },
+    {
+      "i": 285,
+      "file": "NGC2467_lv1.txt",
+      "object": "NGC2467",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 286,
+      "file": "NGC2467_lv2.txt",
+      "object": "NGC2467",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 287,
+      "file": "NGC2467_lv3.txt",
+      "object": "NGC2467",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 288,
+      "file": "NGC2579_lv1.txt",
+      "object": "NGC2579",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 289,
+      "file": "NGC2579_lv2.txt",
+      "object": "NGC2579",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 290,
+      "file": "NGC2579_lv3.txt",
+      "object": "NGC2579",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 291,
+      "file": "NGC2626_lv2.txt",
+      "object": "NGC2626",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 292,
+      "file": "NGC2736_lv1.txt",
+      "object": "NGC2736",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 293,
+      "file": "NGC2736_lv2.txt",
+      "object": "NGC2736",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 294,
+      "file": "NGC3199_lv1.txt",
+      "object": "NGC3199",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 295,
+      "file": "NGC3199_lv2.txt",
+      "object": "NGC3199",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 296,
+      "file": "NGC3199_lv3.txt",
+      "object": "NGC3199",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 297,
+      "file": "NGC3247_lv2.txt",
+      "object": "NGC3247",
+      "level": 2,
+      "rings": 2
+    },
+    {
+      "i": 298,
+      "file": "NGC3247_lv3.txt",
+      "object": "NGC3247",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 299,
+      "file": "NGC3372_lv1.txt",
+      "object": "NGC3372",
+      "level": 1,
+      "rings": 3
+    },
+    {
+      "i": 300,
+      "file": "NGC3372_lv2.txt",
+      "object": "NGC3372",
+      "level": 2,
+      "rings": 3
+    },
+    {
+      "i": 301,
+      "file": "NGC3372_lv3.txt",
+      "object": "NGC3372",
+      "level": 3,
+      "rings": 5
+    },
+    {
+      "i": 302,
+      "file": "NGC3503_lv2.txt",
+      "object": "NGC3503",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 303,
+      "file": "NGC3503_lv3.txt",
+      "object": "NGC3503",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 304,
+      "file": "NGC3572_lv1.txt",
+      "object": "NGC3572",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 305,
+      "file": "NGC3572_lv2.txt",
+      "object": "NGC3572",
+      "level": 2,
+      "rings": 2
+    },
+    {
+      "i": 306,
+      "file": "NGC3572_lv3.txt",
+      "object": "NGC3572",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 307,
+      "file": "NGC3579_lv1.txt",
+      "object": "NGC3579",
+      "level": 1,
+      "rings": 2
+    },
+    {
+      "i": 308,
+      "file": "NGC3579_lv2.txt",
+      "object": "NGC3579",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 309,
+      "file": "NGC3579_lv3.txt",
+      "object": "NGC3579",
+      "level": 3,
+      "rings": 5
+    },
+    {
+      "i": 310,
+      "file": "NGC3603_lv3.txt",
+      "object": "NGC3603",
+      "level": 3,
+      "rings": 3
+    },
+    {
+      "i": 311,
+      "file": "NGC5367_lv1.txt",
+      "object": "NGC5367",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 312,
+      "file": "NGC5367_lv2.txt",
+      "object": "NGC5367",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 313,
+      "file": "NGC5367_lv3.txt",
+      "object": "NGC5367",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 314,
+      "file": "NGC6164_lv1.txt",
+      "object": "NGC6164",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 315,
+      "file": "NGC6164_lv2.txt",
+      "object": "NGC6164",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 316,
+      "file": "NGC6165_lv2.txt",
+      "object": "NGC6165",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 317,
+      "file": "NGC6188_lv1.txt",
+      "object": "NGC6188",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 318,
+      "file": "NGC6188_lv2.txt",
+      "object": "NGC6188",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 319,
+      "file": "NGC6334_lv1.txt",
+      "object": "NGC6334",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 320,
+      "file": "NGC6334_lv2.txt",
+      "object": "NGC6334",
+      "level": 2,
+      "rings": 5
+    },
+    {
+      "i": 321,
+      "file": "NGC6334_lv3.txt",
+      "object": "NGC6334",
+      "level": 3,
+      "rings": 5
+    },
+    {
+      "i": 322,
+      "file": "NGC6357_lv1.txt",
+      "object": "NGC6357",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 323,
+      "file": "NGC6357_lv2.txt",
+      "object": "NGC6357",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 324,
+      "file": "NGC6357_lv3.txt",
+      "object": "NGC6357",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 325,
+      "file": "NGC6514_lv1.txt",
+      "object": "NGC6514",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 326,
+      "file": "NGC6514_lv2.txt",
+      "object": "NGC6514",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 327,
+      "file": "NGC6514_lv3.txt",
+      "object": "NGC6514",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 328,
+      "file": "NGC6523_lv1.txt",
+      "object": "NGC6523",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 329,
+      "file": "NGC6523_lv2.txt",
+      "object": "NGC6523",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 330,
+      "file": "NGC6523_lv3.txt",
+      "object": "NGC6523",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 331,
+      "file": "NGC6559_lv2.txt",
+      "object": "NGC6559",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 332,
+      "file": "NGC6559_lv3.txt",
+      "object": "NGC6559",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 333,
+      "file": "NGC6589_lv2.txt",
+      "object": "NGC6589",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 334,
+      "file": "NGC6589_lv3.txt",
+      "object": "NGC6589",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 335,
+      "file": "NGC6590_lv2.txt",
+      "object": "NGC6590",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 336,
+      "file": "NGC6590_lv3.txt",
+      "object": "NGC6590",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 337,
+      "file": "NGC6611_lv1.txt",
+      "object": "NGC6611",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 338,
+      "file": "NGC6611_lv2.txt",
+      "object": "NGC6611",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 339,
+      "file": "NGC6611_lv3.txt",
+      "object": "NGC6611",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 340,
+      "file": "NGC6618_lv1.txt",
+      "object": "NGC6618",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 341,
+      "file": "NGC6618_lv2.txt",
+      "object": "NGC6618",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 342,
+      "file": "NGC6618_lv3.txt",
+      "object": "NGC6618",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 343,
+      "file": "NGC6727_lv2.txt",
+      "object": "NGC6727",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 344,
+      "file": "NGC6727_lv3.txt",
+      "object": "NGC6727",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 345,
+      "file": "NGC6729_lv3.txt",
+      "object": "NGC6729",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 346,
+      "file": "NGC6823_lv1.txt",
+      "object": "NGC6823",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 347,
+      "file": "NGC6823_lv2.txt",
+      "object": "NGC6823",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 348,
+      "file": "NGC6847_lv1.txt",
+      "object": "NGC6847",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 349,
+      "file": "NGC6888_lv3.txt",
+      "object": "NGC6888",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 350,
+      "file": "NGC6960_lv2.txt",
+      "object": "NGC6960",
+      "level": 2,
+      "rings": 10
+    },
+    {
+      "i": 351,
+      "file": "NGC6960_lv3.txt",
+      "object": "NGC6960",
+      "level": 3,
+      "rings": 2
+    },
+    {
+      "i": 352,
+      "file": "NGC6992_lv2.txt",
+      "object": "NGC6992",
+      "level": 2,
+      "rings": 2
+    },
+    {
+      "i": 353,
+      "file": "NGC6992_lv3.txt",
+      "object": "NGC6992",
+      "level": 3,
+      "rings": 2
+    },
+    {
+      "i": 354,
+      "file": "NGC7000_lv1.txt",
+      "object": "NGC7000",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 355,
+      "file": "NGC7000_lv2.txt",
+      "object": "NGC7000",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 356,
+      "file": "NGC7000_lv3.txt",
+      "object": "NGC7000",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 357,
+      "file": "NGC7023_lv1.txt",
+      "object": "NGC7023",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 358,
+      "file": "NGC7023_lv2.txt",
+      "object": "NGC7023",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 359,
+      "file": "NGC7023_lv3.txt",
+      "object": "NGC7023",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 360,
+      "file": "NGC7129_lv1.txt",
+      "object": "NGC7129",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 361,
+      "file": "NGC7129_lv2.txt",
+      "object": "NGC7129",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 362,
+      "file": "NGC7129_lv3.txt",
+      "object": "NGC7129",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 363,
+      "file": "NGC7380_lv1.txt",
+      "object": "NGC7380",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 364,
+      "file": "NGC7380_lv2.txt",
+      "object": "NGC7380",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 365,
+      "file": "NGC7380_lv3.txt",
+      "object": "NGC7380",
+      "level": 3,
+      "rings": 2
+    },
+    {
+      "i": 366,
+      "file": "NGC7538_lv2.txt",
+      "object": "NGC7538",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 367,
+      "file": "NGC7538_lv3.txt",
+      "object": "NGC7538",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 368,
+      "file": "NGC7635_lv2.txt",
+      "object": "NGC7635",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 369,
+      "file": "NGC7635_lv3.txt",
+      "object": "NGC7635",
+      "level": 3,
+      "rings": 1
+    },
+    {
+      "i": 370,
+      "file": "NGC7822_lv1.txt",
+      "object": "NGC7822",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 371,
+      "file": "NGC7822_lv2.txt",
+      "object": "NGC7822",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 372,
+      "file": "Orion_lv1.txt",
+      "object": "Orion",
+      "level": 1,
+      "rings": 4
+    },
+    {
+      "i": 373,
+      "file": "Orion_lv2.txt",
+      "object": "Orion",
+      "level": 2,
+      "rings": 4
+    },
+    {
+      "i": 374,
+      "file": "Puppis_lv1.txt",
+      "object": "Puppis",
+      "level": 1,
+      "rings": 3
+    },
+    {
+      "i": 375,
+      "file": "Scorpion_lv1.txt",
+      "object": "Scorpion",
+      "level": 1,
+      "rings": 1
+    },
+    {
+      "i": 376,
+      "file": "Scorpion_lv2.txt",
+      "object": "Scorpion",
+      "level": 2,
+      "rings": 1
+    },
+    {
+      "i": 377,
+      "file": "Vela_lv1.txt",
+      "object": "Vela",
+      "level": 1,
+      "rings": 5
+    },
+    {
+      "i": 378,
+      "file": "Vela_lv2.txt",
+      "object": "Vela",
+      "level": 2,
+      "rings": 16
+    }
+  ],
+  "methodology": "Isophote contours traced in Aladin Sky Atlas over DSS2 Color at three brightness levels (lv1 faintest .. lv3 brightest), simplified with shapely. See outlines/metodology.txt in the OpenNGC source.",
+  "acknowledgement": "This research has made use of \"Aladin sky atlas\" developed at CDS, Strasbourg Observatory, France.",
+  "sourceName": "OpenNGC",
+  "sourceUrl": "https://github.com/mattiaverga/OpenNGC",
+  "sourceFile": "https://codeload.github.com/mattiaverga/OpenNGC/tar.gz/refs/tags/v20260501",
+  "sourceVersion": "v20260501",
+  "sourceSha256": "b10c86c2008f51f4fe653face1923390431894930ef23d381c2d1e8075d04265",
+  "retrieved": "2026-10-14",
+  "licence": "CC-BY-SA-4.0",
+  "attribution": "OpenNGC — Mattia Verga, release v20260501 (https://github.com/mattiaverga/OpenNGC), CC BY-SA 4.0",
+  "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "sourceFilePath": "outlines/objects/*.txt"
+}
