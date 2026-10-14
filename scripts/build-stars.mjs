@@ -478,6 +478,12 @@ const gaiaToStar = new Map()
 let rows = 0
 let n = 0
 let droppedNoPosition = 0
+// AT-HYG encodes "no usable parallax" as the magic distance 100000 pc (parallax exactly
+// 0.01000 mas). These rows are real stars at an UNKNOWN distance, not measurements at 100 kpc.
+// They are kept (removing them would renumber the global index space) but counted and
+// documented so the renderer and the inspector can treat their positions as unreliable.
+const DIST_SENTINEL_PC = 100000
+let distSentinelRows = 0
 let droppedSol = 0
 let droppedNoMag = 0
 let ciDefaulted = 0
@@ -540,6 +546,7 @@ let maxDistPc = 0
     sz[i] = z
     const d = Math.hypot(x, y, z)
     sdist[i] = d
+    if (num(f[idx.dist]) === DIST_SENTINEL_PC) distSentinelRows++
     if (d > maxDistPc) maxDistPc = d
     smag[i] = mag
     sci[i] = ci
@@ -863,7 +870,7 @@ const tierAFields = (m) => [
   { name: 'y', dtype: 'float32', count: m, byteOffset: 4 * m, units: 'pc' },
   { name: 'z', dtype: 'float32', count: m, byteOffset: 8 * m, units: 'pc' },
   { name: 'magu', dtype: 'uint8', count: m, byteOffset: 12 * m, units: 'quantized apparent magnitude' },
-  { name: 'ciu', dtype: 'uint8', count: m, byteOffset: 13 * m, units: 'quantized Johnson B-V colour index' },
+  { name: 'ciu', dtype: 'uint8', count: m, byteOffset: 13 * m, units: 'quantized colour index — Tycho BT-VT for AT-HYG rows, Johnson B-V for the HYG back-filled rows (flag 0x80); see dequantization.colourIndexBand' },
   { name: 'flags', dtype: 'uint8', count: m, byteOffset: 14 * m, units: 'bitfield' },
   { name: 'con', dtype: 'uint8', count: m, byteOffset: 15 * m, units: 'index into `constellations`; 255 = none' },
 ]
@@ -977,7 +984,22 @@ const dequantization = {
   magnitude:
     'mag = magu / 16 - 2    (apparent V/VT magnitude; magu = round((mag + 2) * 16); step 0.0625 mag; representable range -2.000 .. +13.938)',
   colourIndex:
-    'ci = ciu / 40 - 0.5    (Johnson B-V; ciu = round((ci + 0.5) * 40); step 0.025; representable range -0.500 .. +5.875)',
+    'ci = ciu / 40 - 0.5    (colour index; ciu = round((ci + 0.5) * 40); step 0.025; representable range -0.500 .. +5.875)',
+  colourIndexBand:
+    'IMPORTANT: the stored colour index is NOT Johnson B-V for most stars. AT-HYG`s `ci` column is the '
+    + 'Tycho BT-VT colour for every row whose mag_src is T, which is the large majority. Measured against '
+    + 'HYG v4.1`s Johnson B-V over 106,941 cross-matched stars, the offset is colour dependent: about '
+    + '+0.00 at B-V 0.0, +0.02 at 0.45, +0.08 at 0.75, +0.18 at 1.05, +0.26 at 1.35, +0.32 at 1.75 and '
+    + '+0.50 beyond 2.0 — i.e. red stars are stored noticeably redder than their Johnson B-V. The 165 '
+    + 'stars flagged 0x80 were back-filled from HYG v4.1 and ARE Johnson B-V. A renderer mapping colour '
+    + 'index to temperature should either apply a BT-VT to B-V transformation or accept that K and M '
+    + 'stars render somewhat too red.',
+  magnitudeBand:
+    'The stored apparent magnitude is AT-HYG`s `mag`, which for mag_src=T rows is the Tycho/Hipparcos '
+    + 'band rather than Johnson V. Median offset against HYG v4.1 Johnson V over 107,336 cross-matched '
+    + 'stars is +0.074 mag, reaching about +0.37 for the brightest stars (Sirius is stored as -1.088; its '
+    + 'Johnson V is -1.44). Brightness ORDERING is essentially preserved, so brightest-first sorting and '
+    + 'magnitude cuts remain valid, but the number should be labelled an instrumental magnitude, not V.',
   absoluteMagnitude:
     'absmag = mag - 5 * (log10(sqrt(x*x + y*y + z*z)) - 1)   — not stored; derive it from the dequantized mag and the position',
   positionL0L1: 'float32 parsecs, stored verbatim — no quantization applied',
@@ -1030,7 +1052,7 @@ const l2Index = {
     { name: 'y', dtype: 'int16', byteOffset: '2 * count', units: 'quantized pc' },
     { name: 'z', dtype: 'int16', byteOffset: '4 * count', units: 'quantized pc' },
     { name: 'magu', dtype: 'uint8', byteOffset: '6 * count', units: 'quantized apparent magnitude' },
-    { name: 'ciu', dtype: 'uint8', byteOffset: '7 * count', units: 'quantized Johnson B-V colour index' },
+    { name: 'ciu', dtype: 'uint8', byteOffset: '7 * count', units: 'quantized colour index — Tycho BT-VT for AT-HYG rows, Johnson B-V for the HYG back-filled rows (flag 0x80); see dequantization.colourIndexBand' },
     { name: 'flags', dtype: 'uint8', byteOffset: '8 * count', units: 'bitfield' },
   ],
   ordering: 'by distance shell, then ascending apparent magnitude within each shell',
@@ -1245,6 +1267,15 @@ writeFileSync(
         constellationStarsPromotedToL1: promotedCon,
         namedStarsPromotedToL1: promotedNamed,
         maxDistancePc: maxDistPc,
+        distanceSentinelRows: distSentinelRows,
+        distanceSentinelNote:
+          `${distSentinelRows} stars carry AT-HYG's magic distance of exactly ${DIST_SENTINEL_PC} pc ` +
+          '(parallax exactly 0.01000 mas), which the catalogue uses for "no usable parallax". They are ' +
+          'real stars at an UNKNOWN distance, not measurements at 100 kpc: their implied absolute ' +
+          'magnitudes are around -10 to -11, brighter than any real star. They are retained so the ' +
+          'global index space stays stable, but a renderer should not treat their positions as measured, ' +
+          'and an inspector should report their distance as unknown rather than as 100 kpc. Every other ' +
+          'AT-HYG distance beyond 20 kpc is a distinct, irregular value; only this one repeats.',
       },
       files: [
         { path: 'l0.bin', manifest: 'l0.json', bytes: sizeOf('l0.bin'), records: l0src.length },

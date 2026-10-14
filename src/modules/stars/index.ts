@@ -39,9 +39,43 @@ interface StarTier {
 }
 
 /**
+ * AT-HYG's `ci` column is the Tycho BT-VT colour for most rows, not Johnson B-V, even
+ * though it is often described as the latter. The dataset manifest carries the measured
+ * offset curve against HYG v4.1: about +0.00 at B-V 0.0, +0.08 at 0.75, +0.18 at 1.05,
+ * +0.26 at 1.35 and +0.50 beyond 2.0. Feeding BT-VT straight into a B-V temperature fit
+ * therefore renders every K and M star noticeably too red and too cool.
+ *
+ * This piecewise-linear inverse recovers Johnson B-V from the stored value. It is only
+ * as good as the tabulated curve, which is plenty: the whole quantity is being turned
+ * into the colour of a few pixels.
+ */
+const BT_VT_TO_BV: [stored: number, johnson: number][] = [
+  [0.0, 0.0],
+  [0.47, 0.45],
+  [0.83, 0.75],
+  [1.23, 1.05],
+  [1.61, 1.35],
+  [2.07, 1.75],
+  [2.5, 2.0],
+]
+
+function tychoToJohnsonBv(stored: number): number {
+  if (stored <= BT_VT_TO_BV[0][0]) return stored
+  for (let i = 1; i < BT_VT_TO_BV.length; i++) {
+    const [x1, y1] = BT_VT_TO_BV[i]
+    if (stored <= x1) {
+      const [x0, y0] = BT_VT_TO_BV[i - 1]
+      return y0 + ((stored - x0) / (x1 - x0)) * (y1 - y0)
+    }
+  }
+  // Beyond the tabulated range the offset saturates near +0.5.
+  return stored - 0.5
+}
+
+/**
  * Ballesteros (2012): a single-parameter fit from Johnson B-V to effective temperature.
- * Accurate to a few percent across the main sequence, which is far beyond what a few
- * pixels of star colour can show.
+ * Accurate to a few percent across the main sequence, far beyond what a few pixels of
+ * star colour can show.
  */
 function colourIndexToKelvin(bv: number): number {
   const x = 0.92 * bv
@@ -121,7 +155,7 @@ const STAR_VERTEX = /* glsl */ `
     // Radius grows slowly with brightness; intensity carries the rest. Six magnitudes
     // is a 250x flux ratio, which no sane pixel radius can represent.
     float radiusPx = clamp(uMinRadiusPx + 0.62 * headroom, uMinRadiusPx, uMaxRadiusPx);
-    vIntensity = uGain * pow(2.512, min(headroom, 9.0)) * 0.06;
+    vIntensity = uGain * pow(2.512, min(headroom, 9.0)) * 0.032;
     vColor = starColor;
 
     // Offset in clip space so the quad keeps a constant pixel size at any depth.
@@ -205,12 +239,24 @@ export class StarsModule implements AtlasModule {
     const colors = new Float32Array(count * 3)
     const absMag = new Float32Array(count)
     const scratch = vec3d()
+    let sentinels = 0
 
     // A small colour cache: there are only 256 possible quantised colour indices, so
     // the blackbody conversion runs 256 times rather than 330,000 times.
     const colourCache = new Map<number, [number, number, number]>()
 
     for (let i = 0; i < count; i++) {
+      // AT-HYG uses a parallax of exactly 0.01 mas — a distance of exactly 100 kpc — as
+      // its "no usable parallax" sentinel. Those rows are not measurements, and drawing
+      // them would scatter 89 phantom stars through the galactic halo. Park them behind
+      // the camera's reach instead of inventing a position for them.
+      const distanceRaw = Math.hypot(x[i], y[i], z[i])
+      if (Math.abs(distanceRaw - 100_000) < 1) {
+        sentinels++
+        absMag[i] = 99 // fainter than any magnitude limit, so the shader discards it
+        continue
+      }
+
       // Catalogue positions are ICRS parsecs, Z-up; the layer renders Y-up.
       scratch.x = x[i]
       scratch.y = y[i]
@@ -226,12 +272,16 @@ export class StarsModule implements AtlasModule {
 
       let rgb = colourCache.get(ciu[i])
       if (!rgb) {
-        rgb = kelvinToLinearRgb(colourIndexToKelvin(ciu[i] / 40 - 0.5))
+        rgb = kelvinToLinearRgb(colourIndexToKelvin(tychoToJohnsonBv(ciu[i] / 40 - 0.5)))
         colourCache.set(ciu[i], rgb)
       }
       colors[i * 3] = rgb[0]
       colors[i * 3 + 1] = rgb[1]
       colors[i * 3 + 2] = rgb[2]
+    }
+
+    if (sentinels > 0) {
+      console.info(`[omniatlas] ${name}: skipped ${sentinels} stars with AT-HYG's no-parallax sentinel distance`)
     }
 
     if (name === 'l0') {

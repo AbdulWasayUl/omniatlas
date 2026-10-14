@@ -110,6 +110,8 @@ export class Engine {
 
   private width = 1
   private height = 1
+  /** When set, layers composite into this target instead of the default framebuffer. */
+  renderTarget: THREE.WebGLRenderTarget | null = null
   private readonly ctx: FrameContext
 
   constructor(options: EngineOptions) {
@@ -270,6 +272,7 @@ export class Engine {
    */
   private composite(): void {
     const gl = this.renderer
+    gl.setRenderTarget(this.renderTarget)
     gl.autoClear = false
     gl.clear(true, true, true)
 

@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { Engine, type AtlasModule } from './Engine'
 import { AtlasControls } from './camera/AtlasControls'
 import { LabelEngine } from './labels/LabelEngine'
+import { PostStack } from './render/PostStack'
 import { classStyle } from '../data/objectClasses'
 import { AU_M, type Vec3d, copy3d, vec3d } from './world'
 
@@ -52,6 +53,7 @@ export class AtlasViewer {
   readonly engine: Engine
   readonly controls: AtlasControls
   readonly labels: LabelEngine
+  readonly post: PostStack
 
   /** Simulated instant being drawn. */
   epochMs = Date.now()
@@ -64,6 +66,7 @@ export class AtlasViewer {
   private rafHandle = 0
   private lastFrameTime = 0
   private lastSnapshotTime = 0
+  private elapsed = 0
   private frameAccumulator = 0
   private frameCount = 0
   private fps = 0
@@ -89,6 +92,8 @@ export class AtlasViewer {
       logarithmicDepthBuffer: true,
     })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    // Tone mapping is applied once, by PostStack's composite pass, after bloom. Leaving
+    // it on here would crush the above-1.0 values the glow is computed from.
     this.renderer.toneMapping = THREE.AgXToneMapping
     this.renderer.toneMappingExposure = 1.0
     this.renderer.outputColorSpace = THREE.SRGBColorSpace
@@ -98,6 +103,12 @@ export class AtlasViewer {
     this.controls = new AtlasControls({ domElement: options.canvas, frame: 'ecliptic' })
     this.controls.setDistance(6 * AU_M)
     this.labels = new LabelEngine(options.labelCanvas)
+    // Threshold well above 1.0 on purpose. With tens of thousands of additive star
+    // sprites in frame, a threshold at unity lets the faint majority into the mip
+    // chain, and the blur smears them into a uniform haze that reads as light
+    // pollution. Lifting the bar means only genuinely bright objects bloom, which is
+    // both prettier and closer to what an eye adapted to the dark actually sees.
+    this.post = new PostStack(this.renderer, { threshold: 1.9, intensity: 0.55, vignette: 0.42, grain: 0.005 })
 
     // Selection is a click, not a drag that happened to end on an object.
     options.canvas.addEventListener('pointerdown', this.handlePointerDown)
@@ -147,6 +158,24 @@ export class AtlasViewer {
     if (!node) return
     const radius = Math.max(node.radiusMetres, 1)
     const distance = options.distanceMetres ?? (node.radiusMetres > 0 ? radius * 4.2 : 1e9)
+
+    // Arrive on the lit side.
+    //
+    // A body's day side is where the surface detail is, and arriving at a black disc
+    // is both ugly and uninformative. The Sun sits at the origin of the heliocentric
+    // frame, so the sunward direction from any body is simply the negated normalised
+    // position. Offsetting by about 28 degrees keeps a crescent of night in frame, so
+    // the terminator still reads and the globe still looks like a sphere rather than a
+    // flat lit disc.
+    if (id !== 'sun' && node.radiusMetres > 0) {
+      const { x, y, z } = node.worldPosition
+      const length = Math.hypot(x, y, z)
+      if (length > 0) {
+        const sunwardYaw = Math.atan2(-y, -x)
+        const sunwardPitch = Math.asin(Math.min(Math.max(-z / length, -1), 1))
+        this.controls.setOrbit(sunwardYaw + 0.49, sunwardPitch + 0.22)
+      }
+    }
 
     this.controls.flyTo(
       {
@@ -209,7 +238,10 @@ export class AtlasViewer {
     this.engine.cameraQuaternion.copy(this.controls.quaternion)
     this.engine.anchorId = this.controls.anchorId
 
+    this.engine.renderTarget = this.post.sceneTarget
     this.engine.renderFrame(this.epochMs, delta)
+    this.elapsed += delta
+    this.post.render(this.elapsed)
     this.labels.selectedId = this.selectedId
     this.hits = this.labels.render(this.engine).hits
 
@@ -307,7 +339,9 @@ export class AtlasViewer {
     const height = this.canvas.clientHeight || window.innerHeight
     this.renderer.setSize(width, height, false)
     this.engine.setSize(width, height)
-    this.labels.setSize(width, height, Math.min(window.devicePixelRatio, 2))
+    const dpr = Math.min(window.devicePixelRatio, 2)
+    this.labels.setSize(width, height, dpr)
+    this.post.setSize(width, height, dpr)
   }
 
   dispose(): void {
@@ -317,6 +351,7 @@ export class AtlasViewer {
     this.canvas.removeEventListener('pointerdown', this.handlePointerDown)
     this.canvas.removeEventListener('pointerup', this.handlePointerUp)
     this.controls.dispose()
+    this.post.dispose()
     this.engine.dispose()
     this.renderer.dispose()
   }
