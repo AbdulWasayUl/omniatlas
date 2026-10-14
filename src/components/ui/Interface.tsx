@@ -1,16 +1,10 @@
 import { useEffect, useMemo } from 'react'
-import { calculateSceneEphemeris } from '../../astronomy/ephemeris'
-import { useExplorerStore, type FocusTarget } from '../../store/useExplorerStore'
+import { calculateSolarSystemEphemeris } from '../../astronomy/ephemeris'
+import { findEntity } from '../../data/catalog'
+import { useExplorerStore } from '../../store/useExplorerStore'
 import { DirectoryPanel } from './DirectoryPanel'
 import { InfoPanel } from './InfoPanel'
 import { LoadingScreen } from './LoadingScreen'
-
-const destinations: { id: FocusTarget; label: string; shortcut: string }[] = [
-  { id: 'system', label: 'System', shortcut: '1' },
-  { id: 'earth', label: 'Earth', shortcut: '2' },
-  { id: 'moon', label: 'Moon', shortcut: '3' },
-  { id: 'sun', label: 'Sun', shortcut: '4' },
-]
 
 function chooseScaleBar(kilometresPerPixel: number) {
   const ideal = Math.max(kilometresPerPixel, 0.000001) * 54
@@ -37,13 +31,18 @@ function formatDistance(kilometres: number) {
 
 export function Interface() {
   const focus = useExplorerStore((state) => state.focus)
-  const setFocus = useExplorerStore((state) => state.setFocus)
+  const goBack = useExplorerStore((state) => state.goBack)
+  const goHome = useExplorerStore((state) => state.goHome)
   const distanceMode = useExplorerStore((state) => state.distanceMode)
   const setDistanceMode = useExplorerStore((state) => state.setDistanceMode)
   const directoryOpen = useExplorerStore((state) => state.directoryOpen)
   const setDirectoryOpen = useExplorerStore((state) => state.setDirectoryOpen)
   const featuresVisible = useExplorerStore((state) => state.featuresVisible)
   const setFeaturesVisible = useExplorerStore((state) => state.setFeaturesVisible)
+  const showCountryBorders = useExplorerStore((state) => state.showCountryBorders)
+  const setShowCountryBorders = useExplorerStore((state) => state.setShowCountryBorders)
+  const showOrbits = useExplorerStore((state) => state.showOrbits)
+  const setShowOrbits = useExplorerStore((state) => state.setShowOrbits)
   const simulationTimeMs = useExplorerStore((state) => state.simulationTimeMs)
   const setSimulationTime = useExplorerStore((state) => state.setSimulationTime)
   const viewScaleKmPerPixel = useExplorerStore((state) => state.viewScaleKmPerPixel)
@@ -51,7 +50,7 @@ export function Interface() {
   const dismissPanels = useExplorerStore((state) => state.dismissPanels)
 
   const ephemeris = useMemo(
-    () => calculateSceneEphemeris(new Date(simulationTimeMs), distanceMode),
+    () => calculateSolarSystemEphemeris(new Date(simulationTimeMs), distanceMode),
     [distanceMode, simulationTimeMs],
   )
   const utcLabel = useMemo(
@@ -80,18 +79,18 @@ export function Interface() {
         event.preventDefault()
         setDirectoryOpen(true)
       }
-      if (!isTyping && event.key === '1') setFocus('system')
-      if (!isTyping && event.key === '2') setFocus('earth')
-      if (!isTyping && event.key === '3') setFocus('moon')
-      if (!isTyping && event.key === '4') setFocus('sun')
+      if (!isTyping && (event.key === 'Backspace' || event.key === 'ArrowLeft')) goBack()
+      if (!isTyping && event.key === '1') goHome()
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [dismissPanels, setDirectoryOpen, setFocus])
+  }, [dismissPanels, setDirectoryOpen, goBack, goHome])
 
   const scaleBar = chooseScaleBar(viewScaleKmPerPixel)
-  const focusLabel = focus === 'system' ? 'system target' : focus
+  const focusEntity = findEntity(focus === 'system' ? null : focus)
+  const focusLabel = focus === 'system' ? 'system target' : (focusEntity?.name ?? focus)
+  const canGoBack = focus !== 'system'
 
   return (
     <div className="interface">
@@ -101,18 +100,31 @@ export function Interface() {
           <span>OMNI<strong>ATLAS</strong></span>
         </div>
 
-        <nav className="destination-nav panel" aria-label="Destinations">
-          {destinations.map((destination) => (
-            <button
-              type="button"
-              key={destination.id}
-              className={focus === destination.id ? 'active' : ''}
-              onClick={() => setFocus(destination.id)}
-            >
-              <kbd>{destination.shortcut}</kbd>
-              {destination.label}
-            </button>
-          ))}
+        <nav className="focus-nav panel" aria-label="Navigation">
+          <button
+            type="button"
+            className="icon-button"
+            onClick={goBack}
+            disabled={!canGoBack}
+            aria-label="Go back"
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            className={`focus-nav-home ${focus === 'system' ? 'active' : ''}`}
+            onClick={goHome}
+            aria-label="Return to system view"
+          >
+            <span aria-hidden="true">⊙</span>
+            <span className="focus-nav-home-label">System</span>
+          </button>
+          {focus !== 'system' && (
+            <>
+              <span className="focus-nav-sep" aria-hidden="true">/</span>
+              <span className="focus-nav-current">{focusLabel}</span>
+            </>
+          )}
         </nav>
 
         <button
@@ -127,11 +139,6 @@ export function Interface() {
           <kbd>/</kbd>
         </button>
       </header>
-
-      <div className="milestone-chip">
-        <span>FOUNDATION 01</span>
-        <strong>SUN · EARTH · MOON</strong>
-      </div>
 
       <div className="time-chip panel">
         <span className="live-dot" aria-hidden="true" />
@@ -156,7 +163,7 @@ export function Interface() {
             className={distanceMode === 'physical' ? 'active' : ''}
             onClick={() => setDistanceMode('physical')}
           >
-            True distance
+            Real
           </button>
         </div>
         <div className="distance-readout">
@@ -169,23 +176,51 @@ export function Interface() {
             <small>Camera to {focusLabel} · updates while zooming</small>
           </div>
         </div>
-        <label className="toggle-row">
-          <span>
-            <strong>Surface features</strong>
-            <small>Reveal the nearest local label on close zoom</small>
-          </span>
-          <input
-            type="checkbox"
-            checked={featuresVisible}
-            onChange={(event) => setFeaturesVisible(event.target.checked)}
-          />
-          <i aria-hidden="true" />
-        </label>
         <p className="scale-disclosure">
           {distanceMode === 'physical'
             ? `One shared kilometre scale · Moon ${Math.round(ephemeris.moonDistanceKm).toLocaleString()} km · Sun ${Math.round(ephemeris.sunDistanceKm / 1_000_000)} million km`
-            : `Local body scale is true · Moon ${Math.round(ephemeris.moonDistanceKm).toLocaleString()} km actual · scene spacing compressed`}
+            : `Body sizes are true to scale · distances between bodies are compressed for navigation`}
         </p>
+
+        <div className="layer-toggles">
+          <p className="kicker">Layers</p>
+          <label className="toggle-row">
+            <span>
+              <strong>Surface labels</strong>
+              <small>Countries, cities, and named craters on zoom</small>
+            </span>
+            <input
+              type="checkbox"
+              checked={featuresVisible}
+              onChange={(event) => setFeaturesVisible(event.target.checked)}
+            />
+            <i aria-hidden="true" />
+          </label>
+          <label className="toggle-row">
+            <span>
+              <strong>Country borders</strong>
+              <small>Natural Earth boundary outlines</small>
+            </span>
+            <input
+              type="checkbox"
+              checked={showCountryBorders}
+              onChange={(event) => setShowCountryBorders(event.target.checked)}
+            />
+            <i aria-hidden="true" />
+          </label>
+          <label className="toggle-row">
+            <span>
+              <strong>Orbit paths</strong>
+              <small>Reference circles at each planet’s mean distance</small>
+            </span>
+            <input
+              type="checkbox"
+              checked={showOrbits}
+              onChange={(event) => setShowOrbits(event.target.checked)}
+            />
+            <i aria-hidden="true" />
+          </label>
+        </div>
       </section>
 
       <InfoPanel />
@@ -198,15 +233,19 @@ export function Interface() {
       </div>
 
       <footer className="attribution">
-        <span>LIVE UTC EPHEMERIS · IAU ROTATION MODEL</span>
+        <span>LIVE UTC EPHEMERIS · IAU ROTATION MODEL · KEPLERIAN MOON ORBITS</span>
         <span>
           Surface data: <a href="https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-topography-bathymetry/" target="_blank" rel="noreferrer">NASA Blue Marble</a>
           {' · '}
           <a href="https://svs.gsfc.nasa.gov/4720/" target="_blank" rel="noreferrer">LRO / LOLA</a>
           {' · '}
-          <a href="https://www.naturalearthdata.com/downloads/50m-physical-vectors/50m-coastline/" target="_blank" rel="noreferrer">Natural Earth</a>
+          <a href="https://www.naturalearthdata.com/" target="_blank" rel="noreferrer">Natural Earth</a>
           {' · '}
           <a href="https://planetarynames.wr.usgs.gov/Nomenclature" target="_blank" rel="noreferrer">USGS Gazetteer</a>
+          {' · '}
+          <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noreferrer">Solar System Scope</a>
+          {' · '}
+          <a href="https://ssd.jpl.nasa.gov/" target="_blank" rel="noreferrer">JPL Solar System Dynamics</a>
         </span>
       </footer>
 

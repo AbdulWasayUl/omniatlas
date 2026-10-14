@@ -52,13 +52,16 @@ Exit: reference-state tests agree with JPL/NAIF fixtures within a documented tol
 
 ## Milestone 4 — solar system
 
-- Ingest Sun, planets, major moons, dwarf planets, and a curated small-body subset.
-- Hierarchical system directory and scale router.
-- LOD body models/materials and orbit uncertainty display.
-- On-demand Horizons lookup for objects outside the packaged ephemeris set.
-- Never draw all small bodies as individual meshes; use instanced/point tiles.
+Status: substantially implemented ahead of schedule, alongside milestone 1's own
+follow-up work (see [PRODUCT_SPEC.md](PRODUCT_SPEC.md#solar-system-expansion-post–milestone-1)).
 
-Exit: navigate from Earth surface to any supported major body with correct frames, time, units, and sources.
+- Ingest Sun, planets, major moons, dwarf planets, and a curated small-body subset. — done: Mercury–Neptune, Pluto, ~20 curated major moons, and 4 notable main-belt bodies.
+- Hierarchical system directory and scale router. — done: directory now browses planet → moons/small-bodies, and Earth → countries/cities.
+- LOD body models/materials and orbit uncertainty display. — partial: real textures and simple reference orbit circles are in; no uncertainty/error display yet.
+- On-demand Horizons lookup for objects outside the packaged ephemeris set. — not started.
+- Never draw all small bodies as individual meshes; use instanced/point tiles. — done: the asteroid belt is one `InstancedMesh` field, not per-object meshes.
+
+Exit: navigate from Earth surface to any supported major body with correct frames, time, units, and sources. — met for the bodies above; still open for objects outside the curated set.
 
 ## Milestone 5 — local stellar neighborhood
 

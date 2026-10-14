@@ -2,20 +2,19 @@ import { OrbitControls } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
-import { calculateSceneEphemeris } from '../../astronomy/ephemeris'
 import {
-  EARTH_RADIUS_KM,
-  MOON_RADIUS_UNITS,
-  SUN_RADIUS_UNITS,
-  findEntity,
-} from '../../data/catalog'
+  calculateSolarSystemEphemeris,
+  isRefinableMoon,
+  refineFocusedMoonPosition,
+  type SolarSystemEphemeris,
+} from '../../astronomy/ephemeris'
+import { EARTH_RADIUS_KM, findEntity } from '../../data/catalog'
 import { latLonToCartesian } from '../../data/coordinates'
 import {
   useExplorerStore,
   type DistanceMode,
   type FocusTarget,
 } from '../../store/useExplorerStore'
-import { EXPLORATION_SUN_RADIUS } from './SunBody'
 
 interface CameraGoal {
   position: THREE.Vector3
@@ -25,101 +24,83 @@ interface CameraGoal {
 
 function configureCameraClipping(camera: THREE.Camera, distanceMode: DistanceMode) {
   const perspective = camera as THREE.PerspectiveCamera
-  perspective.near = distanceMode === 'physical' ? 0.001 : 0.01
-  perspective.far = distanceMode === 'physical' ? 100_000 : 400
+  perspective.near = distanceMode === 'physical' ? 0.0005 : 0.005
+  perspective.far = distanceMode === 'physical' ? 2_500_000 : 500
   perspective.updateProjectionMatrix()
+}
+
+function systemGoal(ephemeris: SolarSystemEphemeris, portrait: boolean): CameraGoal {
+  // Orbit around the Sun's own position (the true center of this heliocentric
+  // scene), not a bounding-box centroid that drifts off-center as planets move
+  // around it — a moving pivot is what made "just looking around" feel wrong.
+  const center = ephemeris.bodies.get('sun')?.position.clone() ?? new THREE.Vector3()
+  let radius = 4.2
+  ephemeris.bodies.forEach((state) => {
+    radius = Math.max(radius, state.position.distanceTo(center) + state.radiusUnits)
+  })
+  const viewOffset = new THREE.Vector3(0.12, 0.32, 1).normalize()
+  return {
+    target: center,
+    position: center.clone().addScaledVector(viewOffset, radius * (portrait ? 3.4 : 2.35)),
+    systemRadius: radius,
+  }
 }
 
 function buildCameraGoal(
   focus: FocusTarget,
-  distanceMode: DistanceMode,
+  ephemeris: SolarSystemEphemeris,
   selectedId: string | null,
   portrait: boolean,
 ): CameraGoal {
-  const ephemeris = calculateSceneEphemeris(new Date(), distanceMode)
-  const sunRadius =
-    distanceMode === 'physical' ? SUN_RADIUS_UNITS : EXPLORATION_SUN_RADIUS
-  const selected = findEntity(selectedId)
-  const bodyCenter =
-    selected?.bodyId === 'moon'
-      ? ephemeris.moonPosition
-      : selected?.bodyId === 'sun'
-        ? ephemeris.sunPosition
-        : new THREE.Vector3()
-  const bodyQuaternion =
-    selected?.bodyId === 'moon'
-      ? ephemeris.moonQuaternion
-      : selected?.bodyId === 'sun'
-        ? ephemeris.sunQuaternion
-        : ephemeris.earthQuaternion
+  if (focus === 'system') return systemGoal(ephemeris, portrait)
 
-  if (selected?.coordinates && (focus === 'earth' || focus === 'moon')) {
-    const radius = selected.bodyId === 'earth' ? 1 : MOON_RADIUS_UNITS
+  const state = ephemeris.bodies.get(focus)
+  if (!state) return systemGoal(ephemeris, portrait)
+
+  const selected = findEntity(selectedId)
+  if (selected?.coordinates && selected.bodyId === focus) {
     const outward = latLonToCartesian(
       selected.coordinates.latitude,
       selected.coordinates.longitude,
-      radius,
+      state.radiusUnits,
     )
-      .applyQuaternion(bodyQuaternion)
+      .applyQuaternion(state.quaternion)
       .normalize()
 
     return {
-      target: bodyCenter.clone().addScaledVector(outward, radius * 0.72),
-      position: bodyCenter
+      target: state.position.clone().addScaledVector(outward, state.radiusUnits * 0.72),
+      position: state.position
         .clone()
-        .addScaledVector(outward, radius * 2.65)
-        .add(new THREE.Vector3(0, radius * 0.3, radius * 0.5)),
-      systemRadius: 8,
+        .addScaledVector(outward, state.radiusUnits * 2.65)
+        .add(new THREE.Vector3(0, state.radiusUnits * 0.3, state.radiusUnits * 0.5)),
+      systemRadius: Math.max(8, state.radiusUnits * 3),
     }
   }
-
-  if (focus === 'earth') {
-    return {
-      target: new THREE.Vector3(),
-      position: new THREE.Vector3(0, 0.28, 3.15),
-      systemRadius: 8,
-    }
-  }
-
-  if (focus === 'moon') {
-    return {
-      target: ephemeris.moonPosition.clone(),
-      position: ephemeris.moonPosition
-        .clone()
-        .add(new THREE.Vector3(0, MOON_RADIUS_UNITS * 0.2, MOON_RADIUS_UNITS * 3.2)),
-      systemRadius: 8,
-    }
-  }
-
-  if (focus === 'sun') {
-    return {
-      target: ephemeris.sunPosition.clone(),
-      position: ephemeris.sunPosition
-        .clone()
-        .add(new THREE.Vector3(0, sunRadius * 0.2, sunRadius * 3.25)),
-      systemRadius: Math.max(8, sunRadius),
-    }
-  }
-
-  const box = new THREE.Box3()
-  const expandBody = (center: THREE.Vector3, radius: number) => {
-    box.expandByPoint(center.clone().addScalar(radius))
-    box.expandByPoint(center.clone().addScalar(-radius))
-  }
-  expandBody(new THREE.Vector3(), 1)
-  expandBody(ephemeris.moonPosition, MOON_RADIUS_UNITS)
-  expandBody(ephemeris.sunPosition, sunRadius)
-  const bounds = box.getBoundingSphere(new THREE.Sphere())
-  const radius = Math.max(bounds.radius, 4.2)
-  const viewOffset = new THREE.Vector3(0.1, 0.24, 1).normalize()
 
   return {
-    target: bounds.center,
-    position: bounds.center
+    target: state.position.clone(),
+    position: state.position
       .clone()
-      .addScaledVector(viewOffset, radius * (portrait ? 3.7 : 2.65)),
-    systemRadius: radius,
+      .add(new THREE.Vector3(0, state.radiusUnits * 0.6, state.radiusUnits * 3.2)),
+    systemRadius: Math.max(8, state.radiusUnits * 3),
   }
+}
+
+/** Best-available current position for a focus target: frame-accurate for a focused
+ * moon (its fast orbital motion needs continuous tracking), otherwise the coarse
+ * (~1 Hz) ephemeris snapshot — planets and the Sun barely move within a second. */
+function currentFocusPosition(
+  focus: FocusTarget,
+  date: Date,
+  distanceMode: DistanceMode,
+  coarse: SolarSystemEphemeris,
+): THREE.Vector3 | null {
+  if (focus === 'system') return null
+  if (isRefinableMoon(focus)) {
+    const refined = refineFocusedMoonPosition(focus, date, distanceMode, coarse)
+    if (refined) return refined
+  }
+  return coarse.bodies.get(focus)?.position.clone() ?? null
 }
 
 export function CameraRig() {
@@ -127,22 +108,31 @@ export function CameraRig() {
   const animating = useRef(true)
   const initialized = useRef(false)
   const lastScaleUpdate = useRef(0)
+  const lastFocusPosition = useRef<THREE.Vector3 | null>(null)
   const { camera, size } = useThree()
   const focus = useExplorerStore((state) => state.focus)
   const distanceMode = useExplorerStore((state) => state.distanceMode)
   const selectedId = useExplorerStore((state) => state.selectedId)
+  const simulationTimeMs = useExplorerStore((state) => state.simulationTimeMs)
   const setViewScaleKmPerPixel = useExplorerStore(
     (state) => state.setViewScaleKmPerPixel,
   )
   const setCameraRangeKm = useExplorerStore((state) => state.setCameraRangeKm)
   const portrait = size.width / size.height < 0.78
+
+  const coarseEphemeris = useMemo(
+    () => calculateSolarSystemEphemeris(new Date(simulationTimeMs), distanceMode),
+    [simulationTimeMs, distanceMode],
+  )
   const goal = useMemo(
-    () => buildCameraGoal(focus, distanceMode, selectedId, portrait),
-    [distanceMode, focus, portrait, selectedId],
+    () => buildCameraGoal(focus, coarseEphemeris, selectedId, portrait),
+    [focus, selectedId, portrait, coarseEphemeris],
   )
 
   useLayoutEffect(() => {
     configureCameraClipping(camera, distanceMode)
+    lastFocusPosition.current = currentFocusPosition(focus, new Date(), distanceMode, coarseEphemeris)
+
     if (!initialized.current) {
       camera.position.copy(goal.position)
       controls.current?.target.copy(goal.target)
@@ -160,7 +150,8 @@ export function CameraRig() {
       controls.current?.update()
       animating.current = false
     }
-  }, [camera, distanceMode, goal])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [camera, distanceMode, focus, selectedId])
 
   useFrame((state, delta) => {
     if (animating.current && controls.current) {
@@ -177,6 +168,18 @@ export function CameraRig() {
         controls.current.target.copy(goal.target)
         animating.current = false
       }
+    } else if (controls.current) {
+      // The fly-to animation is done (or was never needed) — keep following the
+      // focused body's own motion so the framing doesn't go stale while it orbits.
+      const nowPosition = currentFocusPosition(focus, new Date(), distanceMode, coarseEphemeris)
+      if (nowPosition && lastFocusPosition.current) {
+        const drift = nowPosition.clone().sub(lastFocusPosition.current)
+        if (drift.lengthSq() > 0) {
+          camera.position.add(drift)
+          controls.current.target.add(drift)
+        }
+      }
+      lastFocusPosition.current = nowPosition
     }
     controls.current?.update()
 
@@ -191,12 +194,10 @@ export function CameraRig() {
     }
   })
 
-  const sunRadius =
-    distanceMode === 'physical' ? SUN_RADIUS_UNITS : EXPLORATION_SUN_RADIUS
-  const bodyRadius =
-    focus === 'moon' ? MOON_RADIUS_UNITS : focus === 'sun' ? sunRadius : 1
-  const minDistance = focus === 'system' ? 1.15 : bodyRadius * 1.12
-  const maxDistance = focus === 'system' ? goal.systemRadius * 8 : bodyRadius * 10
+  const focusRadiusUnits =
+    focus === 'system' ? goal.systemRadius : coarseEphemeris.bodies.get(focus)?.radiusUnits ?? 1
+  const minDistance = focus === 'system' ? 1.15 : focusRadiusUnits * 1.12
+  const maxDistance = focus === 'system' ? goal.systemRadius * 8 : focusRadiusUnits * 12
 
   return (
     <OrbitControls
@@ -206,6 +207,7 @@ export function CameraRig() {
       dampingFactor={0.06}
       rotateSpeed={0.55}
       zoomSpeed={0.8}
+      zoomToCursor
       panSpeed={0.55}
       minDistance={minDistance}
       maxDistance={maxDistance}

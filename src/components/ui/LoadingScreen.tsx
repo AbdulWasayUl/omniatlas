@@ -9,12 +9,12 @@ export function LoadingScreen() {
         <span />
         <i />
       </div>
-      <p className="kicker">Sun–Earth–Moon foundation</p>
+      <p className="kicker">Solar System atlas</p>
       <strong>Loading planetary data</strong>
       <div className="loading-track">
         <span style={{ width: `${Math.round(progress)}%` }} />
       </div>
-      <small>{Math.round(progress)}% · NASA imagery</small>
+      <small>{Math.round(progress)}% · NASA / USGS / Natural Earth</small>
     </div>
   )
 }

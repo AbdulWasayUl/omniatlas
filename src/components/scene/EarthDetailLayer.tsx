@@ -1,57 +1,43 @@
-import { Html } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
-import { CONTINENTS } from '../../data/catalog'
-import { latLonToCartesian } from '../../data/coordinates'
+import {
+  CITIES_URL,
+  COUNTRIES_BOUNDARY_URL,
+  COUNTRIES_URL,
+  type CityRecord,
+  type CountryRecord,
+} from '../../data/catalog'
+import { useRemoteBinary, useRemoteJson } from '../../data/remoteAssets'
 import { useExplorerStore } from '../../store/useExplorerStore'
+import { SurfaceLabelField, type SurfaceLabelItem, type TierBand } from './SurfaceLabelField'
 
-export function EarthDetailLayer() {
-  const root = useRef<THREE.Group>(null)
-  const coastline = useRef<THREE.LineSegments>(null)
-  const material = useRef<THREE.LineBasicMaterial>(null)
-  const visibleIdRef = useRef<string | null>(null)
-  const [visibleId, setVisibleId] = useState<string | null>(null)
-  const [positions, setPositions] = useState<Float32Array | null>(null)
-  const focus = useExplorerStore((state) => state.focus)
-  const featuresVisible = useExplorerStore((state) => state.featuresVisible)
-  const selectedId = useExplorerStore((state) => state.selectedId)
-  const inspect = useExplorerStore((state) => state.inspect)
-  const active = focus === 'earth' && featuresVisible
-  const center = useMemo(() => new THREE.Vector3(), [])
-  const localCameraDirection = useMemo(() => new THREE.Vector3(), [])
-  const worldQuaternion = useMemo(() => new THREE.Quaternion(), [])
-  const normal = useMemo(() => new THREE.Vector3(), [])
-  const anchors = useMemo(
-    () =>
-      new Map(
-        CONTINENTS.map((continent) => [
-          continent.id,
-          latLonToCartesian(
-            continent.coordinates?.latitude ?? 0,
-            continent.coordinates?.longitude ?? 0,
-            1.027,
-          ),
-        ]),
-      ),
-    [],
-  )
+const COASTLINE_URL = '/data/earth/coastline-50m.bin'
+const COUNTRY_COLOR = '#e7c98a'
+const CITY_COLOR = '#9ad4ef'
 
-  useEffect(() => {
-    if (!active || positions) return
-    const controller = new AbortController()
-    fetch('/data/earth/coastline-50m.bin', { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) throw new Error(`Coastline request failed: ${response.status}`)
-        return response.arrayBuffer()
-      })
-      .then((buffer) => setPositions(new Float32Array(buffer)))
-      .catch((error: unknown) => {
-        if (!(error instanceof DOMException && error.name === 'AbortError')) console.error(error)
-      })
-    return () => controller.abort()
-  }, [active, positions])
+// One shared reveal schedule for both layers so a big country and a megacity can
+// appear together at the same zoom, the way a real map interleaves label classes
+// instead of showing one whole category before the other ever starts.
+const LABEL_TIER_BANDS: TierBand[] = [
+  { minRadii: 12, maxTier: 1 },
+  { minRadii: 6, maxTier: 2 },
+  { minRadii: 3.4, maxTier: 4 },
+  { minRadii: 2.1, maxTier: 6 },
+  { minRadii: 1.5, maxTier: 8 },
+  { minRadii: 1.15, maxTier: 12 },
+]
 
+interface BoundaryLayerProps {
+  url: string
+  active: boolean
+  color: string
+  baseOpacity: number
+  renderOrder: number
+}
+
+function BoundaryLayer({ url, active, color, baseOpacity, renderOrder }: BoundaryLayerProps) {
+  const positions = useRemoteBinary(url, active)
   const geometry = useMemo(() => {
     if (!positions) return null
     const value = new THREE.BufferGeometry()
@@ -60,87 +46,88 @@ export function EarthDetailLayer() {
     return value
   }, [positions])
 
-  useEffect(() => () => geometry?.dispose(), [geometry])
+  const line = useRef<THREE.LineSegments>(null)
+  const material = useRef<THREE.LineBasicMaterial>(null)
 
   useFrame(({ camera }) => {
-    if (!root.current) return
-    root.current.getWorldPosition(center)
+    const mesh = line.current
+    const mat = material.current
+    if (!mesh || !mat) return
+    const center = mesh.getWorldPosition(SCRATCH_CENTER)
     const distance = camera.position.distanceTo(center)
-    const opacity = active ? 1 - THREE.MathUtils.smoothstep(distance, 1.65, 2.85) : 0
-    if (coastline.current) coastline.current.visible = opacity > 0.01
-    if (material.current) material.current.opacity = opacity * 0.58
-
-    let nextId: string | null = null
-    if (active) {
-      root.current.getWorldQuaternion(worldQuaternion)
-      localCameraDirection
-        .copy(camera.position)
-        .sub(center)
-        .normalize()
-        .applyQuaternion(worldQuaternion.invert())
-
-      const selected = CONTINENTS.find((continent) => continent.id === selectedId)
-      const selectedAnchor = selected ? anchors.get(selected.id) : null
-      if (
-        selectedAnchor &&
-        distance < 3.3 &&
-        normal.copy(selectedAnchor).normalize().dot(localCameraDirection) > 0.72
-      ) {
-        nextId = selected?.id ?? null
-      } else if (distance < 2.3) {
-        let bestDot = 0.95
-        for (const continent of CONTINENTS) {
-          const anchor = anchors.get(continent.id)
-          if (!anchor) continue
-          const dot = normal.copy(anchor).normalize().dot(localCameraDirection)
-          if (dot > bestDot) {
-            bestDot = dot
-            nextId = continent.id
-          }
-        }
-      }
-    }
-
-    if (nextId !== visibleIdRef.current) {
-      visibleIdRef.current = nextId
-      setVisibleId(nextId)
-    }
+    const opacity = active ? 1 - THREE.MathUtils.smoothstep(distance, 1.65, 3.1) : 0
+    mesh.visible = opacity > 0.01
+    mat.opacity = opacity * baseOpacity
   })
 
-  const continent = CONTINENTS.find((item) => item.id === visibleId)
-  const anchor = continent ? anchors.get(continent.id) : null
+  if (!geometry) return null
 
   return (
-    <group ref={root}>
-      {geometry && (
-        <lineSegments ref={coastline} geometry={geometry} renderOrder={5} visible={false}>
-          <lineBasicMaterial
-            ref={material}
-            color="#a8d9ed"
-            transparent
-            opacity={0}
-            depthTest
-            depthWrite={false}
-            toneMapped={false}
-          />
-        </lineSegments>
-      )}
-      {continent && anchor && (
-        <group position={anchor}>
-          <Html center distanceFactor={1.55} zIndexRange={[8, 2]}>
-            <button
-              type="button"
-              className="continent-label"
-              onClick={(event) => {
-                event.stopPropagation()
-                inspect(continent.id, 'earth')
-              }}
-            >
-              {continent.name}
-            </button>
-          </Html>
-        </group>
-      )}
+    <lineSegments ref={line} geometry={geometry} renderOrder={renderOrder} visible={false}>
+      <lineBasicMaterial
+        ref={material}
+        color={color}
+        transparent
+        opacity={0}
+        depthTest
+        depthWrite={false}
+        toneMapped={false}
+      />
+    </lineSegments>
+  )
+}
+
+const SCRATCH_CENTER = new THREE.Vector3()
+
+export function EarthDetailLayer() {
+  const focus = useExplorerStore((state) => state.focus)
+  const featuresVisible = useExplorerStore((state) => state.featuresVisible)
+  const showCountryBorders = useExplorerStore((state) => state.showCountryBorders)
+  const active = focus === 'earth' && featuresVisible
+
+  const countries = useRemoteJson<CountryRecord[]>(COUNTRIES_URL, active)
+  const cities = useRemoteJson<CityRecord[]>(CITIES_URL, active)
+
+  const labelItems: SurfaceLabelItem[] = useMemo(() => {
+    const countryItems: SurfaceLabelItem[] = (countries ?? []).map((country) => ({
+      id: country.id,
+      name: country.name,
+      latitude: country.latitude,
+      longitude: country.longitude,
+      tier: country.labelRank,
+      variant: 'region',
+      color: COUNTRY_COLOR,
+    }))
+    const cityItems: SurfaceLabelItem[] = (cities ?? []).map((city) => ({
+      id: city.id,
+      name: city.name,
+      latitude: city.latitude,
+      longitude: city.longitude,
+      tier: city.tier,
+      variant: 'point',
+      color: CITY_COLOR,
+    }))
+    return [...countryItems, ...cityItems].sort((a, b) => a.tier - b.tier)
+  }, [countries, cities])
+
+  return (
+    <group>
+      <BoundaryLayer url={COASTLINE_URL} active={active} color="#a8d9ed" baseOpacity={0.58} renderOrder={5} />
+      <BoundaryLayer
+        url={COUNTRIES_BOUNDARY_URL}
+        active={active && showCountryBorders}
+        color={COUNTRY_COLOR}
+        baseOpacity={0.4}
+        renderOrder={6}
+      />
+      <SurfaceLabelField
+        bodyId="earth"
+        radius={1}
+        items={labelItems}
+        tierBands={LABEL_TIER_BANDS}
+        maxVisible={90}
+        accentColor={CITY_COLOR}
+      />
     </group>
   )
 }

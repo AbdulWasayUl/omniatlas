@@ -1,10 +1,8 @@
 import { useTexture } from '@react-three/drei'
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
-import { SURFACE_FEATURES } from '../../data/catalog'
 import { useExplorerStore } from '../../store/useExplorerStore'
 import { EarthDetailLayer } from './EarthDetailLayer'
-import { FeatureMarkers } from './FeatureMarkers'
 
 const atmosphereVertexShader = `
   varying vec3 vNormal;
@@ -49,8 +47,7 @@ export function EarthBody() {
     return texture
   }, [loadedClouds])
   const select = useExplorerStore((state) => state.select)
-  const setFocus = useExplorerStore((state) => state.setFocus)
-  const earthFeatures = SURFACE_FEATURES.filter((feature) => feature.bodyId === 'earth')
+  const focusOn = useExplorerStore((state) => state.focusOn)
 
   useEffect(() => {
     return () => {
@@ -65,11 +62,7 @@ export function EarthBody() {
         onClick={(event) => {
           event.stopPropagation()
           select('earth')
-        }}
-        onDoubleClick={(event) => {
-          event.stopPropagation()
-          setFocus('earth')
-          select('earth')
+          focusOn('earth')
         }}
         onPointerEnter={() => {
           document.body.style.cursor = 'pointer'
@@ -112,7 +105,6 @@ export function EarthBody() {
         />
       </mesh>
 
-      <FeatureMarkers bodyId="earth" radius={1} features={earthFeatures} />
       <EarthDetailLayer />
     </group>
   )

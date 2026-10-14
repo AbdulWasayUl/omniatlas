@@ -103,9 +103,45 @@ The foundation follows current UTC and recomputes positions/orientations from it
 
 ## Explicitly out of scope for milestone 1
 
-- Street maps, buildings, borders, navigation, and user GPS.
+- Street maps, buildings, navigation, and user GPS.
 - High-resolution tiled terrain and descent to ground level.
 - Live weather, live satellites, or mission-grade SPICE ephemerides.
-- Solar-system planets other than Earth and Moon.
 - Accounts, annotations, collaboration, and saved tours.
 - Claims of complete star, galaxy, exoplanet, or small-body coverage.
+
+## Solar-system expansion (post–milestone 1)
+
+Delivered ahead of the milestone-4 slot in the roadmap, alongside milestone 1's
+own semantic-zoom and menu cleanup work:
+
+- Mercury through Neptune plus Pluto, each with a real NASA/USGS/Solar System
+  Scope texture, true relative radius, IAU-derived rotation, and a true
+  heliocentric position from `astronomy-engine`'s VSOP-based model for the
+  current UTC time.
+- A curated set of major moons (both Galilean moons via `JupiterMoons`, and
+  Phobos/Deimos, the classical Saturnian and Uranian moons, and Triton via a
+  two-body Keplerian propagator seeded with JPL SSD mean elements) — not the
+  full moon count of any giant planet.
+- Saturn's ring, Venus's cloud deck, and a procedural main asteroid belt with
+  four named notable bodies (Ceres, Vesta, Pallas, Hygiea).
+- Earth's impact-structure markers are replaced by two much larger real
+  datasets: all 242 Natural Earth countries (with boundary outlines) and 1,251
+  populated places, both revealed by camera-distance tiers the way a map
+  application reveals more labels on zoom, rather than the single-label
+  semantic zoom milestone 1 used for continents.
+- The Moon's 25 curated craters are replaced by the full 1,615-crater USGS
+  Gazetteer named-crater dataset, using the same tiered-reveal approach.
+- Country/city/crater labels render as GPU billboarded text (troika SDF text)
+  instead of DOM `<Html>` overlays, which is what makes showing dozens of
+  simultaneous labels affordable; only the camera's current focus target gets
+  per-frame ephemeris refinement; every other body updates on the existing
+  ~1 Hz cadence.
+- Explore/Real (exploration vs. physical distance) mode is preserved across
+  the whole system: Explore compresses inter-body separation with a
+  square-root law and keeps every body at its true relative size; Real uses
+  one shared kilometre scale for both distances and radii, including on
+  moons and small bodies.
+
+This expansion does not change the truth-model, provenance, or "known objects,
+not the whole universe" commitments above — the new bodies and labels carry
+the same source/fact/coordinate structure as milestone 1's catalogue.

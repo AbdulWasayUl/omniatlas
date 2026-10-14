@@ -3,7 +3,7 @@ import { Suspense } from 'react'
 import * as THREE from 'three'
 import { useExplorerStore } from '../../store/useExplorerStore'
 import { CameraRig } from './CameraRig'
-import { EarthMoonSystem } from './EarthMoonSystem'
+import { SolarSystemScene } from './SolarSystemScene'
 
 export function SceneManager() {
   const select = useExplorerStore((state) => state.select)
@@ -24,7 +24,7 @@ export function SceneManager() {
       onPointerMissed={() => select(null)}
     >
       <Suspense fallback={null}>
-        <EarthMoonSystem />
+        <SolarSystemScene />
         <CameraRig />
       </Suspense>
     </Canvas>

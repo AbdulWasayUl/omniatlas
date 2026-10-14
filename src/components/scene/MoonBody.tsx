@@ -1,11 +1,25 @@
 import { useTexture } from '@react-three/drei'
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
-import { MOON_RADIUS_UNITS, SURFACE_FEATURES } from '../../data/catalog'
+import { MOON_CRATERS_URL, MOON_RADIUS_UNITS, type CraterRecord } from '../../data/catalog'
+import { useRemoteJson } from '../../data/remoteAssets'
 import { useExplorerStore } from '../../store/useExplorerStore'
-import { FeatureMarkers } from './FeatureMarkers'
+import { SurfaceLabelField, type SurfaceLabelItem, type TierBand } from './SurfaceLabelField'
 
-export function MoonBody() {
+const CRATER_TIER_BANDS: TierBand[] = [
+  { minRadii: 5.5, maxTier: 0 },
+  { minRadii: 3.2, maxTier: 1 },
+  { minRadii: 2.1, maxTier: 2 },
+  { minRadii: 1.5, maxTier: 3 },
+  { minRadii: 1.2, maxTier: 4 },
+  { minRadii: 1.06, maxTier: 5 },
+]
+
+interface MoonBodyProps {
+  radiusUnits?: number
+}
+
+export function MoonBody({ radiusUnits = MOON_RADIUS_UNITS }: MoonBodyProps) {
   const [loadedSurface, loadedElevation] = useTexture([
     '/textures/moon/lroc-color-4k.jpg',
     '/textures/moon/lola-elevation-4ppd.jpg',
@@ -25,8 +39,23 @@ export function MoonBody() {
     return texture
   }, [loadedElevation])
   const select = useExplorerStore((state) => state.select)
-  const setFocus = useExplorerStore((state) => state.setFocus)
-  const moonFeatures = SURFACE_FEATURES.filter((feature) => feature.bodyId === 'moon')
+  const focusOn = useExplorerStore((state) => state.focusOn)
+  const focus = useExplorerStore((state) => state.focus)
+  const featuresVisible = useExplorerStore((state) => state.featuresVisible)
+  const active = focus === 'moon' && featuresVisible
+  const craters = useRemoteJson<CraterRecord[]>(MOON_CRATERS_URL, active)
+
+  const craterItems: SurfaceLabelItem[] = useMemo(
+    () =>
+      (craters ?? []).map((crater) => ({
+        id: crater.id,
+        name: crater.name,
+        latitude: crater.latitude,
+        longitude: crater.longitude,
+        tier: crater.tier,
+      })),
+    [craters],
+  )
 
   useEffect(() => {
     return () => {
@@ -41,11 +70,7 @@ export function MoonBody() {
         onClick={(event) => {
           event.stopPropagation()
           select('moon')
-        }}
-        onDoubleClick={(event) => {
-          event.stopPropagation()
-          setFocus('moon')
-          select('moon')
+          focusOn('moon')
         }}
         onPointerEnter={() => {
           document.body.style.cursor = 'pointer'
@@ -54,7 +79,7 @@ export function MoonBody() {
           document.body.style.cursor = 'default'
         }}
       >
-        <sphereGeometry args={[MOON_RADIUS_UNITS, 128, 96]} />
+        <sphereGeometry args={[radiusUnits, 128, 96]} />
         <meshStandardMaterial
           map={surface}
           bumpMap={elevation}
@@ -63,10 +88,13 @@ export function MoonBody() {
           metalness={0}
         />
       </mesh>
-      <FeatureMarkers
+      <SurfaceLabelField
         bodyId="moon"
-        radius={MOON_RADIUS_UNITS}
-        features={moonFeatures}
+        radius={radiusUnits}
+        items={craterItems}
+        tierBands={CRATER_TIER_BANDS}
+        maxVisible={60}
+        accentColor="#cbd3d7"
       />
     </group>
   )
