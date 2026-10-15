@@ -258,9 +258,17 @@ export class Engine {
       this.layer('surface').setOrigin(anchor.worldPosition, anchor.frame, anchor.id)
     }
 
+    // Altitude above the anchor's surface: the nearest thing the user is looking at,
+    // and therefore what the near plane must clear.
+    const nearHint = anchor
+      ? Math.max(ctx.anchorDistanceMetres - anchor.radiusMetres, ctx.anchorDistanceMetres * 1e-4, 1)
+      : Infinity
+
     for (const layer of this.layersByOrder) {
-      layer.rebase(this.cameraWorld, this.cameraFrame, this.cameraQuaternion, this.fovDegrees, aspect)
-      layer.active = layer.inBand() || layer.anchorId === this.anchorId
+      layer.rebase(this.cameraWorld, this.cameraFrame, this.cameraQuaternion, this.fovDegrees, aspect, nearHint)
+      layer.updateSpanOpacity(ctx.viewSpanMetres)
+      // A layer must be both within reach AND at a scale where its content belongs.
+      layer.active = (layer.inBand() || layer.anchorId === this.anchorId) && layer.spanOpacity > 0.004
     }
 
     for (const module of this.modules) {

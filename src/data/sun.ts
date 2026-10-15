@@ -16,7 +16,7 @@ export const SUN: AtlasEntity = {
     { label: 'Mass', value: '1.9885 × 10³⁰ kg' },
     { label: 'Spectral type', value: 'G2 V' },
     { label: 'Mean Earth distance', value: '149.6 million km' },
-    { label: 'Display model', value: 'Direction accurate · scale compressed in Explore mode' },
+    { label: 'Display model', value: 'True scale · position and rotation for the displayed instant' },
   ],
   source: {
     label: 'NASA Sun facts',

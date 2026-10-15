@@ -1389,6 +1389,17 @@ export class DeepSkyModule implements AtlasModule {
     // the two bands, so the total brightness stays constant through the handover.
     const handover = smoothstep(HANDOVER_PC[0], HANDOVER_PC[1], distancePc)
 
+    // Scale gate.
+    //
+    // The existing fades are all keyed on distance FROM THE SUN, which is zero while
+    // the camera is anywhere in the solar system — so none of them fired, and 13,371
+    // catalogue objects projected onto a 100 kpc shell drew themselves across a seven
+    // AU view of the inner planets as a wall of white speckle. Distance from the Sun
+    // is the wrong question; how wide the view is, is the right one. A deep-sky object
+    // only means anything once the view is wider than the solar system itself.
+    const logSpan = Math.log10(Math.max(ctx.viewSpanMetres, 1))
+    const scaleGate = smoothstep(Math.log10(2e14), Math.log10(2e16), logSpan)
+
     for (const material of this.materials) {
       const u = material.uniforms
       if (u.uPixelHeight) u.uPixelHeight.value = pixelHeight
@@ -1397,11 +1408,16 @@ export class DeepSkyModule implements AtlasModule {
       if (u.uShellFade) u.uShellFade.value = shellFade
       if (u.uSolFade) u.uSolFade.value = outlineFade
     }
-    for (const material of this.nearMaterials) material.uniforms.uLayerFade.value = 1 - handover
-    for (const material of this.farMaterials) material.uniforms.uLayerFade.value = handover
+    for (const material of this.nearMaterials) material.uniforms.uLayerFade.value = (1 - handover) * scaleGate
+    for (const material of this.farMaterials) material.uniforms.uLayerFade.value = handover * scaleGate
 
-    if (this.outlineFill) this.outlineFill.visible = outlineFade > 0.01
-    if (this.outlineLines) this.outlineLines.visible = outlineFade > 0.01
+    // Skip the draw entirely once the gate is shut, rather than paying for 13,371
+    // instances that resolve to zero alpha.
+    const drawable = scaleGate > 0.004
+    for (const object of this.objects) object.visible = drawable
+
+    if (this.outlineFill) this.outlineFill.visible = drawable && outlineFade > 0.01
+    if (this.outlineLines) this.outlineLines.visible = drawable && outlineFade > 0.01
   }
 
   dispose(): void {

@@ -38,6 +38,39 @@ interface Placed {
   h: number
 }
 
+/**
+ * How many objects may be marked and labelled at once.
+ *
+ * Without a cap the atlas draws every registered object at every scale, which at
+ * 1,514 objects buries the solar system under a wall of asteroid designations and
+ * globular cluster numbers. A real atlas shows what is relevant *here*, and relevance
+ * is the job of the scoring function below.
+ */
+const MAX_MARKED = 34
+
+/**
+ * How sharply to penalise an object for being at the wrong distance for this view.
+ *
+ * The key insight: an object vastly nearer or farther than the current view span is
+ * not what the user is looking at, however important it is in the abstract. Mars is
+ * the subject at a 7 AU view span and irrelevant at 7 Mpc; the reverse holds for
+ * Andromeda. One decade of mismatch costs this many points of priority, which puts a
+ * planet ahead of a globular cluster inside the solar system and behind it outside.
+ */
+const DISTANCE_MISMATCH_PENALTY = 26
+
+/**
+ * How far below the best object on screen something may score and still be marked.
+ *
+ * The budget alone is not enough. There are nine planets and over a thousand comets,
+ * asteroids and catalogue objects, so a simple top-N fills the first few slots with
+ * planets and the remaining twenty-five with whatever numbered comet happens to be
+ * nearby — which is how the inner solar system ended up labelled almost entirely with
+ * cometary designations. A relative floor keeps the set to things of comparable
+ * standing to whatever is most relevant here.
+ */
+const SCORE_FLOOR_BELOW_BEST = 42
+
 /** Radius of the constant-size marker ring, in CSS pixels. */
 const MARKER_RADIUS = 5.5
 /** Below this apparent radius in pixels, the marker replaces the mesh entirely. */
@@ -59,6 +92,8 @@ export class LabelEngine {
   /** Set by the host so clicks can hit-test markers. */
   hovered: string | null = null
   selectedId: string | null = null
+  /** The camera's anchor. Always marked, so you can never lose the thing you orbit. */
+  anchorId: string | null = null
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
@@ -105,7 +140,7 @@ export class LabelEngine {
    * as the priority order is stable, which matters more than optimality — a label that
    * flickers in and out is worse than a label that is missing.
    */
-  render(engine: Engine): { hits: { id: string; x: number; y: number; r: number }[] } {
+  render(engine: Engine, viewSpanMetres: number): { hits: { id: string; x: number; y: number; r: number }[] } {
     const ctx = this.ctx
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0)
     ctx.clearRect(0, 0, this.width, this.height)
@@ -113,9 +148,19 @@ export class LabelEngine {
     const hits: { id: string; x: number; y: number; r: number }[] = []
 
     const halfHeight = this.height / 2
-    const sorted = [...this.items].sort((a, b) => b.priority - a.priority)
+    const logSpan = Math.log10(Math.max(viewSpanMetres, 1))
 
-    for (const item of sorted) {
+    // Pass 1: project everything on screen and score it for relevance to this view.
+    const candidates: {
+      item: LabelItem
+      x: number
+      y: number
+      apparentPixels: number
+      score: number
+      selected: boolean
+    }[] = []
+
+    for (const item of this.items) {
       const layer = engine.layers.get(item.node.layer)
       if (!layer || !layer.active) continue
 
@@ -137,8 +182,32 @@ export class LabelEngine {
       const pixelsPerUnit = halfHeight / Math.tan((camera.fov * Math.PI) / 360) / distance
       const apparentPixels = radiusUnits * pixelsPerUnit
 
+      const selected = item.node.id === this.selectedId || item.node.id === this.anchorId
+
+      const distanceMetres = distance * layer.config.unitMetres
+      const mismatch = Math.abs(Math.log10(Math.max(distanceMetres, 1)) - logSpan)
+      // Objects big enough to see get credit for it; a planet filling the screen
+      // should never lose its label to a better-scoring point source.
+      const sizeBonus = Math.min(apparentPixels, 40)
+      const score = selected
+        ? Number.POSITIVE_INFINITY
+        : item.priority + sizeBonus - DISTANCE_MISMATCH_PENALTY * mismatch
+
+      candidates.push({ item, x, y, apparentPixels, score, selected })
+    }
+
+    candidates.sort((a, b) => b.score - a.score)
+    // The floor is measured from the best NON-selected score. Selected and anchored
+    // objects score Infinity so they are never dropped, but letting that set the
+    // reference would push the floor to -Infinity and mark everything on screen the
+    // moment the user clicks something.
+    const best = candidates.find((c) => Number.isFinite(c.score))?.score ?? 0
+    const floor = best - SCORE_FLOOR_BELOW_BEST
+    const marked = candidates.filter((c) => c.selected || c.score >= floor).slice(0, MAX_MARKED)
+
+    // Pass 2: draw the survivors, highest score first so declutter favours them.
+    for (const { item, x, y, apparentPixels, selected } of marked) {
       const style = classStyle(item.node.objectClass)
-      const selected = item.node.id === this.selectedId
 
       // Marker opacity: full when the body is sub-pixel, gone once it carries itself.
       const markerAlpha = selected
@@ -149,6 +218,7 @@ export class LabelEngine {
         this.drawMarker(x, y, style.color, markerAlpha, apparentPixels, selected)
       }
       hits.push({ id: item.node.id, x, y, r: Math.max(MARKER_RADIUS + 4, apparentPixels) })
+
 
       // Labels appear once the object is worth naming: either it has a marker, or it
       // is large enough on screen to be looked at.

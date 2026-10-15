@@ -56,9 +56,25 @@ export interface LayerConfig {
    * layer contributes. Outside it the layer is skipped entirely — zero draw calls.
    */
   bandMetres: [min: number, max: number]
+  /**
+   * The VIEW SPAN range, in metres, over which this layer contributes.
+   *
+   * Distance from the origin is not enough on its own. Standing in the solar system,
+   * the camera is 8.15 kpc from the galactic centre — comfortably inside the galactic
+   * layer's distance band — so the Milky Way's disc field, the deep-sky shell and the
+   * cosmic web all drew themselves over a seven-AU view of the inner planets. What
+   * actually decides whether a structure belongs on screen is how wide the view is,
+   * which is the same quantity the scale ladder tracks.
+   *
+   * Edges are feathered in log space, so layers cross-fade rather than pop.
+   */
+  spanBandMetres: [min: number, max: number]
   /** Human-readable, for the stats overlay and `?layers=` debugging. */
   label: string
 }
+
+/** Width of the cross-fade at each end of a span band, in decades. */
+const SPAN_FEATHER_DECADES = 0.45
 
 /**
  * The six layers. Bands overlap deliberately: at any moment two or three are active,
@@ -72,6 +88,7 @@ export const LAYER_CONFIGS: readonly LayerConfig[] = [
     order: 50,
     defaultFar: 5e4,
     bandMetres: [0.1 * MPC_M, 2e4 * MPC_M],
+    spanBandMetres: [3e21, 1e29],
     label: 'Cosmic',
   },
   {
@@ -81,6 +98,7 @@ export const LAYER_CONFIGS: readonly LayerConfig[] = [
     order: 40,
     defaultFar: 5e3,
     bandMetres: [0.05 * KPC_M, 1e3 * KPC_M],
+    spanBandMetres: [2e17, 5e23],
     label: 'Galactic',
   },
   {
@@ -92,6 +110,7 @@ export const LAYER_CONFIGS: readonly LayerConfig[] = [
     // Lower bound is zero, not 0.1 pc: the star field is the sky, and the sky is
     // visible from inside the solar system too. Every other layer has a real floor.
     bandMetres: [0, 3e3 * PC_M],
+    spanBandMetres: [0, 1e22],
     label: 'Stellar',
   },
   {
@@ -101,6 +120,7 @@ export const LAYER_CONFIGS: readonly LayerConfig[] = [
     order: 20,
     defaultFar: 1e5,
     bandMetres: [1e-6 * AU_M, 2e5 * AU_M],
+    spanBandMetres: [0, 6e14],
     label: 'Heliocentric',
   },
   {
@@ -110,6 +130,7 @@ export const LAYER_CONFIGS: readonly LayerConfig[] = [
     order: 10,
     defaultFar: 1e6,
     bandMetres: [1e4, 1e11],
+    spanBandMetres: [0, 1e12],
     label: 'Planetary system',
   },
   {
@@ -119,6 +140,7 @@ export const LAYER_CONFIGS: readonly LayerConfig[] = [
     order: 0,
     defaultFar: 1e5,
     bandMetres: [1, 1e8],
+    spanBandMetres: [0, 1e9],
     label: 'Surface',
   },
 ] as const
@@ -161,6 +183,13 @@ export class Layer {
 
   /** Whether this layer contributed to the last frame. */
   active = false
+
+  /**
+   * How strongly this layer belongs at the current view span, 0 to 1.
+   * Modules read it to cross-fade their own materials; the engine skips the layer
+   * entirely once it reaches zero.
+   */
+  spanOpacity = 1
 
   private readonly scratch = vec3d()
   private readonly scratchFrame = vec3d()
@@ -215,7 +244,14 @@ export class Layer {
    * `cameraWorld` and `targetWorld` arrive in `frame`; both are converted into this
    * layer's frame and origin in float64 before anything is written to the camera.
    */
-  rebase(cameraWorld: Vec3d, frame: FrameId, quaternion: THREE.Quaternion, fovDegrees: number, aspect: number): void {
+  rebase(
+    cameraWorld: Vec3d,
+    frame: FrameId,
+    quaternion: THREE.Quaternion,
+    fovDegrees: number,
+    aspect: number,
+    nearHintMetres = Infinity,
+  ): void {
     convertFrame(this.scratchFrame, cameraWorld, frame, this.config.frame)
     this.cameraDistanceMetres = distance3d(this.scratchFrame, this.originWorld)
 
@@ -232,7 +268,21 @@ export class Layer {
     }
 
     const d = length3d(this.scratch) * k
-    this.camera.near = Math.max(MIN_NEAR, d * NEAR_RATIO)
+
+    // The near plane follows the NEAREST THING WORTH SEEING, not the distance to this
+    // layer's origin.
+    //
+    // Deriving it from the origin alone is correct only when the camera is near that
+    // origin. Fly to Pluto and the helio layer's origin is still the Sun, 35 AU away,
+    // so `d * NEAR_RATIO` put the near plane at 3.6e-5 units while Pluto's whole
+    // radius is 7.9e-6 units and the camera sat 3.3e-5 units from its centre: the
+    // planet was entirely inside the near plane and vanished. The same arithmetic
+    // broke every outer-system body and their moons.
+    //
+    // `nearHintMetres` is the camera's altitude above the anchor's surface, so the
+    // near plane stays a comfortable fraction of whatever is actually in front of us.
+    const hintUnits = nearHintMetres === Infinity ? Infinity : (nearHintMetres / this.config.unitMetres) * 0.25
+    this.camera.near = Math.max(MIN_NEAR, Math.min(d * NEAR_RATIO, hintUnits))
     this.camera.far = Math.max(this.config.defaultFar, d * FAR_RATIO)
     this.camera.fov = fovDegrees
     this.camera.aspect = aspect
@@ -244,6 +294,29 @@ export class Layer {
   inBand(): boolean {
     const [min, max] = this.config.bandMetres
     return this.cameraDistanceMetres >= min && this.cameraDistanceMetres <= max
+  }
+
+  /**
+   * Update `spanOpacity` for the current view span, feathered in log space so the
+   * boundaries read as a cross-fade rather than a cut.
+   */
+  updateSpanOpacity(viewSpanMetres: number): number {
+    const [min, max] = this.config.spanBandMetres
+    const logSpan = Math.log10(Math.max(viewSpanMetres, 1e-6))
+    let opacity = 1
+    if (min > 0) {
+      const logMin = Math.log10(min)
+      opacity = Math.min(opacity, smoothstep(logMin - SPAN_FEATHER_DECADES, logMin + SPAN_FEATHER_DECADES, logSpan))
+    }
+    if (Number.isFinite(max)) {
+      const logMax = Math.log10(max)
+      opacity = Math.min(
+        opacity,
+        1 - smoothstep(logMax - SPAN_FEATHER_DECADES, logMax + SPAN_FEATHER_DECADES, logSpan),
+      )
+    }
+    this.spanOpacity = opacity
+    return opacity
   }
 
   dispose(): void {
@@ -291,4 +364,9 @@ export function sceneQuaternionBetween(from: FrameId, to: FrameId): THREE.Quater
   const q = new THREE.Quaternion().setFromRotationMatrix(m4).normalize()
   quaternionCache.set(key, q)
   return q
+}
+
+function smoothstep(edge0: number, edge1: number, x: number): number {
+  const t = Math.min(Math.max((x - edge0) / (edge1 - edge0), 0), 1)
+  return t * t * (3 - 2 * t)
 }

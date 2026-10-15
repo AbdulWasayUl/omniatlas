@@ -330,7 +330,7 @@ const BELT_VERTEX = /* glsl */ `
     // Brighter bodies are drawn slightly larger and brighter. H runs 3.25 to 15.2.
     float bright = clamp((15.2 - sbH) / 11.95, 0.0, 1.0);
     float radiusPx = uSizePx * (0.85 + 0.9 * bright * bright);
-    vIntensity = uGain * uOpacity * (0.55 + 0.9 * bright);
+    vIntensity = uGain * uOpacity * (0.35 + 0.75 * bright);
 
     vec4 viewPosition = modelViewMatrix * vec4(local, 1.0);
     vec4 clip = projectionMatrix * viewPosition;
@@ -491,7 +491,11 @@ export class SmallBodiesModule implements AtlasModule {
         // Calibrated against an offline raster of the same shader maths at the same
         // instance count; it is the dial to turn if the belt reads too hot or too
         // faint once the post stack's tone mapping is final.
-        uGain: { value: 0.4 },
+        // Dimmer than it looks like it should be. 80,598 additive splats overlap
+        // heavily near the ecliptic, and at the system view the belt was summing into
+        // a solid white wall across the inner planets rather than reading as a faint
+        // ring of dust.
+        uGain: { value: 0.1 },
         uOpacity: { value: 1 },
         uElementBlend: { value: 0 },
       },

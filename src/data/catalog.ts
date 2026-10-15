@@ -16,12 +16,8 @@ export {
   SUN_RADIUS_UNITS,
   MOON_RADIUS_UNITS,
   EARTH_MOON_DISTANCE_UNITS,
-  EXPLORATION_SUN_RADIUS,
   kmToUnits,
   auToUnits,
-  explorationDistanceForAu,
-  explorationMoonDistance,
-  explorationRadiusUnits,
 } from './constants'
 export { SUN, PLANETS, DWARF_PLANETS, EARTH_MOON, MOONS, NOTABLE_SMALL_BODIES, findPlanet, moonsOf }
 export {

@@ -69,6 +69,7 @@ export class AtlasViewer {
   private lastFrameTime = 0
   private lastSnapshotTime = 0
   private elapsed = 0
+  private lastViewSpanMetres = 1
   private frameAccumulator = 0
   private frameCount = 0
   private fps = 0
@@ -258,12 +259,17 @@ export class AtlasViewer {
     this.engine.cameraQuaternion.copy(this.controls.quaternion)
     this.engine.anchorId = this.controls.anchorId
 
+    const halfFov = (this.engine.fovDegrees * Math.PI) / 360
+    const aspect = Math.max(this.canvas.clientWidth, 1) / Math.max(this.canvas.clientHeight, 1)
+    this.lastViewSpanMetres = 2 * Math.tan(halfFov) * aspect * this.controls.distanceMetres
+
     this.engine.renderTarget = this.post.sceneTarget
     this.engine.renderFrame(this.epochMs, delta)
     this.elapsed += delta
     this.post.render(this.elapsed)
     this.labels.selectedId = this.selectedId
-    this.hits = this.labels.render(this.engine).hits
+    this.labels.anchorId = this.controls.anchorId
+    this.hits = this.labels.render(this.engine, this.lastViewSpanMetres).hits
 
     this.frameAccumulator += delta
     this.frameCount += 1
