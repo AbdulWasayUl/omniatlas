@@ -839,7 +839,7 @@ export class GalaxyModule implements AtlasModule {
         const total = this.fieldTotalInstances
         // Below about a kiloparsec on screen the field is already fading out against
         // the real star catalogue, so the full set only matters in the middle band.
-        const spanKpc = ctx.viewSpanMetres / 3.0856775814913673e19
+        const spanKpc = ctx.viewSpanMetres / KPC_M
         const fraction = spanKpc > 60 ? 0.22 : spanKpc > 25 ? 0.3 : spanKpc > 8 ? 0.62 : 1
         const drawn = Math.max(1, Math.round(total * fraction))
         geometry.instanceCount = drawn
