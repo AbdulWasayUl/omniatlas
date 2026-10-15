@@ -33,3 +33,7 @@ dist-ssr
 .cache/
 # Playwright MCP scratch output
 .playwright-mcp/
+
+# Scratch screenshots and probe pages from agent runs
+/*.png
+/*-probe.html
