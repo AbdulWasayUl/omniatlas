@@ -50,6 +50,17 @@ export function AppChrome({ viewer }: { viewer: AtlasViewer | null }) {
       if (event.key === 'n' || event.key === 'N') {
         viewer?.resumeLive()
       }
+      // Up one level in the containment hierarchy: moon to planet, planet to Sun.
+      if (event.key === 'Backspace' || event.key === 'u' || event.key === 'U') {
+        event.preventDefault()
+        viewer?.focusParent()
+      }
+      if (event.key === 'ArrowLeft') viewer?.controls.orbitBy(0.12, 0)
+      if (event.key === 'ArrowRight') viewer?.controls.orbitBy(-0.12, 0)
+      if (event.key === 'ArrowUp') viewer?.controls.orbitBy(0, -0.08)
+      if (event.key === 'ArrowDown') viewer?.controls.orbitBy(0, 0.08)
+      if (event.key === '=' || event.key === '+') viewer?.controls.zoomBy(1 / 1.6)
+      if (event.key === '-' || event.key === '_') viewer?.controls.zoomBy(1.6)
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
@@ -111,6 +122,8 @@ export function AppChrome({ viewer }: { viewer: AtlasViewer | null }) {
           Could not load: {failedModules.join(', ')}
         </div>
       )}
+
+      <ControlHint ready={ready} />
 
       <LoadingScreen done={ready} />
     </>
@@ -278,6 +291,58 @@ function TimeBar({ viewer, epochMs }: { viewer: AtlasViewer | null; epochMs: num
         </button>
       </div>
     </footer>
+  )
+}
+
+/**
+ * A one-time hint.
+ *
+ * A 3D canvas advertises none of its own affordances: nothing on screen says the scene
+ * can be dragged, scrolled or double-clicked. This says it once, then gets out of the
+ * way for good on the first interaction.
+ */
+function ControlHint({ ready }: { ready: boolean }) {
+  const [dismissed, setDismissed] = useState(() => {
+    try {
+      return localStorage.getItem('omniatlas.hint-seen') === '1'
+    } catch {
+      // Private browsing, blocked storage: show the hint, just do not remember.
+      return false
+    }
+  })
+
+  useEffect(() => {
+    if (dismissed || !ready) return
+    const dismiss = () => {
+      setDismissed(true)
+      try {
+        localStorage.setItem('omniatlas.hint-seen', '1')
+      } catch {
+        /* nothing to do; the hint simply returns next visit */
+      }
+    }
+    window.addEventListener('pointerdown', dismiss, { once: true })
+    window.addEventListener('wheel', dismiss, { once: true, passive: true })
+    window.addEventListener('keydown', dismiss, { once: true })
+    const timer = window.setTimeout(dismiss, 14000)
+    return () => {
+      window.removeEventListener('pointerdown', dismiss)
+      window.removeEventListener('wheel', dismiss)
+      window.removeEventListener('keydown', dismiss)
+      window.clearTimeout(timer)
+    }
+  }, [dismissed, ready])
+
+  if (dismissed || !ready) return null
+  return (
+    <div className="control-hint" role="note">
+      {/* Each line is its own block: as bare inline content in a flex column, the
+          words became separate flex items and stacked one per line. */}
+      <div className="control-hint-main">
+        <b>Drag</b> to orbit · <b>Scroll</b> to travel · <b>Double-click</b> to fly to anything
+      </div>
+      <div className="control-hint-sub">⌘K to search · U to go up a level</div>
+    </div>
   )
 }
 

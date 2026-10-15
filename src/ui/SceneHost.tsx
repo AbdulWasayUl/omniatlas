@@ -90,7 +90,12 @@ export function SceneHost({ onViewer }: { onViewer?: (viewer: AtlasViewer | null
     })
 
     onViewer?.(viewer)
-    ;(window as unknown as { __viewer?: unknown }).__viewer = viewer // TEMP-VERIFY
+    // A handle for debugging and for driving the browser in end-to-end checks.
+    // Development only: shipping a live engine reference on `window` invites both
+    // console-poking and a memory leak that survives navigation.
+    if (import.meta.env.DEV) {
+      ;(window as unknown as { __viewer?: unknown }).__viewer = viewer
+    }
 
     return () => {
       onViewer?.(null)

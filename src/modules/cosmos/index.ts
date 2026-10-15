@@ -1260,7 +1260,11 @@ export class CosmosModule implements AtlasModule {
     // Cosmicflows-4 is meaningless inside the Local Volume and 2MRS is meaningless
     // inside Cosmicflows-4's reach, so each fades in where it starts to mean something.
     if (this.cf4Field) {
-      const opacity = smoothstep(1.5, 15, distanceMpc)
+      // 0.45 rather than 1.0. Every smear points at the observer, so at full strength
+      // 38,000 of them read as a starburst centred on the camera rather than as
+      // structure in the universe. Dimmer, the group cores carry the image and the
+      // elongation stays legible as what it is: the uncertainty on each distance.
+      const opacity = 0.45 * smoothstep(1.5, 15, distanceMpc)
       const u = this.cf4Field.material.uniforms
       ;(u.uViewportPx.value as THREE.Vector2).set(ctx.width * dpr, ctx.height * dpr)
       u.uOpacity.value = opacity
@@ -1278,7 +1282,11 @@ export class CosmosModule implements AtlasModule {
 
     // The gap appears with the data it is a gap in — never later, or there would be a
     // moment where the hole looks like a void.
-    const gapOpacity = 0.3 * smoothstep(1.5, 15, distanceMpc)
+    // Deliberately faint. The zone of avoidance has to be legible as "no survey
+    // coverage here" without becoming the loudest thing on screen -- at 0.3 it read
+    // as a solid orange wedge dominating the cosmic web it is supposed to annotate.
+    // It is a caveat on the data, not an object in the universe.
+    const gapOpacity = 0.075 * smoothstep(1.5, 15, distanceMpc)
     if (this.zoaSurface) {
       const material = this.zoaSurface.material as THREE.ShaderMaterial
       material.uniforms.uOpacity.value = gapOpacity

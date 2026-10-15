@@ -964,3 +964,56 @@ button.chip:hover {
     padding: 0 8px;
   }
 }
+
+/* First-run control hint. Centred low, over the scene, never over the subject. */
+.control-hint {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--timebar-h) + 22px);
+  transform: translateX(-50%);
+  z-index: var(--z-hud);
+  text-align: center;
+  padding: 9px 20px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-1) 86%, transparent);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(10px);
+  font-size: 13px;
+  color: var(--text-2);
+  white-space: nowrap;
+  pointer-events: none;
+  animation: hint-in var(--d-enter) var(--ease-out);
+}
+
+.control-hint b {
+  color: var(--text-1);
+  font-weight: 600;
+}
+
+.control-hint-main {
+  white-space: nowrap;
+}
+
+.control-hint-sub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+@keyframes hint-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 6px);
+  }
+}
+
+@media (width < 768px) {
+  .control-hint {
+    font-size: 12px;
+    padding: 8px 12px;
+    max-width: calc(100vw - 32px);
+    white-space: normal;
+    text-align: center;
+  }
+}

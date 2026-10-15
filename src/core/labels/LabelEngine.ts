@@ -71,6 +71,23 @@ const DISTANCE_MISMATCH_PENALTY = 26
  */
 const SCORE_FLOOR_BELOW_BEST = 42
 
+/**
+ * How much a bare catalogue designation gives up to a name someone would recognise.
+ *
+ * At the supercluster scale the screen filled with "AGC229053", "UGC 7321" and
+ * "LV J0737+4724" — all perfectly real objects, none of them meaningful to a reader,
+ * and all crowding out the ones that are. A name carrying no digits is almost always
+ * the one a person was taught: Andromeda, the Beehive, the Rosette Nebula, Virgo.
+ * This is a tie-breaker, not a filter — a designated object with nothing competing
+ * for the slot still gets its label.
+ */
+const DESIGNATION_PENALTY = 16
+
+/** Cheap test for "this is a catalogue number rather than a name". */
+function isDesignation(name: string): boolean {
+  return /\d/.test(name)
+}
+
 /** Radius of the constant-size marker ring, in CSS pixels. */
 const MARKER_RADIUS = 5.5
 /** Below this apparent radius in pixels, the marker replaces the mesh entirely. */
@@ -191,7 +208,10 @@ export class LabelEngine {
       const sizeBonus = Math.min(apparentPixels, 40)
       const score = selected
         ? Number.POSITIVE_INFINITY
-        : item.priority + sizeBonus - DISTANCE_MISMATCH_PENALTY * mismatch
+        : item.priority +
+          sizeBonus -
+          DISTANCE_MISMATCH_PENALTY * mismatch -
+          (isDesignation(item.node.name) ? DESIGNATION_PENALTY : 0)
 
       candidates.push({ item, x, y, apparentPixels, score, selected })
     }

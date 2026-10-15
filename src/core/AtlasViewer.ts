@@ -116,6 +116,7 @@ export class AtlasViewer {
     // Selection is a click, not a drag that happened to end on an object.
     options.canvas.addEventListener('pointerdown', this.handlePointerDown)
     options.canvas.addEventListener('pointerup', this.handlePointerUp)
+    options.canvas.addEventListener('dblclick', this.handleDoubleClick)
 
     this.resizeObserver = new ResizeObserver(() => this.resize())
     this.resizeObserver.observe(options.canvas)
@@ -358,6 +359,38 @@ export class AtlasViewer {
     this.onSelect?.(id)
   }
 
+  /**
+   * Double-click flies.
+   *
+   * Single-click selects and opens the inspector; getting there required a second
+   * trip to a "Fly here" button, which is a lot of ceremony for the single most
+   * common thing anyone wants to do in an atlas. Double-click is the convention every
+   * map application already taught people.
+   */
+  private handleDoubleClick = (event: MouseEvent) => {
+    const id = this.pick(event.clientX, event.clientY)
+    if (!id) return
+    event.preventDefault()
+    this.selectedId = id
+    this.onSelect?.(id)
+    this.focus(id)
+  }
+
+  /**
+   * Move the camera to this object's parent — out of a moon to its planet, out of a
+   * planet to the Sun. The counterpart to flying in, and the thing a user reaches for
+   * when they are lost.
+   */
+  focusParent(): boolean {
+    const current = this.engine.node(this.controls.anchorId)
+    const parentId = current?.parentId
+    if (!parentId || !this.engine.node(parentId)) return false
+    this.focus(parentId)
+    this.selectedId = parentId
+    this.onSelect?.(parentId)
+    return true
+  }
+
   /** The object the user has selected, which is not necessarily the camera anchor. */
   selectedId: string | null = null
 
@@ -377,6 +410,7 @@ export class AtlasViewer {
     this.resizeObserver.disconnect()
     this.canvas.removeEventListener('pointerdown', this.handlePointerDown)
     this.canvas.removeEventListener('pointerup', this.handlePointerUp)
+    this.canvas.removeEventListener('dblclick', this.handleDoubleClick)
     this.controls.dispose()
     this.post.dispose()
     this.engine.dispose()

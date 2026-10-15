@@ -433,7 +433,15 @@ export class AtlasControls {
     this.dragging = 'orbit'
     this.lastPointer.x = event.clientX
     this.lastPointer.y = event.clientY
-    this.domElement.setPointerCapture?.(event.pointerId)
+    // Pointer capture throws NotFoundError if the pointer is already gone — which
+    // happens with synthetic events, with some touch cancellations, and whenever the
+    // browser retires a pointer between the event firing and this handler running.
+    // Capture is an optimisation for drags that leave the element, never a necessity.
+    try {
+      this.domElement.setPointerCapture?.(event.pointerId)
+    } catch {
+      /* dragging still works without capture */
+    }
   }
 
   private onPointerMove = (event: PointerEvent) => {
@@ -453,7 +461,11 @@ export class AtlasControls {
     if (event.pointerId !== this.activePointer) return
     this.dragging = null
     this.activePointer = null
-    this.domElement.releasePointerCapture?.(event.pointerId)
+    try {
+      this.domElement.releasePointerCapture?.(event.pointerId)
+    } catch {
+      /* the capture was already released */
+    }
   }
 
   /**
