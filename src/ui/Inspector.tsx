@@ -2,7 +2,7 @@ import type { AtlasViewer } from '../core/AtlasViewer'
 import { classStyle } from '../data/objectClasses'
 import { findEntity } from '../data/catalog'
 import { formatDistance } from '../format/units'
-import { distance3d } from '../core/world'
+import { convertFrame, distance3d, vec3d } from '../core/world'
 import { useViewStore } from '../state/useViewStore'
 
 /**
@@ -36,7 +36,11 @@ export function Inspector({ viewer }: { viewer: AtlasViewer | null }) {
   // catalogue separation because it answers "how far am I from it right now".
   let distanceText: string | null = null
   if (viewer && node) {
-    distanceText = formatDistance(distance3d(viewer.engine.cameraWorld, node.worldPosition)).text
+    // Through the node's own frame first. Measuring an ICRF or galactic position
+    // against an ecliptic camera position reads the obliquity as distance: it put
+    // Sagittarius A* 38.6 kly away while the camera sat 2.8 AU from it.
+    const nodeInCameraFrame = convertFrame(vec3d(), node.worldPosition, node.frame, viewer.engine.cameraFrame)
+    distanceText = formatDistance(distance3d(viewer.engine.cameraWorld, nodeInCameraFrame)).text
   }
 
   return (

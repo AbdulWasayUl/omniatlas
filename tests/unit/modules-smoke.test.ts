@@ -94,6 +94,14 @@ const MODULES: { id: string; load: () => Promise<AtlasModule>; layers: LayerId[]
     layers: ['cosmic'],
     minNodes: 1,
   },
+  {
+    // Draws nothing of its own: the proxy module renders whichever of these the
+    // camera is anchored to. What it owns is positions.
+    id: 'notable',
+    load: async () => new (await import('../../src/modules/notable')).NotableModule(),
+    layers: [],
+    minNodes: 14,
+  },
 ]
 
 /** Largest absolute vertex coordinate in a geometry's position attribute. */
@@ -118,8 +126,10 @@ describe.each(MODULES)('module $id', ({ id, load, layers, minNodes }) => {
     const module = await load()
     await module.init(engine)
 
-    const drawn = layers.reduce((total, layer) => total + engine.layer(layer).scene.children.length, 0)
-    expect(drawn, `${id} added nothing to ${layers.join('/')}`).toBeGreaterThan(0)
+    if (layers.length > 0) {
+      const drawn = layers.reduce((total, layer) => total + engine.layer(layer).scene.children.length, 0)
+      expect(drawn, `${id} added nothing to ${layers.join('/')}`).toBeGreaterThan(0)
+    }
     expect(engine.registry.size, `${id} registered too few objects`).toBeGreaterThanOrEqual(minNodes)
 
     module.dispose?.()
@@ -144,7 +154,9 @@ describe.each(MODULES)('module $id', ({ id, load, layers, minNodes }) => {
   it('aborts cleanly if the engine is disposed mid-init', async () => {
     const engine = new Engine({ renderer: {} as never })
     const module = await load()
-    const booting = module.init(engine)
+    // Promise.resolve: a module with no I/O to do initialises synchronously, and
+    // `init` is declared to return void or a promise.
+    const booting = Promise.resolve(module.init(engine))
     engine.dispose()
     // React StrictMode mounts, unmounts and remounts every effect in development, so
     // a boot started by the first mount is still in flight when the second tears its

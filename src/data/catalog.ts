@@ -2,6 +2,7 @@ import { NOTABLE_SMALL_BODIES } from './asteroidBelt'
 import { DWARF_PLANETS, PLANETS, findPlanet } from './planets'
 import { EARTH_MOON, MOONS, moonsOf } from './moons'
 import { SUN } from './sun'
+import { NOTABLE_ENTITIES } from './notableObjects'
 import type { AtlasEntity } from './types'
 
 export type { EntityKind, Fact, AtlasEntity, FocusTarget, PlanetId } from './types'
@@ -39,7 +40,13 @@ export const BODIES: AtlasEntity[] = [SUN, ...PLANETS, ...DWARF_PLANETS]
  * Countries, cities, and lunar craters are loaded at runtime (see surfaceLayers.ts)
  * because they number in the hundreds to low thousands and are body-specific layers,
  * not fixed navigational destinations. */
-export const CATALOG: AtlasEntity[] = [...BODIES, EARTH_MOON, ...MOONS, ...NOTABLE_SMALL_BODIES]
+export const CATALOG: AtlasEntity[] = [
+  ...BODIES,
+  EARTH_MOON,
+  ...MOONS,
+  ...NOTABLE_SMALL_BODIES,
+  ...NOTABLE_ENTITIES,
+]
 
 export function findEntity(id: string | null): AtlasEntity | null {
   if (!id) return null

@@ -330,14 +330,18 @@ export class GalaxyModule implements AtlasModule {
 
     this.addNode({
       id: 'galactic-centre',
-      name: 'Galactic centre',
+      name: 'Sagittarius A*',
       objectClass: 'black-hole',
       parentId: 'milky-way',
-      radiusMetres: 0,
+      // The Schwarzschild radius of 4.297e6 solar masses: 2GM/c^2 = 1.269e10 m, or
+      // 0.085 AU. A radius of zero left the single best-measured black hole in the
+      // sky as the one object in the atlas that could not be drawn at all.
+      radiusMetres: 1.269e10,
       worldGalactocentricKpc: { x: 0, y: 0, z: 0 },
       provenance: 'measured',
       provenanceNote:
-        'Direction from VLBI astrometry of Sgr A*; distance R0 = 8.15 +/- 0.15 kpc (Reid et al. 2019).',
+        'Direction from VLBI astrometry of Sgr A*; distance R0 = 8.15 +/- 0.15 kpc (Reid et al. 2019). ' +
+        'Mass 4.297e6 M_sun from the S2 orbit (GRAVITY Collaboration 2019).',
     })
 
     this.addNode({

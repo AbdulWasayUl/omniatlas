@@ -47,6 +47,19 @@ export interface AtlasViewerOptions {
   onReady?: () => void
 }
 
+/**
+ * Arrival distance, in radii of the object being visited.
+ *
+ * 4.2 frames a solid body well: the disc fills a comfortable share of the frame with
+ * room around it. A black hole's radius is its Schwarzschild radius, which is not
+ * what it looks like — the shadow is 2.6 times larger, and the accretion disc that
+ * makes it visible at all runs out past 13. Arriving at 4.2 r_s puts the camera
+ * inside the disc, facing a black wall.
+ */
+function arrivalRadii(objectClass: string): number {
+  return objectClass === 'black-hole' ? 34 : 4.2
+}
+
 /** How often the UI snapshot is published, in milliseconds. */
 const SNAPSHOT_INTERVAL_MS = 100
 
@@ -161,7 +174,8 @@ export class AtlasViewer {
     const node = this.engine.node(id)
     if (!node) return
     const radius = Math.max(node.radiusMetres, 1)
-    const distance = options.distanceMetres ?? (node.radiusMetres > 0 ? radius * 4.2 : 1e9)
+    const distance =
+      options.distanceMetres ?? (node.radiusMetres > 0 ? radius * arrivalRadii(node.objectClass) : 1e9)
 
     // Arrive on the lit side.
     //

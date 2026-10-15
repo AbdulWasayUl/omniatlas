@@ -183,6 +183,15 @@ export class Layer {
 
   /** Whether this layer contributed to the last frame. */
   active = false
+  /**
+   * Keep this layer drawing regardless of its distance band and view span.
+   *
+   * The bands answer "is this layer's content relevant at this scale", which is the
+   * right question for a layer holding a survey. It is the wrong question for the
+   * layer that holds whatever the camera is anchored to: a 1,300 AU black hole is
+   * out of every band the atlas has, and is nonetheless the only thing on screen.
+   */
+  forceActive = false
 
   /**
    * How strongly this layer belongs at the current view span, 0 to 1.

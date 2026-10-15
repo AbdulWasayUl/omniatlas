@@ -101,7 +101,7 @@ function lumpySphere(random: () => number, irregularity: number): THREE.BufferGe
   return geometry
 }
 
-/** Additive points from a position list, as one draw call. */
+/** Additive points from a position list, as one draw call. `size` is in body radii. */
 function pointCloud(positions: Float32Array, colors: Float32Array, size: number, opacity: number): THREE.Points {
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
@@ -119,6 +119,28 @@ function pointCloud(positions: Float32Array, colors: Float32Array, size: number,
   return new THREE.Points(geometry, material)
 }
 
+/**
+ * Which layer draws a proxy.
+ *
+ * Solar-system bodies stay in the heliocentric layer: that is where the solar
+ * module's point light lives, and a rock drawn anywhere else is a black ball. Its
+ * origin is the Sun and nothing in it is more than a few hundred AU away, so
+ * precision is not in question.
+ *
+ * Everything else goes in the system layer, which the engine re-origins onto the
+ * anchor every time the anchor changes. That matters more than the unit does. The
+ * cosmic layer measures in megaparsecs from a supergalactic origin, and asking it to
+ * draw TON 618's 1,300 AU horizon means resolving one part in 10^15 of a coordinate
+ * 1.7 gigaparsecs long — the near plane alone swallowed the entire object. Anchored
+ * at the origin instead, the same horizon is 2x10^8 units across and ordinary.
+ *
+ * Nothing drawn this way needs a light, which is what makes the trade available:
+ * nebulae, clusters, galaxies, stars and accretion discs are all self-lit.
+ */
+function proxyLayerFor(node: SceneNodeHandle): LayerId {
+  return node.layer === 'helio' ? 'helio' : 'system'
+}
+
 /** Everything a built proxy needs for its lifetime. */
 interface Proxy {
   nodeId: string
@@ -126,6 +148,17 @@ interface Proxy {
   group: THREE.Group
   /** Materials whose opacity the apparent-size fade drives. */
   fading: { material: THREE.Material & { opacity: number }; base: number }[]
+  /**
+   * Point materials, with their size as a fraction of the object's radius.
+   *
+   * `PointsMaterial.size` is in the object's LOCAL space and is not multiplied by the
+   * object's scale — three.js computes `gl_PointSize = size * scale / -mvPosition.z`
+   * straight from the uniform. Since a proxy carries its entire physical size in the
+   * group's scale, a size set at build time is off by that factor: a nebula whose
+   * group scales by 1.7e11 drew points 3e-10 pixels across. It has to be rescaled
+   * whenever the group's scale is recomputed, which is every frame.
+   */
+  points: { material: THREE.PointsMaterial; sizeFraction: number }[]
   dispose: () => void
 }
 
@@ -163,7 +196,9 @@ export class ProxyModule implements AtlasModule {
     const layer = this.engine.layer(this.proxy.layerId)
     layer.toLocal(this.scratch, node!.worldPosition, node!.frame)
     this.proxy.group.position.copy(this.scratch)
-    this.proxy.group.scale.setScalar(layer.toLocalLength(node!.radiusMetres))
+    const scale = layer.toLocalLength(node!.radiusMetres)
+    this.proxy.group.scale.setScalar(scale)
+    for (const entry of this.proxy.points) entry.material.size = entry.sizeFraction * scale
 
     // Fade on apparent size, so the proxy takes over from the catalogue point exactly
     // where the point stops being able to represent the object.
@@ -180,7 +215,9 @@ export class ProxyModule implements AtlasModule {
 
   private clear(): void {
     if (!this.proxy) return
-    this.engine.layer(this.proxy.layerId).scene.remove(this.proxy.group)
+    const layer = this.engine.layer(this.proxy.layerId)
+    layer.scene.remove(this.proxy.group)
+    layer.forceActive = false
     this.proxy.dispose()
     this.proxy = null
   }
@@ -190,6 +227,7 @@ export class ProxyModule implements AtlasModule {
     const group = new THREE.Group()
     const disposables: { dispose: () => void }[] = []
     const fading: Proxy['fading'] = []
+    const points: Proxy['points'] = []
 
     switch (node.objectClass) {
       case 'asteroid':
@@ -200,13 +238,13 @@ export class ProxyModule implements AtlasModule {
         this.buildRockyBody(node, random, group, disposables)
         break
       case 'nebula':
-        this.buildNebula(random, group, disposables, fading)
+        this.buildNebula(random, group, disposables, fading, points)
         break
       case 'cluster':
-        this.buildCluster(random, group, disposables, fading)
+        this.buildCluster(random, group, disposables, fading, points)
         break
       case 'galaxy':
-        this.buildGalaxy(random, group, disposables, fading)
+        this.buildGalaxy(random, group, disposables, fading, points)
         break
       case 'black-hole':
         this.buildBlackHole(group, disposables, fading)
@@ -221,12 +259,18 @@ export class ProxyModule implements AtlasModule {
     // renderOrder keeps the additive clouds behind nothing in particular but after the
     // opaque pass, which is what their blend mode assumes.
     group.renderOrder = 3
-    this.engine.layer(node.layer).scene.add(group)
+    const layerId = proxyLayerFor(node)
+    const layer = this.engine.layer(layerId)
+    layer.scene.add(group)
+    // The system layer sits outside every distance band when the anchor is a quasar,
+    // so it has to be told to draw anyway.
+    layer.forceActive = layerId === 'system'
     return {
       nodeId: node.id,
-      layerId: node.layer,
+      layerId,
       group,
       fading,
+      points,
       dispose: () => {
         for (const d of disposables) d.dispose()
       },
@@ -253,7 +297,7 @@ export class ProxyModule implements AtlasModule {
     const isComet = node.objectClass === 'comet'
     const tint = isComet ? 0x6e7a80 : 0x8a7f72
     const material =
-      node.layer === 'helio' || node.layer === 'system'
+      proxyLayerFor(node) === 'helio'
         ? new THREE.MeshStandardMaterial({ color: tint, roughness: 0.96, metalness: 0 })
         : new THREE.MeshBasicMaterial({ color: tint })
     const mesh = new THREE.Mesh(geometry, material)
@@ -295,38 +339,76 @@ export class ProxyModule implements AtlasModule {
     group: THREE.Group,
     disposables: { dispose: () => void }[],
     fading: Proxy['fading'],
+    points: Proxy['points'],
   ): void {
-    const count = 900
+    const count = 1400
     const positions = new Float32Array(count * 3)
     const colors = new Float32Array(count * 3)
-    const strands = 7
-    const strandDir: THREE.Vector3[] = []
-    const strandOrigin: THREE.Vector3[] = []
+
+    // Nine short, curved, independently placed filaments rather than long spokes
+    // through a common centre — the latter is a starfish, which is not what any
+    // emission region looks like. Each one is a quadratic Bezier with its own start,
+    // bend and length, and a third of the cloud is unstructured haze over the top.
+    const strands = 9
+    const a: THREE.Vector3[] = []
+    const b: THREE.Vector3[] = []
+    const c: THREE.Vector3[] = []
+    const lengths: number[] = []
     for (let s = 0; s < strands; s++) {
-      strandDir.push(new THREE.Vector3(random() * 2 - 1, random() * 2 - 1, random() * 2 - 1).normalize())
-      strandOrigin.push(new THREE.Vector3(random() - 0.5, random() - 0.5, random() - 0.5).multiplyScalar(0.7))
+      const start = new THREE.Vector3(random() * 2 - 1, random() * 2 - 1, random() * 2 - 1).multiplyScalar(0.55)
+      const run = 0.4 + random() * 0.8
+      const dir = new THREE.Vector3(random() * 2 - 1, random() * 2 - 1, random() * 2 - 1).normalize()
+      const bend = new THREE.Vector3(random() * 2 - 1, random() * 2 - 1, random() * 2 - 1).multiplyScalar(0.45)
+      a.push(start)
+      b.push(start.clone().addScaledVector(dir, run * 0.5).add(bend))
+      c.push(start.clone().addScaledVector(dir, run))
+      lengths.push(run)
     }
-    const hot = new THREE.Color('#ffd8dd')
+
+    const hot = new THREE.Color('#ffd0cf')
+    const warm = new THREE.Color('#d98fb4')
     const cool = new THREE.Color('#5f7fd8')
     const colour = new THREE.Color()
+    const point = new THREE.Vector3()
     for (let i = 0; i < count; i++) {
-      const s = i % strands
-      const t = random() * 2 - 1
-      const spread = 0.26 * (1 - Math.abs(t) * 0.5)
-      positions[i * 3] = strandOrigin[s].x + strandDir[s].x * t + (random() - 0.5) * spread
-      positions[i * 3 + 1] = strandOrigin[s].y + strandDir[s].y * t + (random() - 0.5) * spread
-      positions[i * 3 + 2] = strandOrigin[s].z + strandDir[s].z * t + (random() - 0.5) * spread
-      // Hotter towards the middle, where the ionising stars of a real H II region are.
-      const r = Math.hypot(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2])
-      colour.copy(cool).lerp(hot, THREE.MathUtils.clamp(1 - r, 0, 1))
+      if (i % 3 === 0) {
+        // Haze: a centrally concentrated cloud filling the gaps between filaments.
+        const r = random() ** 0.6
+        const cosTheta = random() * 2 - 1
+        const sinTheta = Math.sqrt(1 - cosTheta * cosTheta)
+        const phi = random() * Math.PI * 2
+        point.set(r * sinTheta * Math.cos(phi), r * sinTheta * Math.sin(phi), r * cosTheta)
+      } else {
+        const s = i % strands
+        const t = random()
+        const u = 1 - t
+        // Quadratic Bezier along the filament, with thickness tapering to the ends.
+        point
+          .copy(a[s])
+          .multiplyScalar(u * u)
+          .addScaledVector(b[s], 2 * u * t)
+          .addScaledVector(c[s], t * t)
+        const thickness = 0.12 * lengths[s] * (0.35 + Math.sin(Math.PI * t))
+        point.x += (random() - 0.5) * thickness
+        point.y += (random() - 0.5) * thickness
+        point.z += (random() - 0.5) * thickness
+      }
+      positions[i * 3] = point.x
+      positions[i * 3 + 1] = point.y
+      positions[i * 3 + 2] = point.z
+      // Hotter towards the middle, where the ionising stars of an H II region are.
+      const r = point.length()
+      colour.copy(cool).lerp(warm, THREE.MathUtils.clamp(1.4 - r, 0, 1))
+      colour.lerp(hot, THREE.MathUtils.clamp(0.75 - r, 0, 1))
       colors[i * 3] = colour.r
       colors[i * 3 + 1] = colour.g
       colors[i * 3 + 2] = colour.b
     }
-    const points = pointCloud(positions, colors, 0.5, 0.2)
-    group.add(points)
-    disposables.push(points.geometry, points.material as THREE.Material)
-    fading.push({ material: points.material as THREE.PointsMaterial, base: 0.2 })
+    const cloud = pointCloud(positions, colors, 0.42, 0.17)
+    group.add(cloud)
+    disposables.push(cloud.geometry, cloud.material as THREE.Material)
+    fading.push({ material: cloud.material as THREE.PointsMaterial, base: 0.17 })
+    points.push({ material: cloud.material as THREE.PointsMaterial, sizeFraction: 0.42 })
   }
 
   /**
@@ -341,6 +423,7 @@ export class ProxyModule implements AtlasModule {
     group: THREE.Group,
     disposables: { dispose: () => void }[],
     fading: Proxy['fading'],
+    points: Proxy['points'],
   ): void {
     const count = 1400
     const positions = new Float32Array(count * 3)
@@ -365,10 +448,11 @@ export class ProxyModule implements AtlasModule {
       colors[i * 3 + 1] = colour.g * brightness
       colors[i * 3 + 2] = colour.b * brightness
     }
-    const points = pointCloud(positions, colors, 0.035, 0.95)
-    group.add(points)
-    disposables.push(points.geometry, points.material as THREE.Material)
-    fading.push({ material: points.material as THREE.PointsMaterial, base: 0.95 })
+    const cloud = pointCloud(positions, colors, 0.035, 0.95)
+    group.add(cloud)
+    disposables.push(cloud.geometry, cloud.material as THREE.Material)
+    fading.push({ material: cloud.material as THREE.PointsMaterial, base: 0.95 })
+    points.push({ material: cloud.material as THREE.PointsMaterial, sizeFraction: 0.035 })
   }
 
   /** A galaxy as an exponential disc plus a bulge, at the catalogue radius. */
@@ -377,6 +461,7 @@ export class ProxyModule implements AtlasModule {
     group: THREE.Group,
     disposables: { dispose: () => void }[],
     fading: Proxy['fading'],
+    points: Proxy['points'],
   ): void {
     const count = 9000
     const positions = new Float32Array(count * 3)
@@ -414,10 +499,11 @@ export class ProxyModule implements AtlasModule {
       colors[i * 3 + 1] = colour.g * brightness
       colors[i * 3 + 2] = colour.b * brightness
     }
-    const points = pointCloud(positions, colors, 0.028, 0.8)
-    group.add(points)
-    disposables.push(points.geometry, points.material as THREE.Material)
-    fading.push({ material: points.material as THREE.PointsMaterial, base: 0.8 })
+    const cloud = pointCloud(positions, colors, 0.028, 0.8)
+    group.add(cloud)
+    disposables.push(cloud.geometry, cloud.material as THREE.Material)
+    fading.push({ material: cloud.material as THREE.PointsMaterial, base: 0.8 })
+    points.push({ material: cloud.material as THREE.PointsMaterial, sizeFraction: 0.028 })
   }
 
   /**
@@ -452,27 +538,37 @@ export class ProxyModule implements AtlasModule {
     disposables.push(ringGeometry, ringMaterial)
     fading.push({ material: ringMaterial, base: 0.9 })
 
-    const discGeometry = new THREE.RingGeometry(3.4, 13, 220, 1)
-    // Colour the disc by radius: the inner edge is the hottest material in the galaxy.
+    // Radial rings so the brightness profile has somewhere to live: a single quad
+    // ring would interpolate across the whole disc in one step.
+    const discGeometry = new THREE.RingGeometry(3.4, 16, 220, 48)
+    // Colour and brightness by radius. A thin accretion disc runs T ∝ r^-3/4, so the
+    // emitted flux goes as T^4 ∝ r^-3 — the inner edge is thousands of times brighter
+    // than the outer, which is why a real one looks like a bright ring with a faint
+    // skirt rather than the flat plate a linear ramp draws.
     const colors = new Float32Array(discGeometry.attributes.position.count * 3)
     const position = discGeometry.attributes.position
-    const inner = new THREE.Color('#fff4e0')
-    const outer = new THREE.Color('#ff7a2a')
+    const inner = new THREE.Color('#fffaf2')
+    const outer = new THREE.Color('#ff5d12')
     const colour = new THREE.Color()
     const v = new THREE.Vector3()
     for (let i = 0; i < position.count; i++) {
       v.fromBufferAttribute(position, i)
-      colour.copy(inner).lerp(outer, THREE.MathUtils.clamp((v.length() - 3.4) / 9.6, 0, 1))
-      colors[i * 3] = colour.r
-      colors[i * 3 + 1] = colour.g
-      colors[i * 3 + 2] = colour.b
+      const r = Math.max(v.length(), 3.4)
+      const t = THREE.MathUtils.clamp((r - 3.4) / 12.6, 0, 1)
+      colour.copy(inner).lerp(outer, Math.sqrt(t))
+      // Normalised so the inner edge is 1; the exponent is softened from 3 to 2.2
+      // because an exact profile puts everything past 6 r_s below one eighth-bit.
+      const flux = (3.4 / r) ** 2.2
+      colors[i * 3] = colour.r * flux
+      colors[i * 3 + 1] = colour.g * flux
+      colors[i * 3 + 2] = colour.b * flux
     }
     discGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
     const discMaterial = new THREE.MeshBasicMaterial({
       vertexColors: true,
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.62,
+      opacity: 0.95,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     })
@@ -480,6 +576,6 @@ export class ProxyModule implements AtlasModule {
     disc.rotation.x = Math.PI / 2.35
     group.add(disc)
     disposables.push(discGeometry, discMaterial)
-    fading.push({ material: discMaterial, base: 0.62 })
+    fading.push({ material: discMaterial, base: 0.95 })
   }
 }

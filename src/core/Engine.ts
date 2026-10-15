@@ -279,7 +279,9 @@ export class Engine {
       layer.rebase(this.cameraWorld, this.cameraFrame, this.cameraQuaternion, this.fovDegrees, aspect, nearHint)
       layer.updateSpanOpacity(ctx.viewSpanMetres)
       // A layer must be both within reach AND at a scale where its content belongs.
-      layer.active = (layer.inBand() || layer.anchorId === this.anchorId) && layer.spanOpacity > 0.004
+      layer.active =
+        layer.forceActive ||
+        ((layer.inBand() || layer.anchorId === this.anchorId) && layer.spanOpacity > 0.004)
     }
 
     for (const module of this.modules) {

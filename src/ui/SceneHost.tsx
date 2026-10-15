@@ -75,6 +75,13 @@ export function SceneHost({ onViewer }: { onViewer?: (viewer: AtlasViewer | null
           },
         },
         {
+          id: 'notable',
+          load: async () => {
+            const { NotableModule } = await import('../modules/notable')
+            return new NotableModule()
+          },
+        },
+        {
           // Last, so its preRender sees the positions every other module just wrote.
           id: 'proxy',
           load: async () => {
