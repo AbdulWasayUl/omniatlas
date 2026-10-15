@@ -791,6 +791,7 @@ export class GalaxyModule implements AtlasModule {
     this.materials.push(material)
     this.fieldMaterial = material
     this.fieldMesh = mesh
+    this.fieldTotalInstances = count
     this.fieldCount = count
 
     this.provenance.push({
@@ -820,6 +821,30 @@ export class GalaxyModule implements AtlasModule {
 
     if (this.fieldMaterial) {
       this.fieldMaterial.uniforms.uPixelHeight.value = pixelHeight
+
+      // Density LOD for the disc field.
+      //
+      // Framing the whole galaxy puts all ~300,000 additive splats on screen at once,
+      // and additive blending cannot use early-Z, so the cost is raw overdraw: the
+      // Milky Way rung measured 23 fps against 60 everywhere else on the ladder.
+      //
+      // The field is a statistical realisation, not a catalogue, and the builder
+      // seeded it deterministically — so a prefix of it is itself a valid, and
+      // identically reproducible, realisation at lower density. Brightness is
+      // compensated by the same factor, which keeps total luminance about constant
+      // and makes the transition invisible.
+      const mesh = this.fieldMesh
+      if (mesh) {
+        const geometry = mesh.geometry as THREE.InstancedBufferGeometry
+        const total = this.fieldTotalInstances
+        // Below about a kiloparsec on screen the field is already fading out against
+        // the real star catalogue, so the full set only matters in the middle band.
+        const spanKpc = ctx.viewSpanMetres / 3.0856775814913673e19
+        const fraction = spanKpc > 60 ? 0.22 : spanKpc > 25 ? 0.3 : spanKpc > 8 ? 0.62 : 1
+        const drawn = Math.max(1, Math.round(total * fraction))
+        geometry.instanceCount = drawn
+        this.fieldMaterial.uniforms.uGain.value = FIELD_GAIN * (total / drawn)
+      }
     }
     if (this.maserMaterial) {
       this.maserMaterial.uniforms.uPixelHeight.value = pixelHeight
@@ -874,6 +899,9 @@ export class GalaxyModule implements AtlasModule {
       if (object.name.startsWith('galaxy:arm')) object.visible = visible
     }
   }
+
+  /** Full instance count of the disc field, before any density LOD. */
+  private fieldTotalInstances = 0
 
   setDiscFieldVisible(visible: boolean): void {
     if (this.fieldMesh) this.fieldMesh.visible = visible
