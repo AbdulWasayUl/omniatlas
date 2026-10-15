@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { AtlasModule, Engine, FrameContext, SceneNodeHandle } from '../../core/Engine'
 import { OBJECT_CLASSES } from '../../data/objectClasses'
+import { literatureDistancePc } from '../../data/deepSkyDistances'
 import {
   PC_M,
   type FrameId,
@@ -162,7 +163,9 @@ const TYPE_CATEGORY: Record<string, DeepSkyCategory> = {
   SNR: 'nebula',
   PN: 'planetary',
   OCl: 'openCluster',
-  'Cl+N': 'openCluster',
+  // A cluster inside nebulosity: M42, M8, M16, M20. What a visitor sees, and what
+  // every one of them is named for, is the nebula.
+  'Cl+N': 'nebula',
   '*Ass': 'openCluster',
   GCl: 'globularCluster',
   '*': 'starLike',
@@ -309,7 +312,7 @@ export interface DeepSkyManifest {
     assumedMagnitude: number
     byCategory: Record<string, { drawn: number; measured: number; directionOnly: number }>
   }
-  named: { registered: number; measured: number; directionOnly: number }
+  named: { registered: number; measured: number; directionOnly: number; literature: number }
   globulars: {
     registered: number
     nearestKpc: number
@@ -333,7 +336,7 @@ export interface DeepSkyNode extends SceneNodeHandle {
   provenance: 'measured' | 'derived' | 'illustration'
   /** True when only the direction is known and the position is a shell projection. */
   directionOnly: boolean
-  distanceSource: 'parallax' | 'redshift' | 'harris-2010' | 'none'
+  distanceSource: 'parallax' | 'redshift' | 'literature' | 'harris-2010' | 'none'
   designation: string
   catalogue: string
 }
@@ -625,7 +628,7 @@ export class DeepSkyModule implements AtlasModule {
       assumedMagnitude: 0,
       byCategory: {},
     },
-    named: { registered: 0, measured: 0, directionOnly: 0 },
+    named: { registered: 0, measured: 0, directionOnly: 0, literature: 0 },
     globulars: {
       registered: 0,
       nearestKpc: 0,
@@ -919,8 +922,13 @@ export class DeepSkyModule implements AtlasModule {
     for (const object of payload.objects) {
       if (!Number.isFinite(object.raDeg) || !Number.isFinite(object.decDeg)) continue
       const category = TYPE_CATEGORY[object.type] ?? 'other'
-      const measured = typeof object.distancePc === 'number' && object.distancePc > 0
-      const distPc = measured ? (object.distancePc as number) : SHELL_PC
+      const catalogued = typeof object.distancePc === 'number' && object.distancePc > 0
+      // Fall back to a published distance before falling back to the shell. Without
+      // this the Orion Nebula is 100 kpc away and 8,000 light years across.
+      const literaturePc = catalogued ? null : literatureDistancePc(object.designation, object.messier)
+      const placed = catalogued || literaturePc !== null
+      const distPc = catalogued ? (object.distancePc as number) : (literaturePc ?? SHELL_PC)
+      if (literaturePc !== null) stats.literature++
 
       const node = this.makeNode({
         id: `ngc:${object.designation}`,
@@ -931,15 +939,24 @@ export class DeepSkyModule implements AtlasModule {
         raDeg: object.raDeg,
         decDeg: object.decDeg,
         distancePc: distPc,
-        radiusMetres: this.radiusFromAngularSize(object.majAxArcmin, distPc),
-        measured,
-        distanceSource: measured ? (object.distanceKind === 'parallax' ? 'parallax' : 'redshift') : 'none',
+        // A radius is a physical size, and SHELL_PC is not a distance. Deriving one
+        // from the other turns a placeholder into a measurement, so an object with no
+        // distance gets no size either and is drawn as the bearing it actually is.
+        radiusMetres: placed ? this.radiusFromAngularSize(object.majAxArcmin, distPc) : 0,
+        measured: placed,
+        distanceSource: catalogued
+          ? object.distanceKind === 'parallax'
+            ? 'parallax'
+            : 'redshift'
+          : literaturePc !== null
+            ? 'literature'
+            : 'none',
         parentId: null,
       })
       this.engine.register(node)
       this.nodeIds.push(node.id)
       stats.registered++
-      if (measured) stats.measured++
+      if (placed) stats.measured++
       else stats.directionOnly++
     }
     this.manifest.datasets['ngc-names.json'] = 'loaded'

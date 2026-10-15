@@ -25,6 +25,16 @@ export interface SphereBodySpec {
   atmosphereColor?: string
   /** Atmosphere shell radius as a multiple of the body radius. */
   atmosphereScale?: number
+  /**
+   * Base colour for the parts of `textureUrl` that carry no observation.
+   *
+   * Several USGS mosaics cover only the hemisphere a flyby actually imaged — Voyager 2
+   * saw Triton's southern half and Titania's southern half, and the rest of each map is
+   * encoded as pure black. Rendered literally, those bodies are a black ball with a
+   * lit crescent. Set this to the body's measured mean albedo colour and the unimaged
+   * region is filled flat, with no invented terrain in it.
+   */
+  unimagedFill?: string
   /** Ring texture (Saturn, Uranus). */
   ringTextureUrl?: string
   ringInnerScale?: number
@@ -33,14 +43,46 @@ export interface SphereBodySpec {
   segments?: number
 }
 
-/** One shared unit sphere, reused by every body in the atlas. */
-let sharedSphere: THREE.SphereGeometry | null = null
+/**
+ * Unit spheres, one per segment count, reused by every body in the atlas.
+ *
+ * Keyed rather than single-slot: bodies are built at 96, 64 and 48 segments, and a
+ * single slot disposed itself every time the count changed, leaving every mesh built
+ * before the change pointing at a disposed geometry that the renderer then had to
+ * re-upload on the next frame that drew it.
+ */
+const sharedSpheres = new Map<number, THREE.SphereGeometry>()
 function unitSphere(segments: number): THREE.SphereGeometry {
-  if (!sharedSphere || sharedSphere.parameters.widthSegments !== segments) {
-    sharedSphere?.dispose()
-    sharedSphere = new THREE.SphereGeometry(1, segments, segments / 2)
+  let geometry = sharedSpheres.get(segments)
+  if (!geometry) {
+    geometry = new THREE.SphereGeometry(1, segments, segments / 2)
+    sharedSpheres.set(segments, geometry)
   }
-  return sharedSphere
+  return geometry
+}
+
+/**
+ * Replace the no-data region of a partial map with a flat base colour.
+ *
+ * The test is on the decoded linear luminance, with the threshold well under the
+ * darkest real terrain in any of these maps (Phobos' floor sits near 0.02 linear) and
+ * above the ringing JPEG leaves along the mosaic edge. The fill carries no detail on
+ * purpose: it should read as "not imaged", not as terrain.
+ */
+function applyUnimagedFill(material: THREE.MeshStandardMaterial, fill: THREE.Color): void {
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.uUnimagedFill = { value: fill }
+    shader.fragmentShader = shader.fragmentShader
+      .replace('void main() {', 'uniform vec3 uUnimagedFill;\nvoid main() {')
+      .replace(
+        '#include <map_fragment>',
+        `#include <map_fragment>
+        float imagedLuma = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+        diffuseColor.rgb = mix(uUnimagedFill, diffuseColor.rgb, smoothstep(0.0006, 0.004, imagedLuma));`,
+      )
+  }
+  // Two materials that differ only in this uniform must not share a compiled program.
+  material.customProgramCacheKey = () => `unimaged:${fill.getHexString()}`
 }
 
 const textureLoader = new THREE.TextureLoader()
@@ -133,6 +175,13 @@ export class SphereBody {
           roughness: 0.92,
           metalness: 0,
         })
+
+    if (!spec.emissive && spec.unimagedFill) {
+      applyUnimagedFill(
+        material as THREE.MeshStandardMaterial,
+        new THREE.Color(spec.unimagedFill).convertSRGBToLinear(),
+      )
+    }
 
     if (spec.emissive && spec.emissiveIntensity) {
       // Push the Sun above the HDR bloom threshold so its glare is produced by the

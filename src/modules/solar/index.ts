@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { AtlasModule, Engine, FrameContext, SceneNodeHandle } from '../../core/Engine'
 import { SphereBody } from '../../core/render/SphereBody'
+import { spanVisibility } from '../../core/render/spanFade'
 import { orientationFromPole, orientationTidallyLocked } from '../../core/render/orientation'
 import { AU_M, type Vec3d, copy3d, length3d, normalize3d, sub3d, vec3d } from '../../core/world'
 import {
@@ -11,6 +12,7 @@ import {
 } from '../../astronomy/ephemeris'
 
 import { DWARF_PLANETS, EARTH_MOON, MOONS, PLANETS, SUN } from '../../data/catalog'
+import { MOON_COLORS } from '../../data/moons'
 import type { AtlasEntity } from '../../data/types'
 import { SUN_RADIUS_M } from '../../core/world'
 
@@ -78,6 +80,8 @@ export class SolarModule implements AtlasModule {
   private engine!: Engine
   private readonly entries = new Map<string, BodyEntry>()
   private readonly orbitLines: THREE.LineSegments[] = []
+  /** Orbit line paired with the diameter of the orbit it draws, for the span fade. */
+  private readonly orbitSizes: { line: THREE.LineSegments; sizeMetres: number; baseOpacity: number }[] = []
   private sunLight!: THREE.PointLight
   private readonly scratch = vec3d()
   private readonly scratchB = vec3d()
@@ -126,6 +130,7 @@ export class SolarModule implements AtlasModule {
       this.addBody(moon, {
         radiusMetres: (moon.radiusKm ?? 1) * 1000,
         textureUrl: moon.textureUrl,
+        unimagedFill: moon.unimagedFill,
         objectClass: 'moon',
         parentId: moon.parentId ?? null,
       })
@@ -140,6 +145,7 @@ export class SolarModule implements AtlasModule {
     options: {
       radiusMetres: number
       textureUrl?: string
+      unimagedFill?: string
       ringTextureUrl?: string
       emissive?: boolean
       emissiveIntensity?: number
@@ -154,7 +160,8 @@ export class SolarModule implements AtlasModule {
       id: entity.id,
       radius: radiusUnits,
       textureUrl: options.textureUrl,
-      color: entity.id === 'sun' ? '#ffd9a0' : undefined,
+      unimagedFill: options.unimagedFill,
+      color: entity.id === 'sun' ? '#ffd9a0' : (entity.baseColor ?? MOON_COLORS[entity.id]),
       emissive: options.emissive,
       emissiveIntensity: options.emissiveIntensity,
       atmosphereColor: ATMOSPHERES[entity.id],
@@ -235,6 +242,7 @@ export class SolarModule implements AtlasModule {
     line.frustumCulled = false
     layer.scene.add(line)
     this.orbitLines.push(line)
+    this.orbitSizes.push({ line, sizeMetres: au * AU_M * 2, baseOpacity: material.opacity })
   }
 
   update(ctx: FrameContext): void {
@@ -327,6 +335,14 @@ export class SolarModule implements AtlasModule {
       const apparentPixels = (radiusUnits / Math.max(distance, 1e-12)) * (ctx.height / (2 * Math.tan((ctx.fovDegrees * Math.PI) / 360)))
       entry.body.setVisible(apparentPixels > 0.35)
     }
+
+    // An orbit only draws while the view is wide enough to show its shape and narrow
+    // enough that the shape is not a dot. See spanFade.ts.
+    for (const orbit of this.orbitSizes) {
+      const visibility = spanVisibility(ctx.viewSpanMetres, orbit.sizeMetres)
+      orbit.line.visible = visibility > 0.004
+      ;(orbit.line.material as THREE.LineBasicMaterial).opacity = orbit.baseOpacity * visibility
+    }
   }
 
   dispose(): void {
@@ -341,6 +357,7 @@ export class SolarModule implements AtlasModule {
       line.removeFromParent()
     }
     this.orbitLines.length = 0
+    this.orbitSizes.length = 0
   }
 }
 

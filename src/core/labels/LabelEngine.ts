@@ -72,6 +72,21 @@ const DISTANCE_MISMATCH_PENALTY = 26
 const SCORE_FLOOR_BELOW_BEST = 42
 
 /**
+ * The score below which an object is not marked at all, whatever else is on screen.
+ *
+ * The relative floor alone has a failure mode: it is measured from the best object
+ * in frame, so when nothing relevant is in frame it drops with everything else and
+ * admits the lot. Two thousand kilometres above Titania the best-scoring object was
+ * a trans-Neptunian asteroid six decades out of scale, scoring about -140 — which
+ * set the floor at -180 and let every other distant rock in with it. The result was
+ * Sedna, Varuna, Altjira and Rumina labelled over a moon 5,000 km across.
+ *
+ * An absolute floor says what the relative one cannot: sometimes the honest answer
+ * is that nothing here is worth a label.
+ */
+const ABSOLUTE_SCORE_FLOOR = 8
+
+/**
  * How much a bare catalogue designation gives up to a name someone would recognise.
  *
  * At the supercluster scale the screen filled with "AGC229053", "UGC 7321" and
@@ -222,7 +237,7 @@ export class LabelEngine {
     // reference would push the floor to -Infinity and mark everything on screen the
     // moment the user clicks something.
     const best = candidates.find((c) => Number.isFinite(c.score))?.score ?? 0
-    const floor = best - SCORE_FLOOR_BELOW_BEST
+    const floor = Math.max(best - SCORE_FLOOR_BELOW_BEST, ABSOLUTE_SCORE_FLOOR)
     const marked = candidates.filter((c) => c.selected || c.score >= floor).slice(0, MAX_MARKED)
 
     // Pass 2: draw the survivors, highest score first so declutter favours them.

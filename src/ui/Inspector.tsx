@@ -25,6 +25,13 @@ export function Inspector({ viewer }: { viewer: AtlasViewer | null }) {
   const name = entity?.name ?? node?.name ?? selectedId
   const style = classStyle(node?.objectClass ?? entity?.kind ?? 'planet')
 
+  // A node with no Three.js object of its own is drawn by the proxy module, which
+  // builds a shape from the catalogue radius alone. Say so rather than letting the
+  // Measured chip cover the geometry as well as the astrometry.
+  const illustratedShape = !!node && !node.object3D && node.radiusMetres > 0
+  // The VSOP87/ELP note is true of the planets and moons and of nothing else.
+  const ephemerisBody = !!entity && node?.layer === 'helio' && !illustratedShape
+
   // Live distance from the camera to this object, which is more useful than a
   // catalogue separation because it answers "how far am I from it right now".
   let distanceText: string | null = null
@@ -102,16 +109,30 @@ export function Inspector({ viewer }: { viewer: AtlasViewer | null }) {
           <span className="provenance" data-kind="measured">
             Measured
           </span>
+          {illustratedShape && (
+            <span className="provenance" data-kind="illustration">
+              Illustrated shape
+            </span>
+          )}
         </div>
         {entity?.source && (
           <a className="source-link" href={entity.source.url} target="_blank" rel="noreferrer noopener">
             {entity.source.label} ↗
           </a>
         )}
-        <p className="hud-sub" style={{ marginTop: 10 }}>
-          Position and orientation computed for the displayed instant from astronomy-engine's VSOP87 and ELP
-          models and the IAU 2015 rotation elements.
-        </p>
+        {ephemerisBody && (
+          <p className="hud-sub" style={{ marginTop: 10 }}>
+            Position and orientation computed for the displayed instant from astronomy-engine's VSOP87 and ELP
+            models and the IAU 2015 rotation elements.
+          </p>
+        )}
+        {illustratedShape && (
+          <p className="hud-sub" style={{ marginTop: 10 }}>
+            Position and size are measured. The shape you are looking at is not: no resolved image or shape
+            model of this object ships with the atlas, so it is drawn from its catalogue radius and a hash of
+            its own name. It is the same on every visit, and it is not a picture of this object.
+          </p>
+        )}
       </div>
     </aside>
   )

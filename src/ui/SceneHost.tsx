@@ -74,6 +74,14 @@ export function SceneHost({ onViewer }: { onViewer?: (viewer: AtlasViewer | null
             return new CosmosModule()
           },
         },
+        {
+          // Last, so its preRender sees the positions every other module just wrote.
+          id: 'proxy',
+          load: async () => {
+            const { ProxyModule } = await import('../modules/proxy')
+            return new ProxyModule()
+          },
+        },
       ],
       onSnapshot: setSnapshot,
       onSelect: select,

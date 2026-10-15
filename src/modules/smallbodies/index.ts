@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type { AtlasModule, Engine, FrameContext, SceneNodeHandle } from '../../core/Engine'
 import { AU_M, type Vec3d, vec3d } from '../../core/world'
 import { type KeplerianElements, keplerianPosition, sampleOrbit } from '../../astronomy/orbit'
+import { spanVisibility } from '../../core/render/spanFade'
 
 /**
  * Small bodies: the main belt, and the named asteroids and comets.
@@ -380,6 +381,8 @@ export class SmallBodiesModule implements AtlasModule {
 
   private readonly named: NamedEntry[] = []
   private readonly orbitLines: THREE.LineSegments[] = []
+  /** Each orbit line with the diameter of the orbit it draws, for the span fade. */
+  private readonly orbitSizes: { line: THREE.LineSegments; sizeMetres: number; baseOpacity: number }[] = []
   private readonly localPosition = new THREE.Vector3()
   private readonly scratchWorld = vec3d()
 
@@ -703,6 +706,11 @@ export class SmallBodiesModule implements AtlasModule {
     line.frustumCulled = false
     layer.scene.add(line)
     this.orbitLines.push(line)
+    this.orbitSizes.push({
+      line,
+      sizeMetres: elements.semiMajorAxisKm * 1000 * 2,
+      baseOpacity: material.opacity,
+    })
   }
 
   // -------------------------------------------------------------------------
@@ -726,6 +734,14 @@ export class SmallBodiesModule implements AtlasModule {
   }
 
   preRender(ctx: FrameContext): void {
+    // A comet's path across the inner system is worth seeing from the inner system
+    // and is a coloured streak from 2,000 km above a moon. See spanFade.ts.
+    for (const orbit of this.orbitSizes) {
+      const visibility = spanVisibility(ctx.viewSpanMetres, orbit.sizeMetres)
+      orbit.line.visible = visibility > 0.004
+      ;(orbit.line.material as THREE.LineBasicMaterial).opacity = orbit.baseOpacity * visibility
+    }
+
     const material = this.beltMaterial
     if (!material) return
     const dpr = Math.min(window.devicePixelRatio, 2)
@@ -769,6 +785,7 @@ export class SmallBodiesModule implements AtlasModule {
       line.removeFromParent()
     }
     this.orbitLines.length = 0
+    this.orbitSizes.length = 0
     for (const entry of this.named) this.engine.unregister(entry.node.id)
     this.named.length = 0
     this.quad?.dispose()

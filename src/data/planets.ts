@@ -211,6 +211,9 @@ export const DWARF_PLANETS: AtlasEntity[] = [
     engineBody: 'Pluto',
     radiusKm: 1_188.3,
     semiMajorAxisAu: 39.48,
+    // No global map ships with the atlas. New Horizons' measured mean disc colour is
+    // a pale red-brown from surface tholins, which is closer to the truth than grey.
+    baseColor: '#bda182',
     description:
       'A small, icy dwarf planet in the Kuiper Belt with a steeply tilted, eccentric orbit that briefly brings it closer to the Sun than Neptune. Reclassified from “planet” in 2006 once similar Kuiper Belt worlds were found.',
     facts: [

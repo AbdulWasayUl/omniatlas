@@ -10,6 +10,7 @@ export const EARTH_MOON: AtlasEntity = {
   bodyId: 'moon',
   engineBody: 'Moon',
   radiusKm: 1_737.5,
+  textureUrl: '/textures/moon/lroc-color-4k.jpg',
   description:
     'Earth’s only natural satellite. Its heavily cratered surface preserves evidence from the early Solar System. Color and relief are derived from LRO WAC and LOLA products, with full-precision current-time position and rotation.',
   facts: [
@@ -66,6 +67,12 @@ interface MoonSeed {
   description: string
   facts: [string, string][]
   textureUrl?: string
+  /**
+   * Set when `textureUrl` is a partial mosaic, to the body's mean albedo colour.
+   * Voyager 2 imaged one hemisphere of Titania and of Triton; the rest of each USGS
+   * map is empty black and renders as a black ball without this.
+   */
+  unimagedFill?: string
   color: string
   source: 'jupiter-moons' | 'keplerian'
   elements?: KeplerianElements
@@ -388,6 +395,9 @@ const MOON_SEEDS: MoonSeed[] = [
       ['Orbital period', '8.706 days'],
     ],
     textureUrl: '/textures/moons/titania.jpg',
+    // Voyager 2 flew past during Uranian southern summer: the northern hemisphere was
+    // in polar night and is blank in the USGS mosaic.
+    unimagedFill: '#c2c5c8',
     color: '#b7bcc0',
     source: 'keplerian',
     elements: elements(436_298, 0.002, 0.1, 8.705869, 29.5, 184, 68.1),
@@ -426,6 +436,9 @@ const MOON_SEEDS: MoonSeed[] = [
       ['Origin', 'Likely a captured Kuiper Belt object'],
     ],
     textureUrl: '/textures/moons/triton.jpg',
+    // Voyager 2 imaged roughly the southern 40% of Triton in the 1989 flyby; the rest
+    // of the USGS mosaic is empty.
+    unimagedFill: '#dce6ea',
     color: '#c7d6de',
     source: 'keplerian',
     elements: elements(354_800, 0.000016, 157.3, 5.876994, 178.1, 0, 63),
@@ -442,6 +455,7 @@ export const MOONS: AtlasEntity[] = MOON_SEEDS.map((seed) => ({
   radiusKm: seed.radiusKm,
   orderIndex: seed.orderIndex,
   textureUrl: seed.textureUrl,
+  unimagedFill: seed.unimagedFill,
   description: seed.description,
   facts: seed.facts.map(([label, value]) => ({ label, value })),
   source: NASA_FACT_SHEET,

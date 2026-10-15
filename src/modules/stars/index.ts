@@ -82,6 +82,117 @@ function tychoToJohnsonBv(stored: number): number {
  * Accurate to a few percent across the main sequence, far beyond what a few pixels of
  * star colour can show.
  */
+/** One row of `names.json`: see that file's own `fields` block. */
+interface NamedStarRecord {
+  i: number
+  m: number
+  proper?: string
+  bayer?: string
+  con?: string
+  spect?: string
+  hip?: number
+}
+
+interface NamesPayload {
+  stars?: NamedStarRecord[]
+}
+
+/**
+ * Effective temperature from a Morgan-Keenan spectral type.
+ *
+ * Anchored on the main-sequence calibration at each class letter and interpolated
+ * across the subclass digit. Luminosity class is ignored: it moves T_eff by a few
+ * hundred kelvin for the classes that matter here, well inside the error already
+ * carried by reading a temperature off a letter.
+ */
+const SPECTRAL_KELVIN: Record<string, [hot: number, cool: number]> = {
+  O: [42000, 30000],
+  B: [30000, 10000],
+  A: [10000, 7500],
+  F: [7500, 6000],
+  G: [6000, 5200],
+  K: [5200, 3700],
+  M: [3700, 2400],
+  L: [2400, 1300],
+  T: [1300, 700],
+}
+
+function spectralTypeToKelvin(spect: string | undefined): number {
+  // The Sun's temperature is the least-wrong guess for a star with no type at all.
+  if (!spect) return 5772
+  const match = /^([OBAFGKMLT])\s*(\d(?:\.\d)?)?/.exec(spect.trim().toUpperCase())
+  if (!match) return 5772
+  const [hot, cool] = SPECTRAL_KELVIN[match[1]]
+  const subclass = match[2] === undefined ? 5 : Number(match[2])
+  return hot + ((cool - hot) * Math.min(Math.max(subclass, 0), 9.9)) / 10
+}
+
+/** Bolometric correction, interpolated over a standard temperature table. */
+const BOLOMETRIC_CORRECTION: [kelvin: number, bc: number][] = [
+  [40000, -4.0],
+  [30000, -3.16],
+  [20000, -2.05],
+  [10000, -0.3],
+  [8000, -0.15],
+  [7000, -0.09],
+  [6000, -0.03],
+  [5772, -0.08],
+  [5000, -0.31],
+  [4000, -1.02],
+  [3500, -1.46],
+  [3000, -2.73],
+  [2500, -4.1],
+]
+
+function bolometricCorrection(kelvin: number): number {
+  const table = BOLOMETRIC_CORRECTION
+  if (kelvin >= table[0][0]) return table[0][1]
+  for (let i = 1; i < table.length; i++) {
+    if (kelvin >= table[i][0]) {
+      const [hotK, hotBc] = table[i - 1]
+      const [coolK, coolBc] = table[i]
+      const t = (kelvin - coolK) / (hotK - coolK)
+      return coolBc + (hotBc - coolBc) * t
+    }
+  }
+  return table[table.length - 1][1]
+}
+
+const SOLAR_RADIUS_M = 6.957e8
+const SOLAR_KELVIN = 5772
+const SOLAR_BOLOMETRIC_MAG = 4.74
+
+/**
+ * Stellar radius from absolute magnitude and temperature, by Stefan-Boltzmann.
+ *
+ * R/Rsun = sqrt(L/Lsun) * (Tsun/T)^2, with L from the bolometric magnitude. This is a
+ * DERIVED quantity, not a measured one: the temperature came from a spectral class
+ * letter and the bolometric correction from a table, so the result is good to roughly
+ * a factor of two for evolved stars and rather better on the main sequence. It is
+ * used to frame the camera on arrival and to size the stand-in sphere, and it is
+ * never presented as a measurement.
+ */
+function stellarRadiusMetres(absoluteMag: number, kelvin: number): number {
+  const bolometric = absoluteMag + bolometricCorrection(kelvin)
+  const luminosity = 10 ** ((SOLAR_BOLOMETRIC_MAG - bolometric) / 2.5)
+  const radiusSolar = Math.sqrt(Math.max(luminosity, 1e-8)) * (SOLAR_KELVIN / kelvin) ** 2
+  // Clamp to the range real stars occupy: a white dwarf is about 0.008 Rsun and the
+  // largest known red supergiants are near 2000 Rsun. Anything outside that is the
+  // estimate failing, not a discovery.
+  return Math.min(Math.max(radiusSolar, 0.008), 2000) * SOLAR_RADIUS_M
+}
+
+function linearRgbToHex(rgb: [number, number, number]): string {
+  const channel = (v: number) => {
+    // Back to sRGB for a CSS colour string.
+    const c = v <= 0.0031308 ? v * 12.92 : 1.055 * v ** (1 / 2.4) - 0.055
+    return Math.round(Math.min(Math.max(c, 0), 1) * 255)
+      .toString(16)
+      .padStart(2, '0')
+  }
+  return channel(rgb[0]) + channel(rgb[1]) + channel(rgb[2])
+}
+
 function colourIndexToKelvin(bv: number): number {
   const x = 0.92 * bv
   return 4600 * (1 / (x + 1.7) + 1 / (x + 0.62))
@@ -196,6 +307,15 @@ export class StarsModule implements AtlasModule {
   private quad!: THREE.BufferGeometry
   /** Global index space: L0 then L1, matching the build script's manifest. */
   private globalPositions: Float32Array | null = null
+  /**
+   * The same stars before the Y-up basis swap, in ICRS parsecs.
+   *
+   * The registry stores a world position in a named reference frame, not a position
+   * in some layer's scene basis, so registering a star needs the catalogue vector
+   * rather than the one the vertex shader consumes.
+   */
+  private globalIcrfPc: Float32Array | null = null
+  private readonly namedStarIds: string[] = []
 
   async init(engine: Engine): Promise<void> {
     this.engine = engine
@@ -218,6 +338,7 @@ export class StarsModule implements AtlasModule {
     void this.loadTier('l1').then(async (tier) => {
       if (!tier || engine.isDisposed) return
       layer.scene.add(tier.mesh)
+      await this.loadNamedStars()
       await this.loadConstellations()
       // L2 last, and only once the sky is already usable: it is 2.9 MB across 192
       // files and nobody should wait on it to see a star.
@@ -244,6 +365,7 @@ export class StarsModule implements AtlasModule {
     const ciu = new Uint8Array(buffer, field('ciu').byteOffset, count)
 
     const positions = new Float32Array(count * 3)
+    const icrf = new Float32Array(count * 3)
     const colors = new Float32Array(count * 3)
     const absMag = new Float32Array(count)
     const scratch = vec3d()
@@ -264,6 +386,10 @@ export class StarsModule implements AtlasModule {
         absMag[i] = 99 // fainter than any magnitude limit, so the shader discards it
         continue
       }
+
+      icrf[i * 3] = x[i]
+      icrf[i * 3 + 1] = y[i]
+      icrf[i * 3 + 2] = z[i]
 
       // Catalogue positions are ICRS parsecs, Z-up; the layer renders Y-up.
       scratch.x = x[i]
@@ -294,11 +420,16 @@ export class StarsModule implements AtlasModule {
 
     if (name === 'l0') {
       this.globalPositions = positions
-    } else if (this.globalPositions) {
+      this.globalIcrfPc = icrf
+    } else if (this.globalPositions && this.globalIcrfPc) {
       const merged = new Float32Array(this.globalPositions.length + positions.length)
       merged.set(this.globalPositions, 0)
       merged.set(positions, this.globalPositions.length)
       this.globalPositions = merged
+      const mergedIcrf = new Float32Array(this.globalIcrfPc.length + icrf.length)
+      mergedIcrf.set(this.globalIcrfPc, 0)
+      mergedIcrf.set(icrf, this.globalIcrfPc.length)
+      this.globalIcrfPc = mergedIcrf
     }
 
     const geometry = new THREE.InstancedBufferGeometry()
@@ -449,6 +580,67 @@ export class StarsModule implements AtlasModule {
    * the point: constellations are an Earth-bound projection, and an atlas that kept
    * them rigid while the camera moved would be teaching something false.
    */
+  /**
+   * Register the stars with IAU proper names, so they can be searched and flown to.
+   *
+   * Before this, not one of the 329,860 stars in the atlas was reachable. The field
+   * drew them beautifully and the registry did not know they existed, so Sirius,
+   * Betelgeuse and Proxima Centauri were absent from search, from the inspector and
+   * from the cosmic address — in an atlas whose entire middle scale is stars.
+   *
+   * The 604 proper-named stars are the right set. Bayer and Flamsteed designations
+   * would add 2,700 more rows that nobody types into a search box, and every one of
+   * them would compete for a label with the object the viewer is actually looking at.
+   */
+  private async loadNamedStars(): Promise<void> {
+    const icrfPc = this.globalIcrfPc
+    if (!icrfPc) return
+    const payload = await fetch(`${DATA}/names.json`)
+      .then((r) => (r.ok ? (r.json() as Promise<NamesPayload>) : null))
+      .catch(() => null)
+    if (!payload?.stars?.length || this.engine.isDisposed) return
+
+    let registered = 0
+    let outOfRange = 0
+    for (const star of payload.stars) {
+      if (!star.proper) continue
+      const base = star.i * 3
+      if (base + 2 >= icrfPc.length) {
+        // A name indexing into L2, which this module does not keep positions for.
+        outOfRange++
+        continue
+      }
+      const px = icrfPc[base]
+      const py = icrfPc[base + 1]
+      const pz = icrfPc[base + 2]
+      const distancePc = Math.hypot(px, py, pz)
+      // The sentinel rows were zeroed during decode and carry no position.
+      if (!(distancePc > 0)) continue
+
+      const absoluteMag = star.m - 5 * (Math.log10(distancePc) - 1)
+      const kelvin = spectralTypeToKelvin(star.spect)
+      const rgb = kelvinToLinearRgb(kelvin)
+
+      this.engine.register({
+        id: `star:${star.i}`,
+        worldPosition: { x: px * PC_M, y: py * PC_M, z: pz * PC_M },
+        frame: 'icrf',
+        radiusMetres: stellarRadiusMetres(absoluteMag, kelvin),
+        layer: LAYER,
+        objectClass: 'star',
+        name: star.proper,
+        parentId: 'milky-way',
+        proxyColor: `#${linearRgbToHex(rgb)}`,
+      })
+      this.namedStarIds.push(`star:${star.i}`)
+      registered++
+    }
+    console.info(
+      `[omniatlas] stars: ${registered} proper-named stars registered` +
+        (outOfRange ? `, ${outOfRange} skipped (name indexes a tier with no kept positions)` : ''),
+    )
+  }
+
   private async loadConstellations(): Promise<void> {
     if (!this.globalPositions) return
     const buffer = await fetch(`${DATA}/constellations.bin`)
@@ -529,6 +721,8 @@ export class StarsModule implements AtlasModule {
   }
 
   dispose(): void {
+    for (const id of this.namedStarIds) this.engine.unregister(id)
+    this.namedStarIds.length = 0
     for (const tier of this.tiers) {
       tier.mesh.geometry.dispose()
       tier.mesh.removeFromParent()

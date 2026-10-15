@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { Layer, LAYER_CONFIGS, type LayerConfig, type LayerId } from './Layer'
-import { type FrameId, type Vec3d, clone3d, copy3d, distance3d, vec3d } from './world'
+import { type FrameId, type Vec3d, clone3d, convertFrame, distance3d, vec3d } from './world'
 
 /**
  * The frame context handed to every module each tick. Deliberately a single mutable
@@ -62,6 +62,12 @@ export interface SceneNodeHandle {
   parentId: string | null
   /** Three.js object, when the node has one. */
   object3D?: THREE.Object3D
+  /**
+   * Colour for the close-range stand-in the proxy module builds for nodes with no
+   * `object3D`. Set it where the catalogue knows the colour — a star's from its
+   * colour index, say — and leave it off to take the class default.
+   */
+  proxyColor?: string
 }
 
 export interface EngineOptions {
@@ -210,7 +216,7 @@ export class Engine {
     this.anchorId = id
     const node = this.node(id)
     if (!node) return
-    copy3d(this.anchorWorld, node.worldPosition)
+    convertFrame(this.anchorWorld, node.worldPosition, node.frame, this.cameraFrame)
     const radius = Math.max(node.radiusMetres, 1)
     this.layer('system').setOrigin(node.worldPosition, node.frame, id)
     this.layer('surface').setOrigin(node.worldPosition, node.frame, id)
@@ -227,7 +233,12 @@ export class Engine {
    */
   renderFrame(epochMs: number, delta: number): void {
     const anchor = this.node(this.anchorId)
-    if (anchor) copy3d(this.anchorWorld, anchor.worldPosition)
+    // Into the CAMERA's frame, not the node's. A node states the frame its position is
+    // expressed in, and copying an ICRF vector into an ecliptic-frame field silently
+    // rotates it by the obliquity: anchoring on Betelgeuse, 152 pc away, measured the
+    // distance to it as 62 pc, and every consumer of that number — the near plane, the
+    // scale ladder, the layer bands, the proxy's size fade — was wrong by that much.
+    if (anchor) convertFrame(this.anchorWorld, anchor.worldPosition, anchor.frame, this.cameraFrame)
 
     const ctx = this.ctx
     ctx.epochMs = epochMs

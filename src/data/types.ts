@@ -41,6 +41,10 @@ export interface AtlasEntity {
   /** True heliocentric semi-major axis in AU, used for facts and exploration-mode placement. */
   semiMajorAxisAu?: number
   textureUrl?: string
+  /** Flat base colour for the parts of `textureUrl` that no mission imaged. */
+  unimagedFill?: string
+  /** Mean disc colour, used when no map is available at all. */
+  baseColor?: string
   ringTextureUrl?: string
   atmosphereTextureUrl?: string
   hasClouds?: boolean
