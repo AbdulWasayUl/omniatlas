@@ -38,6 +38,11 @@ interface StarTier {
   count: number
 }
 
+interface L2Index {
+  recordCount: number
+  chunks: { pix: number; count: number; shells: [shell: number, start: number, count: number][] }[]
+}
+
 /**
  * AT-HYG's `ci` column is the Tycho BT-VT colour for most rows, not Johnson B-V, even
  * though it is often described as the latter. The dataset manifest carries the measured
@@ -214,6 +219,9 @@ export class StarsModule implements AtlasModule {
       if (!tier || engine.isDisposed) return
       layer.scene.add(tier.mesh)
       await this.loadConstellations()
+      // L2 last, and only once the sky is already usable: it is 2.9 MB across 192
+      // files and nobody should wait on it to see a star.
+      await this.loadDeepTier()
     })
   }
 
@@ -327,6 +335,110 @@ export class StarsModule implements AtlasModule {
     const tier: StarTier = { mesh, count }
     this.tiers.push(tier)
     return tier
+  }
+
+  /**
+   * The deep tier: 282,103 more stars in 192 HEALPix chunks.
+   *
+   * Two things make this different from L0 and L1. Positions are int16 quantised per
+   * OCTAVE DISTANCE SHELL within each chunk — shell k holds stars between 2^(k-1) and
+   * 2^k parsecs and scales by 2^k / 32767 — so a single chunk needs several different
+   * dequantisation factors applied to different runs of its records. And the chunks
+   * carry no global index, being disjoint from the tiers the constellation figures
+   * reference, so nothing here can disturb those.
+   *
+   * All 192 are merged into one instanced mesh rather than 192 of them: the whole set
+   * is under 3 MB, and one draw call for a third of a million stars is the entire
+   * point of the instanced-quad approach.
+   */
+  private async loadDeepTier(): Promise<void> {
+    const index = await fetch(`${DATA}/l2/index.json`)
+      .then((r) => (r.ok ? (r.json() as Promise<L2Index>) : null))
+      .catch(() => null)
+    if (!index || this.engine.isDisposed) return
+
+    const total = index.recordCount
+    const positions = new Float32Array(total * 3)
+    const colors = new Float32Array(total * 3)
+    const absMag = new Float32Array(total)
+    const colourCache = new Map<number, [number, number, number]>()
+    const scratch = vec3d()
+    let written = 0
+
+    // A small concurrency window: enough to keep the connection busy, not so much
+    // that 192 parallel fetches stall the first frames of everything else.
+    const QUEUE = 8
+    let cursor = 0
+    const worker = async (): Promise<void> => {
+      while (cursor < index.chunks.length) {
+        const chunk = index.chunks[cursor++]
+        if (this.engine.isDisposed) return
+        const buffer = await fetch(`${DATA}/l2/${chunk.pix}.bin`)
+          .then((r) => (r.ok ? r.arrayBuffer() : null))
+          .catch(() => null)
+        if (!buffer || this.engine.isDisposed) continue
+
+        const n = chunk.count
+        const x = new Int16Array(buffer, 0, n)
+        const y = new Int16Array(buffer, 2 * n, n)
+        const z = new Int16Array(buffer, 4 * n, n)
+        const magu = new Uint8Array(buffer, 6 * n, n)
+        const ciu = new Uint8Array(buffer, 7 * n, n)
+
+        for (const [shell, start, count] of chunk.shells) {
+          // scale_k = 2^shell / 32767, per the chunk index's own quantization rule.
+          const scale = 2 ** shell / 32767
+          for (let i = start; i < start + count; i++) {
+            scratch.x = x[i] * scale
+            scratch.y = y[i] * scale
+            scratch.z = z[i] * scale
+            const distancePc = Math.max(Math.hypot(scratch.x, scratch.y, scratch.z), 1e-3)
+
+            worldToSceneBasis(scratch, scratch)
+            const o = written * 3
+            positions[o] = scratch.x
+            positions[o + 1] = scratch.y
+            positions[o + 2] = scratch.z
+
+            const apparent = magu[i] / 16 - 2
+            absMag[written] = apparent - 5 * (Math.log10(distancePc) - 1)
+
+            let rgb = colourCache.get(ciu[i])
+            if (!rgb) {
+              rgb = kelvinToLinearRgb(colourIndexToKelvin(tychoToJohnsonBv(ciu[i] / 40 - 0.5)))
+              colourCache.set(ciu[i], rgb)
+            }
+            colors[o] = rgb[0]
+            colors[o + 1] = rgb[1]
+            colors[o + 2] = rgb[2]
+            written++
+          }
+        }
+      }
+    }
+
+    await Promise.all(Array.from({ length: QUEUE }, worker))
+    if (this.engine.isDisposed || written === 0) return
+
+    const geometry = new THREE.InstancedBufferGeometry()
+    geometry.index = this.quad.index
+    geometry.setAttribute('position', this.quad.getAttribute('position'))
+    geometry.setAttribute('starPosition', new THREE.InstancedBufferAttribute(positions.subarray(0, written * 3), 3))
+    geometry.setAttribute('starColor', new THREE.InstancedBufferAttribute(colors.subarray(0, written * 3), 3))
+    geometry.setAttribute('absMag', new THREE.InstancedBufferAttribute(absMag.subarray(0, written), 1))
+    geometry.instanceCount = written
+
+    const material = this.materials[0].clone()
+    material.uniforms = THREE.UniformsUtils.clone(this.materials[0].uniforms)
+    this.materials.push(material)
+
+    const mesh = new THREE.Mesh(geometry, material)
+    mesh.frustumCulled = false
+    mesh.renderOrder = -10
+    mesh.name = 'stars:l2'
+    this.tiers.push({ mesh, count: written })
+    this.engine.layer(LAYER).scene.add(mesh)
+    console.info(`[omniatlas] stars: deep tier resident, ${written.toLocaleString('en-GB')} additional stars`)
   }
 
   /**
