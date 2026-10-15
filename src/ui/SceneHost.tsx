@@ -40,10 +40,38 @@ export function SceneHost({ onViewer }: { onViewer?: (viewer: AtlasViewer | null
           },
         },
         {
+          id: 'smallbodies',
+          load: async () => {
+            const { SmallBodiesModule } = await import('../modules/smallbodies')
+            return new SmallBodiesModule()
+          },
+        },
+        {
           id: 'stars',
           load: async () => {
             const { StarsModule } = await import('../modules/stars')
             return new StarsModule()
+          },
+        },
+        {
+          id: 'deepsky',
+          load: async () => {
+            const { DeepSkyModule } = await import('../modules/deepsky')
+            return new DeepSkyModule()
+          },
+        },
+        {
+          id: 'galaxy',
+          load: async () => {
+            const { GalaxyModule } = await import('../modules/galaxy')
+            return new GalaxyModule()
+          },
+        },
+        {
+          id: 'cosmos',
+          load: async () => {
+            const { CosmosModule } = await import('../modules/cosmos')
+            return new CosmosModule()
           },
         },
       ],
@@ -62,6 +90,7 @@ export function SceneHost({ onViewer }: { onViewer?: (viewer: AtlasViewer | null
     })
 
     onViewer?.(viewer)
+    ;(window as unknown as { __viewer?: unknown }).__viewer = viewer // TEMP-VERIFY
 
     return () => {
       onViewer?.(null)

@@ -1,0 +1,95 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>cosmos probe</title>
+    <style>
+      html,body{margin:0;background:#05070a;overflow:hidden}
+      canvas{display:block}
+      #out{position:fixed;left:10px;top:10px;color:#9fd8ff;font:11px ui-monospace,monospace;white-space:pre;pointer-events:none}
+    </style>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <div id="out">booting…</div>
+    <script type="module">
+      import * as THREE from 'three'
+      import { Engine } from '/src/core/Engine.ts'
+      import { CosmosModule } from '/src/modules/cosmos/index.ts'
+      import { MPC_M, sphericalToCartesian, vec3d, worldToSceneBasis } from '/src/core/world.ts'
+
+      const params = new URLSearchParams(location.search)
+      const distanceMpc = Number(params.get('d') ?? 60)
+      const lon = Number(params.get('lon') ?? 20)
+      const lat = Number(params.get('lat') ?? 25)
+      const fov = Number(params.get('fov') ?? 50)
+
+      const canvas = document.getElementById('c')
+      const w = window.innerWidth
+      const h = window.innerHeight
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false })
+      renderer.setPixelRatio(1)
+      renderer.setSize(w, h, false)
+      renderer.toneMapping = THREE.AgXToneMapping
+      renderer.outputColorSpace = THREE.SRGBColorSpace
+      renderer.setClearColor(0x05070a, 1)
+
+      const engine = new Engine({ renderer })
+      engine.setSize(w, h)
+      engine.cameraFrame = 'supergalactic'
+      engine.fovDegrees = fov
+
+      const module = new CosmosModule()
+      await module.init(engine)
+      engine.modules.push(module)
+
+      // Camera at `distanceMpc` from the observer origin, looking back at it.
+      const world = sphericalToCartesian(vec3d(), lon, lat, distanceMpc * MPC_M)
+      engine.cameraWorld.x = world.x
+      engine.cameraWorld.y = world.y
+      engine.cameraWorld.z = world.z
+      const scene = worldToSceneBasis(vec3d(), world)
+      const helper = new THREE.PerspectiveCamera(fov, w / h, 0.1, 1e6)
+      helper.position.set(scene.x / MPC_M, scene.y / MPC_M, scene.z / MPC_M)
+      helper.lookAt(0, 0, 0)
+      engine.cameraQuaternion.copy(helper.quaternion)
+
+      const only = params.get('only')
+      if (only) {
+        const original = module.preRender.bind(module)
+        module.preRender = (ctx) => {
+          original(ctx)
+          const set = (object, id) => { if (object) object.visible = only === id }
+          set(module.ungcField?.mesh, 'ungc')
+          set(module.cf4Field?.mesh, 'cf4')
+          set(module.twoMrsField?.mesh, '2mrs')
+          set(module.zoaSurface, 'zoa')
+          set(module.zoaEdges, 'zoa')
+        }
+      }
+
+      let frames = 0
+      let elapsed = 0
+      let last = performance.now()
+      function tick(now) {
+        const delta = (now - last) / 1000
+        last = now
+        engine.renderFrame(Date.now(), delta)
+        frames++
+        elapsed += delta
+        if (frames % 30 === 0) {
+          const stats = engine.stats()
+          document.getElementById('out').textContent =
+            `d = ${distanceMpc} Mpc  sgl ${lon} sgb ${lat}  fov ${fov}\n` +
+            `fps ${(30 / elapsed).toFixed(1)}  draws ${stats.drawCalls}  tris ${stats.triangles}\n` +
+            `registered ${stats.registered}  layers ${stats.activeLayers.join(',')}\n` +
+            module.datasets.map((d) => `${d.label}: ${d.drawn} (${d.provenance}/${d.distanceKind})`).join('\n')
+          elapsed = 0
+        }
+        requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+      window.__probe = { engine, module }
+    </script>
+  </body>
+</html>
