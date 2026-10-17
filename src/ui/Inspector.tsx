@@ -1,9 +1,54 @@
 import type { AtlasViewer } from '../core/AtlasViewer'
+import type { SceneNodeHandle } from '../core/Engine'
 import { classStyle } from '../data/objectClasses'
 import { findEntity } from '../data/catalog'
-import { formatDistance } from '../format/units'
+import { DISTANCE_KIND_LABEL, type DistanceKind, formatDistance } from '../format/units'
+import type { Provenance } from '../data/scaleLadder'
 import { convertFrame, distance3d, vec3d } from '../core/world'
 import { useViewStore } from '../state/useViewStore'
+
+/**
+ * The honesty fields the catalogue modules already write onto their nodes.
+ *
+ * They are not on `SceneNodeHandle` yet — `CosmosNode` and `DeepSkyNode` widen it
+ * privately — so they are read structurally here rather than being invented. 1,183 of
+ * the registry's nodes carry `provenance` and 868 carry `distanceKind` today, and until
+ * this panel read them the one chip the product's claim rests on said "Measured" on all
+ * of them, including the 35 objects placed on a 100 kpc direction-only shell.
+ */
+interface NodeProvenance {
+  provenance?: Provenance
+  distanceKind?: DistanceKind
+  /** Only the direction is known: the position is a projection onto a placeholder shell. */
+  directionOnly?: boolean
+  /** Something the user must be told about this specific object. */
+  caveat?: string
+  /** A sentence about how the class, rather than the object, was treated. */
+  provenanceNote?: string
+  distanceSource?: string
+}
+
+/** What the Evidence chip should say, derived from the node rather than asserted. */
+function provenanceChip(node: (SceneNodeHandle & NodeProvenance) | null): { kind: Provenance; text: string } | null {
+  if (!node) return null
+  // A shell projection is a direction with a placeholder depth. Nothing derived from
+  // it — not the distance, not the size — is a measurement of this object.
+  if (node.directionOnly) return { kind: 'illustration', text: 'Direction only' }
+  const suffix = node.distanceKind ? ` — ${DISTANCE_KIND_LABEL[node.distanceKind]}` : ''
+  if (node.provenance) {
+    const text = node.provenance === 'measured' ? 'Measured' : node.provenance === 'derived' ? 'Derived' : 'Illustrated'
+    return { kind: node.provenance, text: `${text}${suffix}` }
+  }
+  if (node.distanceKind) {
+    const kind: Provenance = node.distanceKind === 'geometric' ? 'measured' : 'derived'
+    return { kind, text: `${kind === 'measured' ? 'Measured' : 'Derived'}${suffix}` }
+  }
+  // The helio bodies are the one set whose astrometry is computed rather than
+  // catalogued, and they are the only ones a bare node may still claim for. Anything
+  // else that says nothing about itself gets no chip: silence beats a false claim.
+  if (node.layer === 'helio') return { kind: 'measured', text: 'Measured' }
+  return null
+}
 
 /**
  * The object inspector.
@@ -19,7 +64,7 @@ export function Inspector({ viewer }: { viewer: AtlasViewer | null }) {
 
   if (!selectedId) return null
   const entity = findEntity(selectedId)
-  const node = viewer?.engine.node(selectedId) ?? null
+  const node = (viewer?.engine.node(selectedId) ?? null) as (SceneNodeHandle & NodeProvenance) | null
   if (!entity && !node) return null
 
   const name = entity?.name ?? node?.name ?? selectedId
@@ -31,6 +76,9 @@ export function Inspector({ viewer }: { viewer: AtlasViewer | null }) {
   const illustratedShape = !!node && !node.object3D && node.radiusMetres > 0
   // The VSOP87/ELP note is true of the planets and moons and of nothing else.
   const ephemerisBody = !!entity && node?.layer === 'helio' && !illustratedShape
+  const chip = provenanceChip(node)
+  const directionOnly = node?.directionOnly === true
+  const radiusInFacts = !!entity?.facts?.some((fact) => /radius/i.test(fact.label))
 
   // Live distance from the camera to this object, which is more useful than a
   // catalogue separation because it answers "how far am I from it right now".
@@ -53,7 +101,9 @@ export function Inspector({ viewer }: { viewer: AtlasViewer | null }) {
         <h2 className="inspector-title">{name}</h2>
         {distanceText && (
           <div className="hud-sub num" style={{ marginTop: 4 }}>
-            {distanceText} from here
+            {/* For a shell projection this is the range to where the glyph was drawn,
+                which is not the range to the object. Say which one it is. */}
+            {distanceText} {directionOnly ? 'to its shell projection' : 'from here'}
           </div>
         )}
       </div>
@@ -94,10 +144,28 @@ export function Inspector({ viewer }: { viewer: AtlasViewer | null }) {
             <div className="fact-grid">
               <span className="fact-label">Reference frame</span>
               <span className="fact-value">{node.frame === 'ecliptic' ? 'J2000 ecliptic' : node.frame.toUpperCase()}</span>
-              <span className="fact-label">Mean radius</span>
-              <span className="fact-value">
-                {node.radiusMetres > 0 ? formatDistance(node.radiusMetres).text : '—'}
-              </span>
+              {/* Only when the catalogue has not already given one. The entity facts
+                  carry Mars at 3,389.5 km and this row rounds the node's radius to
+                  3,390 km: two rows of one panel, both labelled "Mean radius", one
+                  measurement, two numbers. The catalogue's is the better figure, so
+                  this row stands in for it only where there is none — which is every
+                  star, galaxy and NGC object, none of which is in the entity list. */}
+              {!radiusInFacts && (
+                <>
+                  <span className="fact-label">Mean radius</span>
+                  {/* A direction-only object's radius is its catalogued angular size
+                      times the placeholder shell it was projected onto. That is how big
+                      the glyph is, not how big the object is, and this field is read as
+                      a measurement. */}
+                  <span className="fact-value">
+                    {directionOnly
+                      ? 'Not measured'
+                      : node.radiusMetres > 0
+                        ? formatDistance(node.radiusMetres).text
+                        : '—'}
+                  </span>
+                </>
+              )}
               {snapshot && (
                 <>
                   <span className="fact-label">Epoch</span>
@@ -110,15 +178,36 @@ export function Inspector({ viewer }: { viewer: AtlasViewer | null }) {
 
         <div className="section-head">Evidence</div>
         <div className="chip-row" style={{ marginBottom: 10 }}>
-          <span className="provenance" data-kind="measured">
-            Measured
-          </span>
+          {chip && (
+            <span className="provenance" data-kind={chip.kind}>
+              {chip.text}
+            </span>
+          )}
           {illustratedShape && (
             <span className="provenance" data-kind="illustration">
               Illustrated shape
             </span>
           )}
         </div>
+        {directionOnly && (
+          <p className="hud-sub" style={{ marginTop: 10 }}>
+            No distance to this object has been measured. Its direction on the sky is real; its depth is a
+            placeholder, so it is drawn on a shell at an arbitrary radius. The size it is drawn at follows from
+            that shell and is not a size for this object.
+          </p>
+        )}
+        {/* Written by the catalogue modules for the objects that need it, and until now
+            displayed by nothing at all. */}
+        {node?.caveat && (
+          <p className="hud-sub" style={{ marginTop: 10 }}>
+            {node.caveat}
+          </p>
+        )}
+        {node?.provenanceNote && (
+          <p className="hud-sub" style={{ marginTop: 10 }}>
+            {node.provenanceNote}
+          </p>
+        )}
         {entity?.source && (
           <a className="source-link" href={entity.source.url} target="_blank" rel="noreferrer noopener">
             {entity.source.label} ↗
@@ -130,11 +219,16 @@ export function Inspector({ viewer }: { viewer: AtlasViewer | null }) {
             models and the IAU 2015 rotation elements.
           </p>
         )}
-        {illustratedShape && (
+        {illustratedShape && !directionOnly && (
           <p className="hud-sub" style={{ marginTop: 10 }}>
-            Position and size are measured. The shape you are looking at is not: no resolved image or shape
-            model of this object ships with the atlas, so it is drawn from its catalogue radius and a hash of
-            its own name. It is the same on every visit, and it is not a picture of this object.
+            {/* Only say the astrometry is measured when the node says so. A quasar placed
+                from its redshift has an illustrated shape AND a derived position. */}
+            {chip?.kind === 'measured'
+              ? 'Position and size are measured. The shape you are looking at is not: '
+              : 'The shape you are looking at is not measured: '}
+            no resolved image or shape model of this object ships with the atlas, so it is drawn from its
+            catalogue radius and a hash of its own name. It is the same on every visit, and it is not a
+            picture of this object.
           </p>
         )}
       </div>

@@ -207,7 +207,7 @@ interface NamedFile {
 }
 
 /** How a given node's radius was arrived at. Surfaced in the module report. */
-type RadiusProvenance = 'measured' | 'derived' | 'unknown'
+type RadiusProvenance = 'measured' | 'derived' | 'nominal' | 'unknown'
 
 interface NamedEntry {
   node: SceneNodeHandle
@@ -228,7 +228,9 @@ export const SMALL_BODY_PROVENANCE = {
     'unperturbed two-body propagation of osculating elements from their stated epoch; ' +
     'accuracy degrades over decades. Belt point colour is an illustrative ramp in ' +
     'semi-major axis, not an observed colour. The optional mean-orbit view ' +
-    '(setElementSpaceBlend) is a diagram, not a position field.',
+    '(setElementSpaceBlend) is a diagram, not a position field. The 34 comets with no ' +
+    'measured nucleus report no radius at all; the camera frames them at the 1.3 km ' +
+    'Jupiter-family median, which is a class figure and not a measurement of the object.',
   source: {
     label: 'NASA/JPL Small-Body Database',
     url: 'https://ssd.jpl.nasa.gov/tools/sbdb_query.html',
@@ -255,6 +257,7 @@ const BELT_VERTEX = /* glsl */ `
   attribute float sbH;      // absolute magnitude
 
   uniform float uDays;          // days since the belt's shared epoch
+  uniform float uPixelWidth;    // viewport width in device pixels
   uniform float uPixelHeight;   // viewport height in device pixels
   uniform float uSizePx;
   uniform float uGain;
@@ -336,7 +339,10 @@ const BELT_VERTEX = /* glsl */ `
     vec4 viewPosition = modelViewMatrix * vec4(local, 1.0);
     vec4 clip = projectionMatrix * viewPosition;
     // Constant pixel size: offset in clip space, scaled by w.
-    clip.xy += position.xy * (2.0 * radiusPx / uPixelHeight) * clip.w;
+    // NDC x spans the viewport WIDTH and NDC y its HEIGHT, so one shared offset would
+    // make every quad W/H times wider than tall and the circular discard would cut an
+    // ellipse. Scale each axis by its own pixel count.
+    clip.xy += position.xy * (2.0 * radiusPx / vec2(uPixelWidth, uPixelHeight)) * clip.w;
     gl_Position = clip;
 
     #include <logdepthbuf_vertex>
@@ -397,6 +403,7 @@ export class SmallBodiesModule implements AtlasModule {
     namedWithheldByCap: 0,
     radiusMeasured: 0,
     radiusDerived: 0,
+    radiusNominal: 0,
     radiusUnknown: 0,
     orbitPaths: 0,
   }
@@ -489,6 +496,7 @@ export class SmallBodiesModule implements AtlasModule {
     const material = new THREE.ShaderMaterial({
       uniforms: {
         uDays: { value: 0 },
+        uPixelWidth: { value: 1920 },
         uPixelHeight: { value: 1080 },
         uSizePx: { value: 1.25 },
         // Calibrated against an offline raster of the same shader maths at the same
@@ -498,7 +506,16 @@ export class SmallBodiesModule implements AtlasModule {
         // heavily near the ecliptic, and at the system view the belt was summing into
         // a solid white wall across the inner planets rather than reading as a faint
         // ring of dust.
-        uGain: { value: 0.1 },
+        //
+        // The belt was the one sprite field left uncompensated when the quads stopped
+        // being stretched by the viewport aspect, on the grounds that it is
+        // "opacity-driven" — which is wrong: BELT_VERTEX computes vIntensity from
+        // uGain, uOpacity and brightness with no dependence on quad size, so
+        // narrowing the quad removed light here exactly as it did everywhere else.
+        // It removed less, because these quads sit near the 1-pixel minimum: measured
+        // from Ceres at 3.5 AU, frame mean 5.816 narrow against 6.128 stretched, and
+        // lit-pixel fraction 0.105 against 0.114. 0.1 -> 0.113 covers that 8%.
+        uGain: { value: 0.113 },
         uOpacity: { value: 1 },
         uElementBlend: { value: 0 },
       },
@@ -596,9 +613,10 @@ export class SmallBodiesModule implements AtlasModule {
         periodDays: periodDaysOf(elements),
       }
 
-      const { radiusMetres, provenance } = radiusOf(object)
+      const { radiusMetres, framingRadiusMetres, provenance } = radiusOf(object)
       if (provenance === 'measured') this.stats.radiusMeasured++
       else if (provenance === 'derived') this.stats.radiusDerived++
+      else if (provenance === 'nominal') this.stats.radiusNominal++
       else this.stats.radiusUnknown++
 
       const node: SceneNodeHandle = {
@@ -606,6 +624,7 @@ export class SmallBodiesModule implements AtlasModule {
         worldPosition: vec3d(),
         frame: FRAME,
         radiusMetres,
+        framingRadiusMetres,
         layer: LAYER,
         objectClass: isComet(object) ? 'comet' : 'asteroid',
         name: displayName(object),
@@ -745,6 +764,7 @@ export class SmallBodiesModule implements AtlasModule {
     const material = this.beltMaterial
     if (!material) return
     const dpr = Math.min(window.devicePixelRatio, 2)
+    material.uniforms.uPixelWidth.value = ctx.width * dpr
     material.uniforms.uPixelHeight.value = ctx.height * dpr
     // Float64 subtraction on the CPU, downcast once. The belt epoch is 2026-06-09, so
     // this stays small for any plausible simulated instant; the float32 rounding of a
@@ -753,9 +773,11 @@ export class SmallBodiesModule implements AtlasModule {
 
     // Fade the belt out as the camera closes on a body: inside a planetary system the
     // belt is a distant background and should not sit as a bright wall across the sky.
+    // `renderOpacity`, not `spanOpacity`: the raw band measure keeps its meaning as a
+    // measurement and the engine has already folded the layer's role into this one.
     const layer = this.engine.layer(LAYER)
     const au = layer.cameraDistanceMetres / AU_M
-    material.uniforms.uOpacity.value = 0.25 + 0.75 * smoothstep(0.02, 0.6, au)
+    material.uniforms.uOpacity.value = (0.25 + 0.75 * smoothstep(0.02, 0.6, au)) * layer.renderOpacity
   }
 
   /**
@@ -838,16 +860,37 @@ function periodDaysOf(elements: NamedElements): number {
 }
 
 /**
+ * The size a comet with no measured nucleus is FRAMED at — never its radius.
+ *
+ * The median effective radius of a Jupiter-family nucleus is about 1.3 km (Lamy et al.
+ * 2004; Fernandez et al. 2013), and the 34 comets here with no measured diameter are
+ * overwhelmingly that population. It is a class median, not a measurement of the
+ * object, which is why `radiusOf` reports it as `nominal` and returns it in
+ * `framingRadiusMetres`: the camera needs a scale to stop at, and the inspector must
+ * go on printing the catalogue's silence rather than this number.
+ */
+const NOMINAL_COMET_NUCLEUS_RADIUS_M = 1300
+
+/**
  * Mean radius in metres.
  *
  * A measured diameter is used when SBDB has one. Otherwise the standard photometric
  * relation D = 1329 / sqrt(p) * 10^(-H/5) gives a diameter from absolute magnitude and
  * albedo — DERIVED, and doubly so when the albedo itself has to be assumed. Comets
  * carry total magnitude M1 rather than H, which describes the coma and says nothing
- * about the nucleus, so a comet with no measured diameter gets radius 0 and is drawn as
- * a marker with no size claim attached.
+ * about the nucleus, so there is nothing to derive a nucleus size from.
+ *
+ * Those comets get radius 0, which is the honest number, and a `framingRadiusMetres`
+ * of the class median, which is not a number about this object and is therefore in
+ * the field that says so. The camera still stops at a sensible scale (AtlasViewer
+ * prefers `radiusMetres` and falls back to the framing size), and the inspector goes
+ * on printing '—' for a nucleus nobody has resolved.
  */
-function radiusOf(object: NamedObject): { radiusMetres: number; provenance: RadiusProvenance } {
+function radiusOf(object: NamedObject): {
+  radiusMetres: number
+  framingRadiusMetres?: number
+  provenance: RadiusProvenance
+} {
   const physical = object.physical
   if (physical?.diameterKm && physical.diameterKm > 0) {
     return { radiusMetres: (physical.diameterKm * 1000) / 2, provenance: 'measured' }
@@ -858,6 +901,9 @@ function radiusOf(object: NamedObject): { radiusMetres: number; provenance: Radi
     if (diameterKm > 0 && Number.isFinite(diameterKm)) {
       return { radiusMetres: (diameterKm * 1000) / 2, provenance: 'derived' }
     }
+  }
+  if (isComet(object)) {
+    return { radiusMetres: 0, framingRadiusMetres: NOMINAL_COMET_NUCLEUS_RADIUS_M, provenance: 'nominal' }
   }
   return { radiusMetres: 0, provenance: 'unknown' }
 }

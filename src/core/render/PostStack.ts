@@ -25,6 +25,14 @@ import * as THREE from 'three'
  * Tone mapping happens last, on the composited result. AgX rather than ACES: ACES
  * hue-shifts saturated bright oranges toward white, and saturated bright orange is
  * precisely what the Sun and Jupiter are.
+ *
+ * AgX's toe is steep: scene-linear 0.002 lands on code 1, 0.01 on code 18. That is
+ * what makes a pure-black clear read as genuine void while a faint star one part in
+ * five hundred above it is still a visible pixel. The toe is in fact the *least*
+ * posterising part of the curve — codes 0-18 span 0.00055 linear each, the shoulder
+ * around code 210 spans 0.045, eighty times wider. What forces the dither at the end
+ * of the composite is the output, not the curve: 8-bit has few codes to spend near
+ * black and the eye is at its most sensitive to a one-code step there.
  */
 
 const MIP_COUNT = 5
@@ -37,7 +45,7 @@ const FULLSCREEN_VERTEX = /* glsl */ `
   }
 `
 
-/** Karis-weighted 13-tap downsample: stable against single bright pixels. */
+/** 13-tap downsample, with the bright pass applied per tap on the first level. */
 const DOWNSAMPLE_FRAGMENT = /* glsl */ `
   uniform sampler2D uSource;
   uniform vec2 uTexel;
@@ -45,7 +53,26 @@ const DOWNSAMPLE_FRAGMENT = /* glsl */ `
   uniform float uFirstPass;
   varying vec2 vUv;
 
-  vec3 tap(vec2 uv) { return texture2D(uSource, uv).rgb; }
+  // Soft-knee bright pass, applied to each tap rather than to the filtered result.
+  //
+  // The 13-tap kernel gives any single source pixel a weight of at most 1/8, so
+  // thresholding afterwards silently demanded that a one-pixel light be eight times
+  // over the bar before any of it survived. Almost every bright thing in this atlas
+  // is sub-pixel — that is the whole point of the product — so in practice only the
+  // Sun's disc ever cleared it and nothing else glowed at all. Prefiltering the taps
+  // is also where every reference implementation puts it.
+  vec3 prefilter(vec3 c) {
+    float luma = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    float knee = uThreshold * 0.6;
+    float soft = clamp(luma - uThreshold + knee, 0.0, 2.0 * knee);
+    soft = soft * soft / (4.0 * knee + 1e-5);
+    return c * (max(soft, luma - uThreshold) / max(luma, 1e-5));
+  }
+
+  vec3 tap(vec2 uv) {
+    vec3 c = texture2D(uSource, uv).rgb;
+    return uFirstPass > 0.5 ? prefilter(c) : c;
+  }
 
   void main() {
     vec2 t = uTexel;
@@ -67,17 +94,6 @@ const DOWNSAMPLE_FRAGMENT = /* glsl */ `
     result += (a + c + g + i) * 0.03125;
     result += (b + d + f + h) * 0.0625;
     result += (j + k + l + m) * 0.125;
-
-    // The threshold is applied only on the first downsample, with a soft knee so a
-    // light crossing the threshold fades in rather than popping.
-    if (uFirstPass > 0.5) {
-      float luma = dot(result, vec3(0.2126, 0.7152, 0.0722));
-      float knee = uThreshold * 0.6;
-      float soft = clamp(luma - uThreshold + knee, 0.0, 2.0 * knee);
-      soft = soft * soft / (4.0 * knee + 1e-5);
-      float contribution = max(soft, luma - uThreshold) / max(luma, 1e-5);
-      result *= contribution;
-    }
 
     gl_FragColor = vec4(result, 1.0);
   }
@@ -119,11 +135,18 @@ const COMPOSITE_FRAGMENT = /* glsl */ `
   uniform float uTime;
   varying vec2 vUv;
 
-  // Cheap hash for film grain, keyed on the pixel rather than on the UV. Scaling UVs
-  // by a round number lines the hash lattice up with the pixel grid at some viewport
-  // sizes and produces visible diagonal moire; gl_FragCoord never does.
-  float hash(vec2 p) {
-    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+  // Integer-style bit mixing (Hoskins' hash13), not fract(sin(x) * big).
+  //
+  // The sine hash only decorrelates while sin() is still resolving its argument.
+  // At gl_FragCoord magnitudes the argument lands on a coarse lattice of
+  // representable floats, so neighbouring pixels drew near-identical values and the
+  // "noise" came out as a regular diagonal weave across the entire frame — a
+  // screen-door over every picture in the atlas. Keying on the pixel did not help,
+  // because the pixel grid is exactly what the lattice beats against.
+  float hash13(vec3 p) {
+    p = fract(p * 0.1031);
+    p += dot(p, p.zyx + 31.32);
+    return fract((p.x + p.y) * p.z);
   }
 
   void main() {
@@ -137,14 +160,37 @@ const COMPOSITE_FRAGMENT = /* glsl */ `
 
     gl_FragColor = vec4(color, 1.0);
     #include <tonemapping_fragment>
-
-    // Grain goes on AFTER tone mapping, in display-referred space. Added before it,
-    // a 0.014 linear offset is far from negligible down near black -- AgX lifts it
-    // into a flat grey haze across the whole void, which is exactly what it did.
-    float noise = hash(gl_FragCoord.xy + fract(uTime) * 311.0) - 0.5;
-    gl_FragColor.rgb += noise * uGrain;
-
     #include <colorspace_fragment>
+
+    // Dither, after the sRGB encode -- which is what "display-referred" means.
+    //
+    // It used to sit between the two includes, where the signal is still linear, and
+    // an amplitude of 0.005 linear is anything but small down near black: the sRGB
+    // transfer multiplies it by 12.92 there, so the void picked up eight codes of
+    // speckle on top of whatever the clear colour already contributed. After the
+    // encode the amplitude means what it reads as -- a fraction of one 8-bit code.
+    //
+    // Its only job is to break the banding AgX's steep toe leaves in faint smooth
+    // gradients: an accretion disc, the Sun's corona, a terminator. Deep space has no
+    // gradient to band, so the amplitude fades to nothing as the signal approaches
+    // black and true black stays exactly black. Two hashes differenced give a
+    // triangular distribution, which is the dither that leaves no residual pattern
+    // correlated with the signal; holding the pattern for a 24 Hz step rather than
+    // redrawing it every frame stops it buzzing on a static sky. The step wraps
+    // because uTime is session elapsed seconds, and a float32 hash argument in the
+    // tens of thousands has lost the low bits the mixing needs.
+    float step24 = mod(floor(uTime * 24.0), 512.0);
+    float dither = hash13(vec3(gl_FragCoord.xy, step24))
+                 - hash13(vec3(gl_FragCoord.yx + 101.0, step24));
+    float signal = dot(gl_FragColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+    // The gate reaches full amplitude within one 8-bit code. It used to ramp over
+    // 0.02 -- five codes -- which switched the dither off across exactly the range
+    // it exists to protect: measured peak excursion was 0.13 of a code at code 1 and
+    // 0.43 at code 2, far below the >= 1 code a dither needs to decorrelate the
+    // quantiser, so faint nebulosity and the outer corona still contoured. The signal
+    // is bit-exact 0 in the void (black clear colour, AgX(0) = 0), so pure black is
+    // still preserved exactly.
+    gl_FragColor.rgb += dither * uGrain * smoothstep(0.0, 2.0 / 255.0, signal);
   }
 `
 
@@ -155,10 +201,15 @@ interface Mip {
 }
 
 export interface PostStackOptions {
-  /** Luminance above which a pixel contributes to the glow. */
+  /** Scene-linear luminance above which a pixel contributes to the glow. */
   threshold?: number
   intensity?: number
   vignette?: number
+  /**
+   * Dither amplitude, in display-referred units: 1/255 is one 8-bit code. The dither
+   * is triangular, so this is its peak excursion, not its RMS. Slightly over one code
+   * is what fully decorrelates the quantiser, which is why the default is 0.005.
+   */
   grain?: number
 }
 
@@ -224,7 +275,7 @@ export class PostStack {
         uBloom: { value: null },
         uBloomIntensity: { value: options.intensity ?? 0.85 },
         uVignette: { value: options.vignette ?? 0.35 },
-        uGrain: { value: options.grain ?? 0.015 },
+        uGrain: { value: options.grain ?? 0.005 },
         uTime: { value: 0 },
       },
       vertexShader: FULLSCREEN_VERTEX,

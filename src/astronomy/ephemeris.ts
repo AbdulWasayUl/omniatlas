@@ -15,6 +15,25 @@ import { AU_M, type FrameId, type Vec3d, convertFrame, vec3d } from '../core/wor
 /** astronomy-engine emits positions in AU in the EQJ (ICRF/J2000 equatorial) frame. */
 const ENGINE_FRAME: FrameId = 'icrf'
 
+/**
+ * The window astronomy-engine's series are fitted over.
+ *
+ * Outside it the library still returns a position, and the position is still smooth
+ * and plausible — Earth comes back at 0.983 AU in the year 1200 — which is exactly
+ * why the atlas has to say so: an extrapolated position looks identical to a measured
+ * one on screen. The bounds are the library's own documented validity range (VSOP87
+ * and the 1900-2100 lunar theory it ships, extended by its authors' stated 1700-2200
+ * envelope), rounded to whole years because the error grows smoothly across the edge
+ * rather than switching on at an instant.
+ */
+export const EPHEMERIS_VALID_FROM_MS = Date.UTC(1700, 0, 1)
+export const EPHEMERIS_VALID_TO_MS = Date.UTC(2200, 0, 1)
+
+/** True when `epochMs` is inside the window the ephemeris is fitted over. */
+export function epochIsFitted(epochMs: number): boolean {
+  return epochMs >= EPHEMERIS_VALID_FROM_MS && epochMs <= EPHEMERIS_VALID_TO_MS
+}
+
 export interface BodyPose {
   /** Position in metres, in `frame`. */
   position: Vec3d
@@ -69,6 +88,37 @@ export function bodyOrientation(key: string, date: Date): { north: Vec3d; spinRa
     }
   } catch {
     // astronomy-engine has no rotation model for some bodies; the caller falls back.
+    return null
+  }
+}
+
+/**
+ * Signed sidereal rotation period of a body, in seconds, or null if it has no
+ * rotation model.
+ *
+ * `bodyOrientation` returns the prime-meridian angle at an instant, which is all the
+ * renderer needs while the clock runs slowly. Once the simulated step per frame
+ * approaches half a turn the sampled angle aliases and the sign of the apparent
+ * motion is no longer recoverable from two samples -- so the renderer needs to know
+ * how fast the body *really* turns, independently of how often it is sampled. The
+ * IAU elements are linear in time (W = W0 + Wdot * d), so differencing two samples
+ * recovers Wdot exactly rather than approximately. 1000 s is short enough that no
+ * body wraps (Jupiter, the fastest, moves 10 deg) and long enough that the slowest
+ * (Venus, 243 d retrograde) still moves 0.017 deg, far above float64 noise in W.
+ * The sign is load-bearing: Venus and Uranus come back negative.
+ */
+export function rotationPeriodSeconds(key: string, date: Date): number | null {
+  const body = engineBody(key)
+  if (!body) return null
+  const dt = 1000
+  try {
+    const a = RotationAxis(body, date)
+    const b = RotationAxis(body, new Date(date.getTime() + dt * 1000))
+    let dSpin = b.spin - a.spin
+    dSpin -= 360 * Math.round(dSpin / 360)
+    if (dSpin === 0) return null
+    return (360 * dt) / dSpin
+  } catch {
     return null
   }
 }

@@ -30,7 +30,6 @@ interface ViewState {
   isOpen: (id: PanelId) => boolean
   setReady: (ready: boolean) => void
   setFailedModules: (ids: string[]) => void
-  closeAll: () => void
 }
 
 export const useViewStore = create<ViewState>((set, get) => ({
@@ -59,5 +58,4 @@ export const useViewStore = create<ViewState>((set, get) => ({
   isOpen: (id) => get().openPanels.has(id),
   setReady: (ready) => set({ ready }),
   setFailedModules: (failedModules) => set({ failedModules }),
-  closeAll: () => set({ openPanels: new Set<PanelId>(), selectedId: null }),
 }))

@@ -84,15 +84,25 @@ function round(value: number, places: number): number {
 
 export function serializeUrlState(viewer: AtlasViewer): string {
   const params = new URLSearchParams()
-  if (viewer.controls.anchorId) params.set('focus', viewer.controls.anchorId)
+  // The viewer owns anchor identity; controls.anchorId is the same string except
+  // during a flight, when it is still the body being left behind.
+  if (viewer.anchorId) params.set('focus', viewer.anchorId)
   params.set('d', viewer.controls.distanceMetres.toExponential(4))
   params.set('yaw', String(round(viewer.controls.yaw, 4)))
   params.set('pitch', String(round(viewer.controls.pitch, 4)))
   // The clock is only pinned when it is not simply tracking the present, so a casual
   // share link stays "live" rather than freezing the recipient at the sharer's instant.
-  if (viewer.paused || viewer.timeRate !== 1) {
+  //
+  // "Tracking the present" is a question about the EPOCH, not about the rate. Testing
+  // `timeRate !== 1` instead silently dropped `t=` from any view whose rate happened
+  // to be 1 — run the clock forward a year a second for six seconds, step the ladder
+  // back to Real time, and the atlas wrote itself a link that reopened five years
+  // earlier, which is the one thing this URL scheme exists not to do.
+  if (!viewer.trackingNow) {
     params.set('t', new Date(viewer.epochMs).toISOString())
-    params.set('rate', String(viewer.timeRate))
+    // A clock paused by the space key still reports its old rate, so writing timeRate
+    // raw made a paused view reopen running. Rate 0 is how this URL spells "paused".
+    params.set('rate', String(viewer.paused ? 0 : viewer.timeRate))
   }
   return `?${params.toString()}`
 }

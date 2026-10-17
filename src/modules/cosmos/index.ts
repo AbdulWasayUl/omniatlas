@@ -72,6 +72,15 @@ export interface CosmosNode extends SceneNodeHandle {
   catalogue: string
   /** Anything the user must be told about this specific object. */
   caveat?: string
+  /**
+   * The catalogue's own morphology class, for the close-range stand-in.
+   *
+   * Every galaxy used to get the same barred spiral, including the 177 ellipticals and
+   * the 482 dwarf irregulars in this catalogue, because nothing on the node said what
+   * the row was. UNGC publishes a de Vaucouleurs T-type for 868 of its 869 rows; this
+   * is that, written back as the class string the proxy already parses.
+   */
+  proxyMorphology?: string
 }
 
 /** One drawn dataset, for an evidence / coverage panel. */
@@ -129,8 +138,10 @@ interface UngcGalaxy {
   distanceMethod?: string
   absBMag?: number
   a26Kpc?: number
+  logMhiSun?: number
   vHelioKmS?: number
   tType?: number
+  dwarfMorph?: string
   aliases?: string[]
 }
 
@@ -164,6 +175,72 @@ const CF4_COLOR_UNQUOTED = new THREE.Color('#5d7f99')
 const TWOMRS_COLOR = new THREE.Color('#7b8cb0')
 const ZOA_COLOR = new THREE.Color('#ff8f6a')
 
+/**
+ * The camera-locked faint deep field.
+ *
+ * Every catalogue in this atlas is Sun-centred and none of them reaches past about
+ * 770 Mpc, so at TON 618, at GN-z11 and anywhere else out there the sky is literally
+ * black: not dark, empty, with nothing in it at all. That is a worse statement about
+ * the universe than a drawing would be — the sky is not empty at z = 2, it is full
+ * of galaxies nobody in this build has a catalogue of.
+ *
+ * So: a shell of faint smudges pinned to the camera, which therefore never resolves,
+ * never gets nearer and can never be flown to or clicked. It is an illustration and
+ * it is registered as one in `datasets`; nothing about it is a measurement and no
+ * node is registered for any of it.
+ *
+ * It is drawn only where the catalogues have run out, in BOTH senses: it fades in
+ * past their radial reach, and `uCatalogueCos` suppresses every smudge whose
+ * direction falls inside the cone the surveyed volume subtends from wherever the
+ * camera is. Radial distance alone was not enough — it is blind to direction, and
+ * the illustration used to be painted across the 2MRS sphere and through the
+ * Zone-of-Avoidance wedges, which is the one region in the atlas whose caveat says
+ * nobody has looked.
+ *
+ * One draw call, DEEP_FIELD_COUNT instances, each 2 * DEEP_FIELD_MIN_RADIUS_PX to
+ * 2 * DEEP_FIELD_MAX_RADIUS_PX pixels across. The budget here is a sky, not a survey.
+ */
+const DEEP_FIELD_COUNT = 9000
+/** Where the shell sits, in Mpc. Arbitrary: it is a direction field, not a distance. */
+const DEEP_FIELD_SHELL_MPC = 300
+/** The limiting magnitude the shell's brightnesses are drawn relative to. */
+const DEEP_FIELD_MAG_LIMIT = 24
+/**
+ * Brightest smudge, in magnitudes above the limit.
+ *
+ * FIELD_VERTEX turns headroom into both size and flux, so this sets the dynamic range
+ * of the field. Skewed hard to the faint end in the generator: a deep exposure is
+ * mostly threshold smudges with a handful of brighter ones.
+ */
+const DEEP_FIELD_MAX_HEADROOM = 4
+/**
+ * Sprite radius floor and ceiling, in pixels.
+ *
+ * Never a pinprick. FIELD_VERTEX sizes a sprite from its headroom over the limit, and
+ * at a one-pixel floor these came out as a field of hard white points — which is to
+ * say, as stars, two gigaparsecs from the nearest star anyone has catalogued. A
+ * 2.2 px floor makes them soft smudges instead, which is both what a faint galaxy
+ * looks like and what this field is claiming to be.
+ */
+const DEEP_FIELD_MIN_RADIUS_PX = 2.2
+const DEEP_FIELD_MAX_RADIUS_PX = 6
+const DEEP_FIELD_NOTE =
+  'Not a catalogue and not an observation. Every survey in this atlas is Sun-centred ' +
+  'and none reaches past about 770 Mpc, so beyond that the sky would otherwise be ' +
+  `empty — which is a bigger untruth than a drawing. These ${DEEP_FIELD_COUNT.toLocaleString('en-GB')} ` +
+  'smudges are a fixed seeded illustration of "the sky is not empty here", pinned to ' +
+  'the camera so they never resolve, never get closer and cannot be flown to. They ' +
+  'appear only outside the catalogues, in distance and in direction alike: none is ' +
+  'drawn within the angle the surveyed volume covers from where you are standing, so ' +
+  'none of them is ever laid over real data. None of them stands for a real object.'
+/** Faint ellipticals, faint spirals, and the blue end of a deep exposure. */
+const DEEP_FIELD_PALETTE = [
+  new THREE.Color('#f0dcc4'),
+  new THREE.Color('#e2e2e6'),
+  new THREE.Color('#c8d8f0'),
+  new THREE.Color('#d8c8d0'),
+]
+
 /** Palette index by UNGC distance kind, plus the DistanceKind it maps to. */
 const UNGC_KINDS: Record<string, { palette: number; kind: DistanceKind; provenance: Provenance }> = {
   trgb_cepheid: { palette: 0, kind: 'geometric', provenance: 'measured' },
@@ -171,6 +248,66 @@ const UNGC_KINDS: Record<string, { palette: number; kind: DistanceKind; provenan
   luminosity_distance: { palette: 1, kind: 'luminosity', provenance: 'measured' },
   inherited: { palette: 2, kind: 'model', provenance: 'derived' },
   redshift_space: { palette: 3, kind: 'redshift', provenance: 'derived' },
+}
+
+// ---------------------------------------------------------------------------
+// Sizes
+// ---------------------------------------------------------------------------
+
+/**
+ * A de Vaucouleurs T-type, written back as the morphology string the proxy parses.
+ *
+ * T is the only morphology all three galaxy catalogues in the atlas can be mapped
+ * onto, and it is what UNGC publishes. The boundaries are the standard ones: T <= -4
+ * elliptical, -3..0 lenticular, 1..8 spiral, 9 and up Magellanic and irregular. Where
+ * UNGC also gives a dwarf class that is the better answer, because it separates the
+ * dwarf spheroidals (round, smooth) from the dwarf irregulars (clumpy, no bulge).
+ */
+function morphologyFromTType(tType: number | undefined, dwarfMorph: string | undefined): string | undefined {
+  if (dwarfMorph) return dwarfMorph
+  if (typeof tType !== 'number' || !Number.isFinite(tType)) return undefined
+  if (tType <= -4) return 'E'
+  if (tType <= 0) return 'S0'
+  if (tType <= 8) return 'Sb'
+  return 'Im'
+}
+
+/**
+ * Radius of a UNGC galaxy that has no A26 isophotal diameter, from its HI mass.
+ *
+ * Eight rows have no A26: they are HI-selected dwarfs and clouds, found in the 21 cm
+ * line rather than in optical light, so there is no 26 mag/arcsec^2 isophote to quote.
+ * They do carry an HI mass, and the HI size-mass relation is one of the tightest in
+ * extragalactic astronomy — log(D_HI/kpc) = 0.51 log(M_HI/Msun) - 3.32, Broeils & Rhee
+ * (1997), 0.06 dex of scatter over five decades in mass. That is a size derived from
+ * a measurement of THIS galaxy, not a class average, and it is the same kind of
+ * derivation the small-body module makes from H and albedo.
+ */
+function hiSizeRadiusMetres(logMhiSun: number | undefined): number {
+  if (typeof logMhiSun !== 'number' || !Number.isFinite(logMhiSun)) return 0
+  return 10 ** (0.51 * logMhiSun - 3.32) * 0.5 * KPC_M
+}
+
+/**
+ * Framing radius of a CF4 group, from its richness.
+ *
+ * CF4 publishes no size: a group is one row with a distance, a direction and a member
+ * count. But a group's mass scales with its membership and its virial radius with the
+ * cube root of its mass at a fixed mean overdensity, so N^(1/3) is the right shape,
+ * and the normalisation is fixed by the one group in the list whose virial radius is
+ * independently known: Virgo, 263 members, R_vir ~ 1.4 Mpc (Mei et al. 2007). It
+ * reproduces 1 Mpc for a hundred-member group, which is the standard group scale.
+ *
+ * This is a FRAMING size, so it goes in `framingRadiusMetres` and nowhere else. It
+ * exists because the fourteen registered groups had nothing to frame against and
+ * arrived at the flat 1 Gm fallback. Written into `radiusMetres` it was worse than
+ * useless: the inspector printed it as a measured mean radius CF4 does not publish,
+ * and the proxy — seeing a 'cluster' with a radius — built a 1.2 Mpc ball of point
+ * sprites, a globular cluster's shape standing in for a cluster of galaxies.
+ */
+function groupRadiusMetres(memberCount: number): number {
+  const n = Math.max(memberCount, 1)
+  return 1.4 * Math.cbrt(n / 263) * MPC_M
 }
 
 // ---------------------------------------------------------------------------
@@ -194,12 +331,19 @@ const FIELD_VERTEX = /* glsl */ `
   attribute float aKind;     // palette index
 
   uniform vec3 uColors[4];
+  uniform float uPixelWidth;
   uniform float uPixelHeight;
   uniform float uMagLimit;
   uniform float uMinRadiusPx;
   uniform float uMaxRadiusPx;
   uniform float uGain;
   uniform float uOpacity;
+  // Direction, in this mesh's own space, of the volume the catalogues cover, and the
+  // cosine of the angle it subtends. Only the deep-field illustration sets these; a
+  // uCatalogueCos of 2 is unreachable by a cosine and switches the test off, which is
+  // what every real catalogue leaves it at.
+  uniform vec3 uCatalogueAxis;
+  uniform float uCatalogueCos;
 
   varying vec3 vColor;
   varying float vIntensity;
@@ -220,12 +364,29 @@ const FIELD_VERTEX = /* glsl */ `
       return;
     }
 
+    // Nothing invented is drawn in a direction a survey has looked. From outside, the
+    // catalogued volume is a cone of half-angle asin(reach / distance) about the
+    // direction of its centre, and everything the surveys know — including the Zone
+    // of Avoidance, which is a hole INSIDE that volume and the one place whose caveat
+    // says no one has looked — lies within it. One dot product covers both.
+    float visible = 1.0;
+    if (uCatalogueCos <= 1.0) {
+      visible = 1.0 - smoothstep(uCatalogueCos - 0.03, uCatalogueCos, dot(normalize(aPos), uCatalogueAxis));
+      if (visible <= 0.002) {
+        gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+        return;
+      }
+    }
+
     float radiusPx = clamp(uMinRadiusPx + 0.40 * headroom, uMinRadiusPx, uMaxRadiusPx);
-    vIntensity = uGain * uOpacity * pow(2.512, min(headroom, 5.0)) * 0.008;
+    vIntensity = visible * uGain * uOpacity * pow(2.512, min(headroom, 5.0)) * 0.008;
     vColor = uColors[int(aKind)];
 
     vec4 clip = projectionMatrix * viewPosition;
-    clip.xy += position.xy * (2.0 * radiusPx / uPixelHeight) * clip.w;
+    // NDC x spans the viewport WIDTH and NDC y its HEIGHT, so one shared offset would
+    // make every quad W/H times wider than tall and the circular discard would cut an
+    // ellipse. Scale each axis by its own pixel count.
+    clip.xy += position.xy * (2.0 * radiusPx / vec2(uPixelWidth, uPixelHeight)) * clip.w;
     gl_Position = clip;
   }
 `
@@ -387,9 +548,16 @@ const ZOA_FRAGMENT = /* glsl */ `
 
   void main() {
     // A slow radial banding, so the wedge reads as hatched-off territory rather than
-    // as an object with a surface.
-    float hatch = 0.78 + 0.22 * sin(vRadial * 46.0);
-    float alpha = uOpacity * vFade * hatch * (0.10 + 0.90 * pow(vRim, 2.5));
+    // as an object with a surface. The old period (sin(vRadial * 46.0)) was 105 Mpc
+    // wide, which from a hundred megaparsecs out is not hatching at all — it rendered
+    // as concentric orange moire arcs across the frame.
+    float hatch = 0.90 + 0.10 * sin(vRadial * 9.0);
+    // Silhouette only. The camera at 100 Mpc sits INSIDE the pair of cone shells, so
+    // 97.5% of view rays cross a surface; at the measured mean incidence the old
+    // (0.10 + 0.90 * pow(vRim, 2.5)) still passed 31% of peak alpha, and a near-full
+    // frame of pure-red linear 0.02 comes out of AgX at roughly 0.22 display. A gap is
+    // stated by its boundary, so only the grazing band is painted.
+    float alpha = uOpacity * vFade * hatch * (0.02 + 0.98 * pow(vRim, 6.0));
     if (alpha < 0.0015) discard;
     // (SrcAlpha, One): the colour is already scaled by alpha at blend time.
     gl_FragColor = vec4(uColor, alpha);
@@ -419,6 +587,9 @@ export class CosmosModule implements AtlasModule {
   private ungcField: FieldMesh | null = null
   private twoMrsField: FieldMesh | null = null
   private cf4Field: FieldMesh | null = null
+  private deepField: FieldMesh | null = null
+  /** Mpc beyond which the catalogues have nothing, so the illustration may appear. */
+  private catalogueReachMpc = 769
   private zoaSurface: THREE.Mesh | null = null
   private zoaEdges: THREE.LineSegments | null = null
   private zoaMaterials: THREE.Material[] = []
@@ -427,6 +598,8 @@ export class CosmosModule implements AtlasModule {
   /** Reused during construction only; never allocated in a frame. */
   private readonly scratchWorld: Vec3d = vec3d()
   private readonly scratchLocal = new THREE.Vector3()
+  /** Per-frame scratch for the deep field's suppression cone. */
+  private readonly deepFieldAxis = new THREE.Vector3()
 
   async init(engine: Engine): Promise<void> {
     this.engine = engine
@@ -455,8 +628,86 @@ export class CosmosModule implements AtlasModule {
     await this.loadZoneOfAvoidance(layer)
     if (engine.isDisposed || this.disposed) return
 
+    this.buildDeepField(layer)
+
     void this.load2Mrs(layer).catch((error) => {
       console.warn('[omniatlas] cosmos: 2MRS field unavailable', error)
+    })
+  }
+
+  // -------------------------------------------------------------------------
+  // The camera-locked faint deep field — see DEEP_FIELD_COUNT
+  // -------------------------------------------------------------------------
+
+  private buildDeepField(layer: ReturnType<Engine['layer']>): void {
+    if (!this.quad) return
+
+    const shell = layer.toLocalLength(DEEP_FIELD_SHELL_MPC * MPC_M)
+    const positions = new Float32Array(DEEP_FIELD_COUNT * 3)
+    const absMags = new Float32Array(DEEP_FIELD_COUNT)
+    const kinds = new Float32Array(DEEP_FIELD_COUNT)
+
+    // Seeded, so the same sky comes back on every reload and in every screenshot.
+    let seed = 0x9e3779b9
+    const random = () => {
+      seed = (seed + 0x6d2b79f5) | 0
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+    }
+
+    // Apparent magnitude at the shell, from the field shader's own distance modulus.
+    const modulus = 5 * Math.log10(DEEP_FIELD_SHELL_MPC) + 25
+    for (let i = 0; i < DEEP_FIELD_COUNT; i++) {
+      // Uniform on the sphere: z uniform, azimuth uniform. Clustering would be a
+      // claim about large-scale structure in a direction nothing has surveyed.
+      const z = 2 * random() - 1
+      const phi = 2 * Math.PI * random()
+      const r = Math.sqrt(Math.max(0, 1 - z * z))
+      positions[i * 3] = shell * r * Math.cos(phi)
+      positions[i * 3 + 1] = shell * r * Math.sin(phi)
+      positions[i * 3 + 2] = shell * z
+
+      // Headroom over the limit decides both size and brightness in FIELD_VERTEX.
+      // Skewed hard to the faint end: a deep exposure is mostly smudges at the
+      // threshold with a handful of brighter ones, not an even field of blobs.
+      const headroom = DEEP_FIELD_MAX_HEADROOM * Math.pow(random(), 2.5)
+      absMags[i] = DEEP_FIELD_MAG_LIMIT - modulus - headroom
+      kinds[i] = Math.floor(random() * DEEP_FIELD_PALETTE.length)
+    }
+
+    this.deepField = this.buildPointField(layer, positions, absMags, kinds, {
+      name: 'cosmos:deep-field',
+      colors: DEEP_FIELD_PALETTE,
+      magLimit: DEEP_FIELD_MAG_LIMIT,
+      minRadiusPx: DEEP_FIELD_MIN_RADIUS_PX,
+      maxRadiusPx: DEEP_FIELD_MAX_RADIUS_PX,
+      gain: 4,
+      // Behind everything, including the zone-of-avoidance surfaces.
+      renderOrder: -12,
+    })
+    if (!this.deepField) return
+    this.deepField.material.uniforms.uOpacity.value = 0
+    this.deepField.mesh.visible = false
+    this.deepField.mesh.userData = {
+      provenance: 'illustration',
+      note: DEEP_FIELD_NOTE,
+    }
+
+    console.info(
+      `[omniatlas] cosmos: faint deep field drawn as an ILLUSTRATION — ${DEEP_FIELD_COUNT} ` +
+        'seeded smudges pinned to the camera, shown only past the reach of the catalogues',
+    )
+
+    this.datasets.push({
+      id: 'deep-field',
+      label: 'Faint deep field (illustration)',
+      provenance: 'illustration',
+      distanceKind: 'model',
+      drawn: DEEP_FIELD_COUNT,
+      omitted: [],
+      attribution: 'Not a catalogue. Generated from a fixed seed by this build.',
+      note: DEEP_FIELD_NOTE,
     })
   }
 
@@ -481,6 +732,7 @@ export class CosmosModule implements AtlasModule {
     let skippedNoDistance = 0
     let missingMagnitude = 0
     let unknownKind = 0
+    let skippedNoSize = 0
     const kindCounts = new Map<DistanceKind, number>()
 
     for (const galaxy of galaxies) {
@@ -509,8 +761,9 @@ export class CosmosModule implements AtlasModule {
       positions.push(this.scratchLocal.x, this.scratchLocal.y, this.scratchLocal.z)
 
       // A26 is the isophotal diameter at 26 mag/arcsec^2 — a real, published size.
-      // Galaxies without one are registered point-like rather than given a guess.
-      const radiusMetres = Number.isFinite(galaxy.a26Kpc) ? (galaxy.a26Kpc as number) * 0.5 * KPC_M : 0
+      const radiusMetres = Number.isFinite(galaxy.a26Kpc)
+        ? (galaxy.a26Kpc as number) * 0.5 * KPC_M
+        : hiSizeRadiusMetres(galaxy.logMhiSun)
 
       let absMag = galaxy.absBMag
       if (!Number.isFinite(absMag)) {
@@ -537,12 +790,27 @@ export class CosmosModule implements AtlasModule {
         distanceSigmaMpc: null,
         redshift: Number.isFinite(galaxy.vHelioKmS) ? redshiftFromCzKmS(galaxy.vHelioKmS as number) : null,
         catalogue: 'UNGC',
+        proxyMorphology: morphologyFromTType(galaxy.tType, galaxy.dwarfMorph),
         caveat:
           resolved.kind === 'model'
             ? 'Distance adopted from the host group, not measured for this galaxy.'
             : resolved.kind === 'redshift'
               ? 'Distance from recession velocity via a Hubble-flow model, not a measurement.'
               : undefined,
+      }
+      if (!(radiusMetres > 0)) {
+        // Still drawn — it is a real galaxy and the field is the point of this module
+        // — but not offered as a destination. A registered node with no size draws
+        // nothing when you arrive at it: the proxy declines to build a stand-in for a
+        // zero radius and the previous object stays frozen on screen, which reads as
+        // the app having hung. One row is in this state: And XXX, an M31 dwarf with
+        // no isophotal diameter, no HI mass and no magnitude anywhere in the file.
+        // The galaxy module owns it instead — localgroup.json is that row's home —
+        // and registers it there without a radius, so it stays searchable. Check that
+        // before adding to this list: a row dropped here and dropped there is a
+        // catalogued object that has silently left the atlas.
+        skippedNoSize++
+        continue
       }
       this.nodes.set(node.id, node)
       this.engine.register(node)
@@ -554,7 +822,8 @@ export class CosmosModule implements AtlasModule {
       magLimit: 23,
       minRadiusPx: 1.1,
       maxRadiusPx: 26,
-      gain: 1,
+      // Up 1.25 with the sprite-width fix; see the note on the star field's uGain.
+      gain: 1.25,
       renderOrder: -6,
     })
 
@@ -563,6 +832,13 @@ export class CosmosModule implements AtlasModule {
       omitted.push({ count: skippedMilkyWay, reason: 'the Milky Way itself — drawn by the galaxy module, not here' })
     if (skippedNoDistance > 0)
       omitted.push({ count: skippedNoDistance, reason: 'no usable position or distance in the catalogue row' })
+    // Counted since the size filter landed but never reported, so the one row it drops
+    // was invisible in the very table that exists to record what was dropped.
+    if (skippedNoSize > 0)
+      omitted.push({
+        count: skippedNoSize,
+        reason: 'no isophotal diameter and no HI mass — no size to frame, so drawn but not offered as a destination',
+      })
 
     this.datasets.push({
       id: 'ungc',
@@ -717,6 +993,7 @@ export class CosmosModule implements AtlasModule {
         worldPosition: { x: this.scratchWorld.x, y: this.scratchWorld.y, z: this.scratchWorld.z },
         frame: 'supergalactic',
         radiusMetres: 0,
+        framingRadiusMetres: groupRadiusMetres(ngal[i]),
         layer: LAYER,
         objectClass: 'cluster',
         name: isVirgo ? 'Virgo Cluster' : `Group PGC ${pgc[i]} (${ngal[i]} galaxies)`,
@@ -727,10 +1004,14 @@ export class CosmosModule implements AtlasModule {
         distanceSigmaMpc: errorMag > 0 ? distMpc[i] * (distanceModulusErrorFactor(errorMag) - 1) : null,
         redshift: null,
         catalogue: 'CF4',
-        caveat: isVirgo
-          ? 'Position overridden: the source table stores wrong supergalactic coordinates for this row ' +
-            '(see knownSourceDefects in cf4.json). Distance and membership are the published values.'
-          : 'Redshift-independent luminosity distance, calibrated to H0 = 74.6 rather than the Planck 67.4 used elsewhere.',
+        caveat:
+          (isVirgo
+            ? 'Position overridden: the source table stores wrong supergalactic coordinates for this row ' +
+              '(see knownSourceDefects in cf4.json). Distance and membership are the published values. '
+            : 'Redshift-independent luminosity distance, calibrated to H0 = 74.6 rather than the Planck 67.4 ' +
+              'used elsewhere. ') +
+          'CF4 publishes no size for a group, so none is reported: the row is a distance, a direction and a ' +
+          'member count.',
       }
       this.nodes.set(node.id, node)
       this.engine.register(node)
@@ -874,7 +1155,8 @@ export class CosmosModule implements AtlasModule {
         magLimit: 16.5,
         minRadiusPx: 0.7,
         maxRadiusPx: 6,
-        gain: 0.8,
+        // Up 1.25 with the sprite-width fix; see the note on the star field's uGain.
+        gain: 1,
         renderOrder: -8,
       },
     )
@@ -931,6 +1213,9 @@ export class CosmosModule implements AtlasModule {
     // the catalogue, through the same Hubble law the field itself uses.
     const stats = manifest.statistics as { czKmS?: { max?: number } } | undefined
     const reachMpc = hubbleLawDistanceMpc(stats?.czKmS?.max ?? 30_000)
+    // The deep-field illustration keys off this: it may only appear where the real
+    // catalogues have nothing left to say.
+    this.catalogueReachMpc = reachMpc
 
     const RADIAL_STEPS = 10
     const LON_STEPS = 4
@@ -995,31 +1280,11 @@ export class CosmosModule implements AtlasModule {
         }
       }
 
-      // The rim that closes the far mouth of the wedge.
-      const rim: number[][] = []
-      for (let li = 0; li <= LON_STEPS; li++) {
-        const lon = lon0 + (binWidth * li) / LON_STEPS
-        const column: number[] = []
-        for (let bi = 0; bi <= 4; bi++) {
-          const lat = -limit + (2 * limit * bi) / 4
-          sphericalToCartesian(this.scratchWorld, lon, lat, reachMpc * MPC_M)
-          layer.toLocal(this.scratchLocal, this.scratchWorld, 'galactic')
-          column.push(vertices.length / 3)
-          vertices.push(this.scratchLocal.x, this.scratchLocal.y, this.scratchLocal.z)
-          fades.push(radialFade(1))
-          radials.push(1)
-        }
-        rim.push(column)
-      }
-      for (let li = 0; li < LON_STEPS; li++) {
-        for (let bi = 0; bi < 4; bi++) {
-          const a = rim[li][bi]
-          const b = rim[li + 1][bi]
-          const c = rim[li + 1][bi + 1]
-          const d = rim[li][bi + 1]
-          indices.push(a, b, c, a, c, d)
-        }
-      }
+      // No rim across the far mouth of the wedge. One used to be generated here —
+      // 1,260 vertices and 1,152 triangles per frame — every one of them at
+      // radialFade(1), which is 0 by construction, so the whole thing was rasterised
+      // and discarded in the fragment shader every frame. The gap does not end at the
+      // survey's reach anyway; it is the catalogue that does.
     }
 
     const geometry = new THREE.BufferGeometry()
@@ -1078,14 +1343,31 @@ export class CosmosModule implements AtlasModule {
         id: `cosmos:zone-of-avoidance:${index}`,
         worldPosition: { x: this.scratchWorld.x, y: this.scratchWorld.y, z: this.scratchWorld.z },
         frame: 'galactic',
+        // Not an object, so it has no radius and the inspector must print '—'. It is
+        // still a destination, though, and a node with nothing to frame against
+        // arrives at the flat 1 Gm fallback — a solar-system distance inside a
+        // 769 Mpc shell, looking at nothing. A quarter of the survey's reach frames
+        // the whole wedge, and `framingRadiusMetres` is where a camera-only number
+        // belongs. Nothing else reads it: objectClass 'region' falls through the
+        // proxy's `default: return null`, so no shape is built from it either.
         radiusMetres: 0,
+        framingRadiusMetres: 0.25 * reachMpc * MPC_M,
         layer: LAYER,
-        // No object class exists for "a hole in the data" yet; see the module report.
-        objectClass: 'nebula',
+        // Deliberately a class no renderer handles. While this read 'nebula' the proxy
+        // module's switch matched it and built a procedural glowing cloud for any
+        // anchored node with a radius — so flying to the label for a HOLE IN THE SURVEY
+        // parked the camera in front of a large invented object, at the one place in
+        // the atlas whose own caveat says nothing is there. `region` falls through the
+        // proxy's `default: return null`, keeps the framing radius above, and the
+        // marker takes classStyle()'s fallback glyph.
+        objectClass: 'region',
         name: 'Zone of Avoidance — no survey coverage',
         parentId: null,
         distanceKind: 'redshift',
-        provenance: 'measured',
+        // The coverage limits are measured; this node's POSITION is not. It is a
+        // placemark put on the l = 0 and l = 180 meridians at a readable fraction of
+        // the survey's reach, so nothing about where it sits is an observation.
+        provenance: 'derived',
         distanceMpc: 0.42 * reachMpc,
         distanceSigmaMpc: null,
         redshift: null,
@@ -1153,12 +1435,15 @@ export class CosmosModule implements AtlasModule {
     const material = new THREE.ShaderMaterial({
       uniforms: {
         uColors: { value: options.colors.slice(0, 4) },
+        uPixelWidth: { value: 1920 },
         uPixelHeight: { value: 1080 },
         uMagLimit: { value: options.magLimit },
         uMinRadiusPx: { value: options.minRadiusPx },
         uMaxRadiusPx: { value: options.maxRadiusPx },
         uGain: { value: options.gain },
         uOpacity: { value: 1 },
+        uCatalogueAxis: { value: new THREE.Vector3(0, 0, 1) },
+        uCatalogueCos: { value: 2 },
       },
       vertexShader: FIELD_VERTEX,
       fragmentShader: FIELD_FRAGMENT,
@@ -1235,6 +1520,7 @@ export class CosmosModule implements AtlasModule {
     if (!layer || !layer.active) return
 
     const dpr = Math.min(typeof window === 'undefined' ? 1 : window.devicePixelRatio, 2)
+    const pixelWidth = ctx.width * dpr
     const pixelHeight = ctx.height * dpr
     // The limiting magnitude follows the field of view the way a telescope's does.
     const fovBoost = 5 * Math.log10(50 / Math.max(ctx.fovDegrees, 1))
@@ -1250,11 +1536,20 @@ export class CosmosModule implements AtlasModule {
     const reach = (referenceMpc: number) =>
       Math.min(6, Math.max(0, 2.5 * Math.log10(Math.max(1, distanceMpc / referenceMpc))))
 
+    // What the engine says this layer is worth in this frame, not the raw span band.
+    // The two differ exactly when the cosmic layer is standing in as the BACKDROP —
+    // anchored on a black hole, say, where it is the only thing drawing a sky. In that
+    // role the cosmic web is the backdrop and must not read as the subject.
+    // `spanOpacity` is left alone: it is a measurement, and the engine has already
+    // folded it into this number along with the two facts it does not know about.
+    const layerFade = layer.renderOpacity
+
     if (this.ungcField) {
       const u = this.ungcField.material.uniforms
+      u.uPixelWidth.value = pixelWidth
       u.uPixelHeight.value = pixelHeight
       u.uMagLimit.value = 23 + fovBoost + reach(1)
-      u.uOpacity.value = 1
+      u.uOpacity.value = layerFade
     }
 
     // Cosmicflows-4 is meaningless inside the Local Volume and 2MRS is meaningless
@@ -1264,7 +1559,7 @@ export class CosmosModule implements AtlasModule {
       // 38,000 of them read as a starburst centred on the camera rather than as
       // structure in the universe. Dimmer, the group cores carry the image and the
       // elongation stays legible as what it is: the uncertainty on each distance.
-      const opacity = 0.45 * smoothstep(1.5, 15, distanceMpc)
+      const opacity = 0.45 * smoothstep(1.5, 15, distanceMpc) * layerFade
       const u = this.cf4Field.material.uniforms
       ;(u.uViewportPx.value as THREE.Vector2).set(ctx.width * dpr, ctx.height * dpr)
       u.uOpacity.value = opacity
@@ -1272,8 +1567,9 @@ export class CosmosModule implements AtlasModule {
     }
 
     if (this.twoMrsField) {
-      const opacity = 0.9 * smoothstep(8, 60, distanceMpc)
+      const opacity = 0.9 * smoothstep(8, 60, distanceMpc) * layerFade
       const u = this.twoMrsField.material.uniforms
+      u.uPixelWidth.value = pixelWidth
       u.uPixelHeight.value = pixelHeight
       u.uMagLimit.value = 16.5 + fovBoost + reach(10)
       u.uOpacity.value = opacity
@@ -1285,8 +1581,11 @@ export class CosmosModule implements AtlasModule {
     // Deliberately faint. The zone of avoidance has to be legible as "no survey
     // coverage here" without becoming the loudest thing on screen -- at 0.3 it read
     // as a solid orange wedge dominating the cosmic web it is supposed to annotate.
-    // It is a caveat on the data, not an object in the universe.
-    const gapOpacity = 0.075 * smoothstep(1.5, 15, distanceMpc)
+    // It is a caveat on the data, not an object in the universe. 0.075 was still a
+    // brick-red curtain over the whole frame at 100 Mpc once AgX had lifted it; with
+    // the silhouette-only weighting in ZOA_FRAGMENT, 0.045 keeps the boundary visible
+    // at every distance 2MRS is drawn at without washing the web behind it.
+    const gapOpacity = 0.045 * smoothstep(1.5, 15, distanceMpc) * layerFade
     if (this.zoaSurface) {
       const material = this.zoaSurface.material as THREE.ShaderMaterial
       material.uniforms.uOpacity.value = gapOpacity
@@ -1297,11 +1596,50 @@ export class CosmosModule implements AtlasModule {
       material.opacity = gapOpacity * 0.6
       this.zoaEdges.visible = gapOpacity > 0.001
     }
+
+    // The deep-field illustration. It is pinned to the camera so that it reads as a
+    // sky rather than as a shell of objects — move with it and it never resolves —
+    // and it is only allowed on once the real surveys have run out. Inside the
+    // catalogues' reach the sky already has 43,000 measured galaxies in it and an
+    // invented one on top of them would be indistinguishable from data.
+    if (this.deepField) {
+      // Not multiplied by layerFade. Everything else in this module steps back when
+      // the cosmic layer is only standing in as the backdrop; this is the one thing
+      // here whose entire job is to BE that backdrop, and dimming it to 35% in the
+      // role it exists for left TON 618 in a sky that still read as empty.
+      const reach = this.catalogueReachMpc
+      const fade = smoothstep(reach, 1.6 * reach, distanceMpc)
+      const u = this.deepField.material.uniforms
+      u.uOpacity.value = fade
+      u.uPixelWidth.value = pixelWidth
+      u.uPixelHeight.value = pixelHeight
+      this.deepField.mesh.visible = fade > 0.002
+      if (this.deepField.mesh.visible) {
+        this.deepField.mesh.position.copy(layer.camera.position)
+        // Radial distance alone is not "where the catalogues have run out" — it is
+        // blind to direction, so from 1,400 Mpc the illustration was painted straight
+        // across the 2MRS sphere and through the Zone-of-Avoidance wedges, at an
+        // indistinguishable size and colour. Every catalogue here is centred on the
+        // layer origin, so from outside, the surveyed volume is one cone of
+        // half-angle asin(reach / distance) about the direction of that origin; the
+        // shader suppresses the smudges inside it. The fade only starts at `reach`,
+        // which is exactly where the camera leaves the volume, so the ratio is <= 1
+        // and the square root is real.
+        const axis = this.deepFieldAxis.copy(layer.camera.position).negate()
+        const length = axis.length()
+        if (length > 1e-12) {
+          axis.divideScalar(length)
+          const sine = Math.min(1, reach / Math.max(distanceMpc, 1e-6))
+          ;(u.uCatalogueAxis.value as THREE.Vector3).copy(axis)
+          u.uCatalogueCos.value = Math.sqrt(Math.max(0, 1 - sine * sine))
+        }
+      }
+    }
   }
 
   dispose(): void {
     this.disposed = true
-    for (const field of [this.ungcField, this.cf4Field, this.twoMrsField]) {
+    for (const field of [this.ungcField, this.cf4Field, this.twoMrsField, this.deepField]) {
       if (!field) continue
       field.mesh.geometry.dispose()
       field.material.dispose()
@@ -1310,6 +1648,7 @@ export class CosmosModule implements AtlasModule {
     this.ungcField = null
     this.cf4Field = null
     this.twoMrsField = null
+    this.deepField = null
 
     for (const object of [this.zoaSurface, this.zoaEdges]) {
       if (!object) continue

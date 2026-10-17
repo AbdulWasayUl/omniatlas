@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { Layer, LAYER_CONFIGS, type LayerConfig, type LayerId } from './Layer'
-import { type FrameId, type Vec3d, clone3d, convertFrame, distance3d, vec3d } from './world'
+import { type FrameId, type Vec3d, clone3d, convertFrame, copy3d, distance3d, vec3d } from './world'
 
 /**
  * The frame context handed to every module each tick. Deliberately a single mutable
@@ -25,6 +25,32 @@ export interface FrameContext {
   height: number
   /** Metres subtended by the full viewport width at the anchor distance. */
   viewSpanMetres: number
+  /**
+   * True while the camera is in transit, i.e. orbiting an interpolated point that is
+   * not `anchorId`'s position.
+   *
+   * It matters to any module that treats `anchorDistanceMetres` as the distance to the
+   * anchor NODE: in transit it is the distance to the orbit point instead, and the two
+   * differ by up to eleven orders of magnitude. Measure against the node's own position
+   * while this is true, or wait for it to clear. An apparent-size fade computed from
+   * `anchorDistanceMetres` in transit is not a small error but a meaningless one: a
+   * frame into Earth → TON 618 it is 3.6e7 m, the altitude above EARTH, against a
+   * destination radius of 1.95e14 m, so the fade saturates and the module concludes the
+   * quasar fills the screen while it is 1.7e26 m away.
+   */
+  inTransit: boolean
+  /**
+   * The node the camera is flying AWAY from, while `inTransit`; `null` otherwise.
+   *
+   * `anchorId` names the destination from the click, because that is what the atlas is
+   * focused on. That is the right answer for identity and the wrong one for geometry:
+   * a module that builds a close-range stand-in for whatever the camera is looking at
+   * has to keep building it for the departure body until the camera is nearer the
+   * destination, or the object filling the screen vanishes on the first frame of the
+   * flight. Pick between the two the way the HUD does — whichever is nearer — or
+   * simply hold the departure body for the whole flight; do not read `anchorId` alone.
+   */
+  transitFromId: string | null
   engine: Engine
 }
 
@@ -50,8 +76,30 @@ export interface SceneNodeHandle {
   /** Current world position in metres. */
   worldPosition: Vec3d
   frame: FrameId
-  /** Mean radius in metres; 0 for point-like objects. */
+  /** Mean radius in metres; 0 when the catalogue records no size. */
   radiusMetres: number
+  /**
+   * A size to FRAME the camera with, in metres, for an object whose radius is unknown.
+   *
+   * Strictly not a measurement, and strictly not a substitute for one: `radiusMetres`
+   * stays 0 so the inspector keeps reporting the catalogue's silence and the apparent-
+   * size fades keep treating the node as point-like. The deep-sky shell is the case
+   * that forced the separation — a 100 kpc placeholder distance is a DIRECTION, and a
+   * radius derived from it is not a radius, but the camera still has to stop somewhere
+   * sensible when you fly there.
+   */
+  framingRadiusMetres?: number
+  /**
+   * Equatorial over mean radius of the body as it is DRAWN, for a flattened world.
+   *
+   * Like `framingRadiusMetres` this is a rendering fact, not a measurement: the
+   * catalogue's number is `radiusMetres`, and the inspector reports that. This one
+   * exists because SphereBody draws an oblate planet at `mean / cbrt(polarRatio)`
+   * across the equator, so a camera floor measured from the mean radius parks 3.5%
+   * inside Saturn's own silhouette — near plane first, then the camera itself.
+   * Absent or 1 means a sphere.
+   */
+  shapeRatio?: number
   /** Which layer draws it, for label and picking routing. */
   layer: LayerId
   /** Object class, for glyph and colour. */
@@ -70,6 +118,17 @@ export interface SceneNodeHandle {
   proxyColor?: string
 }
 
+/** Below this a layer contributes nothing a viewer could see, so it is skipped. */
+const ACTIVE_EPSILON = 0.004
+
+/**
+ * Opacity a layer standing in as the backdrop draws at.
+ *
+ * Low enough that a distant star field reads as sky rather than as the subject, high
+ * enough to be unmistakably present on an OLED panel after the tone curve.
+ */
+const BACKDROP_OPACITY = 0.35
+
 export interface EngineOptions {
   renderer: THREE.WebGLRenderer
   /** Overridden in tests. */
@@ -81,10 +140,14 @@ export interface EngineOptions {
  *
  * The render is a multi-pass composite: layers are drawn from farthest to nearest with
  * the depth buffer cleared between passes and the colour buffer preserved. That is what
- * lets a crater and a galaxy cluster share a frame without sharing a depth range — and
- * it is why `logarithmicDepthBuffer` is off. Log depth writes `gl_FragDepth`, which
- * disables early-Z on every GPU, and it only addresses depth precision, not the
- * position precision that actually breaks at these magnitudes.
+ * lets a crater and a galaxy cluster share a frame without sharing a depth range.
+ *
+ * Layering solves POSITION precision, which is the thing that actually breaks at these
+ * magnitudes. It does not solve depth precision *within* one pass, so
+ * `logarithmicDepthBuffer` is ON — see the note above `NEAR_RATIO` in `Layer.ts` for
+ * why a planet and its moons in a single pass need it. This comment used to claim the
+ * opposite and cost a shader author an afternoon: anything writing `gl_FragDepth` or
+ * reasoning about the depth encoding must assume log depth.
  */
 export class Engine {
   readonly renderer: THREE.WebGLRenderer
@@ -113,6 +176,27 @@ export class Engine {
   /** Where the camera is anchored — the object it orbits and measures against. */
   anchorId: string | null = null
   readonly anchorWorld: Vec3d = vec3d()
+
+  /**
+   * The point the camera is actually orbiting while it is in transit, if any.
+   *
+   * A flight interpolates its orbit point between the departure body and the
+   * destination, so for the length of the flight the camera circles a place in empty
+   * space that no node names. Measuring against either endpoint instead is wrong by
+   * most of the trip: thirty-five percent of the way from Earth to TON 618 the camera
+   * is 6.8e15 m from the point it is orbiting and 1.7e26 m from the destination, and
+   * feeding the latter to the bands switched the star field off and left eleven
+   * seconds of black screen in the middle of every intergalactic flight.
+   *
+   * `anchorId` keeps naming the DESTINATION throughout, because that is what the atlas
+   * is focused on and what the labels and the breadcrumb must read. This is only the
+   * geometry.
+   */
+  private transitAnchorWorld: Vec3d | null = null
+  private transitAnchorFrame: FrameId = 'ecliptic'
+  private readonly transitAnchorStore: Vec3d = vec3d()
+  /** The body being left behind, for the length of the flight. See `FrameContext.transitFromId`. */
+  private transitFromId: string | null = null
 
   private width = 1
   private height = 1
@@ -150,6 +234,8 @@ export class Engine {
       width: 1,
       height: 1,
       viewSpanMetres: 0,
+      inTransit: false,
+      transitFromId: null,
       engine: this,
     }
   }
@@ -211,49 +297,74 @@ export class Engine {
     })
   }
 
+  /**
+   * Hand the engine the point the camera is orbiting while it is in transit, or `null`
+   * once it has arrived and `anchorId` names that point again. See `transitAnchorWorld`.
+   *
+   * `fromId` is the body the flight started at, which is the only other thing in the
+   * frame with a claim on being the subject while the camera is between the two — see
+   * `FrameContext.transitFromId`.
+   */
+  setTransitAnchor(worldPosition: Readonly<Vec3d> | null, frame: FrameId, fromId: string | null = null): void {
+    if (!worldPosition) {
+      this.transitAnchorWorld = null
+      this.transitFromId = null
+      return
+    }
+    copy3d(this.transitAnchorStore, worldPosition)
+    this.transitAnchorWorld = this.transitAnchorStore
+    this.transitAnchorFrame = frame
+    this.transitFromId = fromId
+  }
+
   /** Re-anchor the near layers onto a new focus object. */
   setAnchor(id: string | null): void {
     this.anchorId = id
     const node = this.node(id)
     if (!node) return
     convertFrame(this.anchorWorld, node.worldPosition, node.frame, this.cameraFrame)
-    const radius = Math.max(node.radiusMetres, 1)
     this.layer('system').setOrigin(node.worldPosition, node.frame, id)
     this.layer('surface').setOrigin(node.worldPosition, node.frame, id)
-    void radius
   }
 
   /**
    * Advance and draw one frame.
    *
-   * Three strictly ordered passes. `update` moves things without knowing where the
-   * camera is; layers then rebase; `preRender` does camera-dependent work against a
-   * camera that is already final. Mixing those produces a one-frame lag in every LOD
-   * and fade decision, which reads as shimmer.
+   * Kept for callers and tests that want both halves in one call. The animation loop
+   * uses `advance` and `draw` separately, because the camera controller has to run
+   * BETWEEN them — see `advance`.
    */
   renderFrame(epochMs: number, delta: number): void {
-    const anchor = this.node(this.anchorId)
-    // Into the CAMERA's frame, not the node's. A node states the frame its position is
-    // expressed in, and copying an ICRF vector into an ecliptic-frame field silently
-    // rotates it by the obliquity: anchoring on Betelgeuse, 152 pc away, measured the
-    // distance to it as 62 pc, and every consumer of that number — the near plane, the
-    // scale ladder, the layer bands, the proxy's size fade — was wrong by that much.
-    if (anchor) convertFrame(this.anchorWorld, anchor.worldPosition, anchor.frame, this.cameraFrame)
+    this.advance(epochMs, delta)
+    this.draw()
+  }
 
+  /**
+   * Pass one: move things to `epochMs`, knowing nothing about where the camera is.
+   *
+   * This is half of a frame, and the split is load-bearing. The loop used to advance
+   * the clock, run the camera controller, and only then run the modules, so the camera
+   * was placed against positions two frames old: the controller rebuilt its pose from
+   * an anchor written during the PREVIOUS frame, and the body it was tracking then
+   * moved again inside the same frame. The off-axis error is two times the anchor's
+   * orbital speed times the simulated seconds per frame, so it is invisible at live
+   * rate and ruinous at any other — anchored on Earth at a day per second the planet
+   * sat 50 degrees off the optical axis, against a horizontal half-FOV of 39, and at a
+   * month per second 77 degrees. The object you had just flown to was off screen.
+   *
+   * The fix is ordering, not interpolation: modules move first, the controller then
+   * tracks the anchor where it now is, and `draw` measures against both.
+   *
+   * What the caller owes this half: `anchorId` and the transit anchor, both set before
+   * the call. `update` is where a module builds and tears down the stand-in for
+   * whatever the camera is looking at, so a context that names the destination while
+   * still claiming not to be in transit tells it the flight is already over.
+   */
+  advance(epochMs: number, delta: number): void {
     const ctx = this.ctx
     ctx.epochMs = epochMs
     ctx.delta = delta
-    ctx.cameraFrame = this.cameraFrame
-    ctx.anchorId = this.anchorId
-    ctx.fovDegrees = this.fovDegrees
-    ctx.width = this.width
-    ctx.height = this.height
-    ctx.anchorDistanceMetres = anchor ? distance3d(this.cameraWorld, this.anchorWorld) : 0
-    // Horizontal span of the viewport at the anchor distance. This is the number the
-    // scale ladder tracks, because span is what a person actually perceives.
-    const halfFov = (this.fovDegrees * Math.PI) / 360
-    const aspect = this.width / this.height
-    ctx.viewSpanMetres = 2 * Math.tan(halfFov) * aspect * Math.max(ctx.anchorDistanceMetres, 1)
+    this.syncViewContext()
 
     for (const module of this.modules) {
       try {
@@ -262,27 +373,69 @@ export class Engine {
         console.error(`[omniatlas] module "${module.id}" threw in update`, error)
       }
     }
+  }
 
-    // Keep the near layers glued to their anchor as it moves along its orbit.
-    if (anchor) {
+  /**
+   * Pass two: place the cameras and composite.
+   *
+   * Everything derived from the anchor AND the camera together is computed here and
+   * nowhere else — the anchor's position in the camera frame, the distance to it, the
+   * view span, the near-plane hint, which layers are active. Those are the numbers the
+   * reorder exists to get right, so computing any of them in `advance` would reinstate
+   * the bug in a quieter form: the body would be centred while the near plane, the
+   * scale ladder and the layer bands still used a distance 2.6e9 m out on a 2.7e7 m
+   * anchor distance, clipping the planet and pushing the system layer out of band.
+   */
+  draw(): void {
+    const ctx = this.ctx
+    const anchor = this.node(this.anchorId)
+    // Into the CAMERA's frame, not the node's. A node states the frame its position is
+    // expressed in, and copying an ICRF vector into an ecliptic-frame field silently
+    // rotates it by the obliquity: anchoring on Betelgeuse, 152 pc away, measured the
+    // distance to it as 62 pc, and every consumer of that number — the near plane, the
+    // scale ladder, the layer bands, the proxy's size fade — was wrong by that much.
+    const transit = this.transitAnchorWorld
+    if (transit) {
+      convertFrame(this.anchorWorld, transit, this.transitAnchorFrame, this.cameraFrame)
+      // The near layers re-origin onto the orbit point too. Left on the destination
+      // they sit 1.7e26 m away, which is 1.7e20 of the system layer's units — nine
+      // decades past what a float32 vertex attribute can hold, so anything drawn into
+      // them mid-flight is noise.
+      this.layer('system').setOrigin(this.anchorWorld, this.cameraFrame, null)
+      this.layer('surface').setOrigin(this.anchorWorld, this.cameraFrame, null)
+    } else if (anchor) {
+      convertFrame(this.anchorWorld, anchor.worldPosition, anchor.frame, this.cameraFrame)
+      // Keep the near layers glued to their anchor as it moves along its orbit. Here
+      // and only here: `advance` ran the same two lines a few microseconds earlier,
+      // which cost two convertFrame calls a frame and bought nothing, because nothing
+      // moves the anchor between the two halves. It also skipped the frame a flight
+      // LANDS on — `advance` saw the flight still in progress, the anchor clause goes
+      // by the layer's id, and so both near layers blinked off for one frame on every
+      // arrival. Doing it once, after `update` and after the transit test, is what
+      // makes both the moving anchor and the arrival frame come out right.
       this.layer('system').setOrigin(anchor.worldPosition, anchor.frame, anchor.id)
       this.layer('surface').setOrigin(anchor.worldPosition, anchor.frame, anchor.id)
     }
 
+    this.syncViewContext()
+    ctx.anchorDistanceMetres = transit || anchor ? distance3d(this.cameraWorld, this.anchorWorld) : 0
+    // Horizontal span of the viewport at the anchor distance. This is the number the
+    // scale ladder tracks, because span is what a person actually perceives.
+    const halfFov = (this.fovDegrees * Math.PI) / 360
+    const aspect = this.width / this.height
+    ctx.viewSpanMetres = 2 * Math.tan(halfFov) * aspect * Math.max(ctx.anchorDistanceMetres, 1)
+
     // Altitude above the anchor's surface: the nearest thing the user is looking at,
     // and therefore what the near plane must clear.
-    const nearHint = anchor
-      ? Math.max(ctx.anchorDistanceMetres - anchor.radiusMetres, ctx.anchorDistanceMetres * 1e-4, 1)
-      : Infinity
+    // In transit the orbit point is empty space, so there is no surface to clear and
+    // the altitude is the whole distance.
+    const anchorRadius = transit ? 0 : (anchor?.radiusMetres ?? 0)
+    const nearHint =
+      transit || anchor
+        ? Math.max(ctx.anchorDistanceMetres - anchorRadius, ctx.anchorDistanceMetres * 1e-4, 1)
+        : Infinity
 
-    for (const layer of this.layersByOrder) {
-      layer.rebase(this.cameraWorld, this.cameraFrame, this.cameraQuaternion, this.fovDegrees, aspect, nearHint)
-      layer.updateSpanOpacity(ctx.viewSpanMetres)
-      // A layer must be both within reach AND at a scale where its content belongs.
-      layer.active =
-        layer.forceActive ||
-        ((layer.inBand() || layer.anchorId === this.anchorId) && layer.spanOpacity > 0.004)
-    }
+    this.activateLayers(aspect, nearHint, ctx.viewSpanMetres)
 
     for (const module of this.modules) {
       try {
@@ -293,6 +446,104 @@ export class Engine {
     }
 
     this.composite()
+  }
+
+  /** Copy the camera-independent view state into the shared frame context. */
+  private syncViewContext(): void {
+    const ctx = this.ctx
+    ctx.cameraFrame = this.cameraFrame
+    ctx.anchorId = this.anchorId
+    ctx.inTransit = this.transitAnchorWorld !== null
+    ctx.transitFromId = ctx.inTransit ? this.transitFromId : null
+    ctx.fovDegrees = this.fovDegrees
+    ctx.width = this.width
+    ctx.height = this.height
+  }
+
+  /**
+   * Rebase every layer and decide which of them draw, and how strongly.
+   *
+   * Worked from the NEAREST layer outward, which is the part that matters. A layer
+   * belongs on its own merits when it is both within reach of its origin and at a view
+   * span where its content means something — but those two tests are measured against
+   * different things (the layer's origin, and the anchor), so they can disagree, and
+   * when they disagree about the OUTERMOST layer the result is an empty sky. Anchored
+   * on a star 8.4 kpc out the galactic layer was well inside its distance band and was
+   * blanked by a span floor six decades above the view; at M87 the same happened to
+   * the cosmic layer. Both times the span floor was doing its real job — keeping 43k
+   * galaxies off a planetary close-up — on a view that had no close-up in it.
+   *
+   * So the floor is conditional. If nothing nearer is drawing the sky, the first layer
+   * still within reach stands in as a BACKDROP at a floor opacity instead of
+   * vanishing. One layer takes that role, never two, and the anchor-local layers never
+   * take it: they hold the single object the camera is pointed at, not a sky.
+   */
+  private activateLayers(aspect: number, nearHint: number, viewSpanMetres: number): void {
+    let covered = false
+    // `layersByOrder` is farthest-first, which is the composite order; walk it backwards.
+    for (let i = this.layersByOrder.length - 1; i >= 0; i--) {
+      const layer = this.layersByOrder[i]
+      layer.rebase(this.cameraWorld, this.cameraFrame, this.cameraQuaternion, this.fovDegrees, aspect, nearHint)
+      layer.updateSpanOpacity(viewSpanMetres)
+
+      const band = layer.bandOpacity()
+      // A layer with no distance band re-origins onto the anchor, so it holds the
+      // subject rather than a sky. Two things follow: it can never be the backdrop,
+      // and it can never COVER one — a planet filling the system layer says nothing
+      // about whether there is a sky behind it.
+      const anchorLocal = layer.config.bandMetres === null
+      // In transit the near layers are re-origined onto the orbit point, which no node
+      // names, so there is no id to match — but the origin IS the thing the camera is
+      // circling, which is the condition the id match stands in for. Without this the
+      // body you are leaving switches off on the first frame of every flight, which is
+      // a worse pop than the one the transit anchor exists to fix.
+      const anchored =
+        (this.anchorId !== null && layer.anchorId === this.anchorId) ||
+        (anchorLocal && this.transitAnchorWorld !== null)
+
+      // Anchoring waives the DISTANCE band and only that. The band asks "is the camera
+      // within reach of this layer's origin", which is unanswerable for a layer whose
+      // origin IS the camera's anchor; the span band asks "is this content the right
+      // size for this view", which is a real question even about the subject. This
+      // clause was briefly promoted to "active at opacity 1, unconditionally", and the
+      // effect was that system and surface were on in every frame the atlas drew,
+      // listed in the stats overlay, with nothing in them.
+      let opacity = anchored ? layer.spanOpacity : Math.min(band, layer.spanOpacity)
+      let active = opacity > ACTIVE_EPSILON
+      let backdrop = false
+
+      if (active) {
+        covered = covered || !anchorLocal
+      } else if (!covered && !anchorLocal && band > ACTIVE_EPSILON && viewSpanMetres < layer.config.spanBandMetres[0]) {
+        // Only a layer blanked by its span FLOOR is rescued — "this content is too big
+        // for the view" is the case where the content is nevertheless the only sky
+        // there is. A layer faded out by its span CEILING is too SMALL to matter, and
+        // reviving it draws the solar system's orbits as a backdrop behind a star.
+        opacity = Math.max(layer.spanOpacity, BACKDROP_OPACITY)
+        active = true
+        backdrop = true
+        covered = true
+      }
+
+      // The one remaining unconditional escape hatch, for the subject that is out of
+      // every band the atlas has: a 1,300 AU black hole. The proxy module sets it on
+      // whichever layer it drew the stand-in into.
+      if (layer.forceActive) {
+        active = true
+        opacity = 1
+        backdrop = false
+        // And it counts as covering the sky, on the same terms as any other layer:
+        // today the only forced layer is `system`, which is anchor-local and could
+        // not cover anyway, but the moment a stand-in is forced into `stellar` or
+        // `galactic` a layer drawing the whole subject at opacity 1 would otherwise
+        // still let an outer layer light up at BACKDROP_OPACITY behind it.
+        if (!anchorLocal) covered = true
+      }
+
+      layer.active = active
+      layer.renderOpacity = active ? opacity : 0
+      layer.isBackdrop = active && backdrop
+    }
   }
 
   /**

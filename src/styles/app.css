@@ -243,6 +243,16 @@ button {
   color: var(--text-1);
 }
 
+/* A crumb that names a chain rather than a registered object: it is a label, not a
+   control, so it must not read as clickable. */
+.address-crumb[data-static='true'] {
+  cursor: default;
+}
+
+.address-crumb[data-static='true']:hover {
+  color: var(--text-3);
+}
+
 .address-sep {
   color: var(--text-4);
   font-size: 11px;
@@ -291,11 +301,13 @@ button {
   gap: 3px;
 }
 
+/* No min-width: the rule's length IS the measurement printed under it, so padding it
+   out on a narrow viewport would lie in the same way the old 240px cap lied on a wide
+   one. The length is chosen from a pixel budget in Hud, which keeps it 80-200px. */
 .scale-bar-rule {
   height: 6px;
   border: 1px solid var(--text-3);
   border-top: none;
-  min-width: 24px;
   transition: width var(--d-standard) var(--ease-standard);
 }
 
@@ -356,6 +368,13 @@ button {
   background: var(--surface-4);
 }
 
+/* A rung whose span is inside the body the camera is anchored to. The view does not
+   exist, so the tick is halved rather than hidden: the ladder still shows the whole
+   range, and the rungs you cannot ask for from here read as out of reach. */
+.ladder-rung[data-reachable='false']::before {
+  opacity: 0.35;
+}
+
 .ladder-label {
   position: absolute;
   left: calc(var(--ladder-w) + 2px);
@@ -386,6 +405,10 @@ button {
 }
 
 .ladder-rung[data-shipped='false'] .ladder-label {
+  color: var(--text-4);
+}
+
+.ladder-rung[data-reachable='false'] .ladder-label {
   color: var(--text-4);
 }
 
@@ -586,6 +609,15 @@ button.chip:hover {
   border-radius: 50%;
   background: var(--live);
   flex: none;
+}
+
+/* The aliasing note. Quiet by design: it reports a rendering compromise, not an error. */
+.time-note {
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+  padding-left: 10px;
+  border-left: 1px solid var(--line);
 }
 
 .time-stamp {

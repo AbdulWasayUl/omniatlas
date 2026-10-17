@@ -54,8 +54,18 @@ export interface LayerConfig {
   /**
    * The camera-distance band, in metres from this layer's origin, within which the
    * layer contributes. Outside it the layer is skipped entirely — zero draw calls.
+   * Edges are feathered in log space, the same way the span band is, so a layer
+   * crossing a band edge dissolves instead of blinking out in one frame.
+   *
+   * `null` for the anchor-local layers. A band is a statement about distance from a
+   * FIXED origin; `system` and `surface` re-origin onto whatever the camera is
+   * anchored to, so their camera distance is the arrival distance and carries no
+   * information about whether their content belongs. They draw when they are
+   * anchored and not otherwise — which is what the engine's anchor clause always
+   * did, silently, while a band sat in the config looking as though it meant
+   * something.
    */
-  bandMetres: [min: number, max: number]
+  bandMetres: [min: number, max: number] | null
   /**
    * The VIEW SPAN range, in metres, over which this layer contributes.
    *
@@ -77,6 +87,16 @@ export interface LayerConfig {
 const SPAN_FEATHER_DECADES = 0.45
 
 /**
+ * Width of the cross-fade at each end of a distance band, in decades.
+ *
+ * Matched to the span feather on purpose: the two gates used to disagree about what a
+ * boundary is — the span band dissolved over most of a decade while the distance band
+ * was a hard step — so a layer whose distance edge was crossed first vanished in a
+ * single frame no matter how gently its span was fading.
+ */
+const BAND_FEATHER_DECADES = 0.45
+
+/**
  * The six layers. Bands overlap deliberately: at any moment two or three are active,
  * which is what makes a transition a crossfade rather than a cut.
  */
@@ -87,7 +107,20 @@ export const LAYER_CONFIGS: readonly LayerConfig[] = [
     frame: 'supergalactic',
     order: 50,
     defaultFar: 5e4,
-    bandMetres: [0.1 * MPC_M, 2e4 * MPC_M],
+    // The outer edge has to sit beyond anywhere the camera can go, plus the feather.
+    // It used to end at 2e4 Mpc (6.17e26 m) while the controller let the camera out to
+    // 1e28 m, so the outermost layer in the atlas switched itself off while the user
+    // could still zoom out: nothing lies outside this layer to hand over to, so its
+    // band must outlast the zoom limit rather than meet it.
+    //
+    // That removes the cliff; it does NOT make the far end of the zoom range worth
+    // looking at, and this comment used to imply it did. Every catalogue this layer
+    // draws sits inside ~2.5e25 m of the supergalactic origin, so from 1e28 m the whole
+    // of it subtends about 0.3 degrees — measured: cosmic active, 5 draw calls, mean
+    // luma 0.00. Making that frame non-blank means clamping the outward zoom to roughly
+    // where the content still resolves (AtlasControls.MAX_DISTANCE_METRES), not widening
+    // a band. Whatever ceiling is chosen, this band has to stay beyond it.
+    bandMetres: [0.1 * MPC_M, 1e29],
     spanBandMetres: [3e21, 1e29],
     label: 'Cosmic',
   },
@@ -129,7 +162,7 @@ export const LAYER_CONFIGS: readonly LayerConfig[] = [
     frame: 'icrf',
     order: 10,
     defaultFar: 1e6,
-    bandMetres: [1e4, 1e11],
+    bandMetres: null,
     spanBandMetres: [0, 1e12],
     label: 'Planetary system',
   },
@@ -139,7 +172,7 @@ export const LAYER_CONFIGS: readonly LayerConfig[] = [
     frame: 'icrf',
     order: 0,
     defaultFar: 1e5,
-    bandMetres: [1, 1e8],
+    bandMetres: null,
     spanBandMetres: [0, 1e9],
     label: 'Surface',
   },
@@ -195,10 +228,45 @@ export class Layer {
 
   /**
    * How strongly this layer belongs at the current view span, 0 to 1.
-   * Modules read it to cross-fade their own materials; the engine skips the layer
-   * entirely once it reaches zero.
+   *
+   * Raw: this is the span band and nothing else. It stays raw because it is one of
+   * three inputs the engine composes into a visibility — the others being the distance
+   * band and the layer's role in this frame — and a measurement that has already had
+   * the other two folded into it cannot be used to decide anything. It is NOT what
+   * content should be drawn at; see `renderOpacity`.
    */
   spanOpacity = 1
+
+  /**
+   * The opacity modules should actually fade their materials by, 0 to 1.
+   *
+   * Set by the engine each frame from the span band, the distance band and the layer's
+   * role in this frame. It departs from `spanOpacity` in the case that motivated it: a
+   * far layer standing in as the BACKDROP because nothing nearer is drawing the sky.
+   * Anchored on a star 8.4 kpc out, the Milky Way disc field was well inside the
+   * galactic layer's distance band and was nevertheless blanked, because a 5.5e12 m
+   * view span is six decades under that layer's span floor — so the one thing that
+   * should have been on screen, the sky, was the thing the span band removed. The
+   * floor is still right for deciding which rung the ladder is on; it is wrong as a
+   * visibility test when there is no nearer rung.
+   */
+  renderOpacity = 1
+
+  /**
+   * Whether this layer is only on screen because nothing nearer was drawing a sky.
+   *
+   * A module can use it to pick a cheaper LOD: as a backdrop the layer is a wash of
+   * light behind the subject, not the subject. One module does — the galaxy module
+   * drops the disc field to a tenth of its instances when this is set. Measured at the
+   * galactic-centre close-up, which is where the galactic layer actually takes the
+   * backdrop role (`galactic:0.35*B`), interleaved on one run at the same camera:
+   * 18.6 / 18.9 / 17.6 fps with the LOD against 16.5 / 9.5 / 11.0 without, three draw
+   * calls either way, 30,000 instances against 300,000. At M87 the backdrop is the
+   * COSMIC layer and nothing reads the flag there, so it changes nothing — this
+   * comment used to quote an M87 figure, which sent a reviewer looking for a cosmic
+   * LOD that does not exist.
+   */
+  isBackdrop = false
 
   private readonly scratch = vec3d()
   private readonly scratchFrame = vec3d()
@@ -299,10 +367,15 @@ export class Layer {
     this.camera.updateMatrixWorld()
   }
 
-  /** Whether the camera distance puts this layer in its contributing band. */
-  inBand(): boolean {
-    const [min, max] = this.config.bandMetres
-    return this.cameraDistanceMetres >= min && this.cameraDistanceMetres <= max
+  /**
+   * How strongly the camera distance puts this layer in its contributing band, 0 to 1,
+   * feathered in log space exactly as the span band is. Zero for the anchor-local
+   * layers, which have no band: their distance says nothing about their relevance.
+   */
+  bandOpacity(): number {
+    const band = this.config.bandMetres
+    if (!band) return 0
+    return bandFade(this.cameraDistanceMetres, band[0], band[1], BAND_FEATHER_DECADES)
   }
 
   /**
@@ -311,21 +384,8 @@ export class Layer {
    */
   updateSpanOpacity(viewSpanMetres: number): number {
     const [min, max] = this.config.spanBandMetres
-    const logSpan = Math.log10(Math.max(viewSpanMetres, 1e-6))
-    let opacity = 1
-    if (min > 0) {
-      const logMin = Math.log10(min)
-      opacity = Math.min(opacity, smoothstep(logMin - SPAN_FEATHER_DECADES, logMin + SPAN_FEATHER_DECADES, logSpan))
-    }
-    if (Number.isFinite(max)) {
-      const logMax = Math.log10(max)
-      opacity = Math.min(
-        opacity,
-        1 - smoothstep(logMax - SPAN_FEATHER_DECADES, logMax + SPAN_FEATHER_DECADES, logSpan),
-      )
-    }
-    this.spanOpacity = opacity
-    return opacity
+    this.spanOpacity = bandFade(viewSpanMetres, min, max, SPAN_FEATHER_DECADES)
+    return this.spanOpacity
   }
 
   dispose(): void {
@@ -373,6 +433,26 @@ export function sceneQuaternionBetween(from: FrameId, to: FrameId): THREE.Quater
   const q = new THREE.Quaternion().setFromRotationMatrix(m4).normalize()
   quaternionCache.set(key, q)
   return q
+}
+
+/**
+ * A band membership in log space, smoothstep-feathered by `decades` at each end.
+ *
+ * A zero or non-finite edge means "no bound on that side" — the stellar layer really
+ * does start at zero distance, and a feather around log10(0) is not a number.
+ */
+function bandFade(value: number, min: number, max: number, decades: number): number {
+  const log = Math.log10(Math.max(value, 1e-6))
+  let opacity = 1
+  if (min > 0) {
+    const logMin = Math.log10(min)
+    opacity = Math.min(opacity, smoothstep(logMin - decades, logMin + decades, log))
+  }
+  if (Number.isFinite(max)) {
+    const logMax = Math.log10(max)
+    opacity = Math.min(opacity, 1 - smoothstep(logMax - decades, logMax + decades, log))
+  }
+  return opacity
 }
 
 function smoothstep(edge0: number, edge1: number, x: number): number {

@@ -1,10 +1,11 @@
 import * as THREE from 'three'
-import { Engine, type AtlasModule } from './Engine'
+import { Engine, type AtlasModule, type SceneNodeHandle } from './Engine'
 import { AtlasControls } from './camera/AtlasControls'
 import { LabelEngine } from './labels/LabelEngine'
 import { PostStack } from './render/PostStack'
 import { classStyle } from '../data/objectClasses'
-import { AU_M, type Vec3d, copy3d, vec3d } from './world'
+import { AU_M, KPC_M, MPC_M, PC_M, type Vec3d, convertFrame, copy3d, distance3d, vec3d } from './world'
+import type { LayerId } from './Layer'
 
 /**
  * Owns the renderer, the engine, the camera controller and the animation loop.
@@ -15,6 +16,80 @@ import { AU_M, type Vec3d, copy3d, vec3d } from './world'
  * hot path touches no React state at all, and the chrome subscribes to a throttled
  * snapshot instead.
  */
+
+/**
+ * How far from the Sun a thing can be and still be in this galaxy, in metres.
+ *
+ * 50 kpc: past the disc, past the bulge, past the globular system, and inside the
+ * Magellanic Clouds, which are companions rather than residents. The frames the atlas
+ * uses differ from one another by rotation only, so a node's distance from the Sun is
+ * the same number in all of them and no conversion is needed to ask this.
+ */
+const MILKY_WAY_REACH_M = 1.54e21
+
+/**
+ * One label per object, which is not the same as one per registry entry.
+ *
+ * The nearby dwarf galaxies are in both the Local Group table and the Updated Nearby
+ * Galaxy Catalog, two modules register them independently, and the Milky Way view came
+ * out with "Segue 1", "Segue 3" and "Bootes I" each written twice a few pixels apart.
+ * Both rows are real catalogue rows and both stay in the registry — search and the
+ * inspector should still find either — but the sky gets one name per thing.
+ *
+ * Matched on name AND direction, so two genuinely different objects that share a name
+ * are untouched, and compared in ONE frame: the two modules state their positions in
+ * different ones, so comparing raw components compares a galactic direction with an
+ * equatorial one and never matches. The survivor is the row with the catalogued size,
+ * which is the one that can be drawn rather than merely marked; the tie-break is the
+ * id, so the choice does not depend on which module finished loading first.
+ */
+export function oneLabelPerObject(nodes: Iterable<SceneNodeHandle>): SceneNodeHandle[] {
+  const best = new Map<string, SceneNodeHandle>()
+  const scratch = vec3d()
+  for (const node of nodes) {
+    convertFrame(scratch, node.worldPosition, node.frame, 'icrf')
+    const r = Math.hypot(scratch.x, scratch.y, scratch.z) || 1
+    // ~0.6 degrees of sky, quantised: close enough that two labels would collide.
+    const key = `${node.name.trim().toLowerCase()}|${Math.round(scratch.x / r / 0.01)}|${Math.round(
+      scratch.y / r / 0.01,
+    )}|${Math.round(scratch.z / r / 0.01)}`
+    const held = best.get(key)
+    if (
+      !held ||
+      node.radiusMetres > held.radiusMetres ||
+      (node.radiusMetres === held.radiusMetres && node.id < held.id)
+    ) {
+      best.set(key, node)
+    }
+  }
+  return [...best.values()]
+}
+
+/** Solar-system layers; everything a node in one of these draws orbits the Sun. */
+const SOLAR_LAYERS = new Set(['surface', 'system', 'helio'])
+
+/**
+ * The outermost structure an object's address starts from.
+ *
+ * Deliberately coarse, and never a guess: the layer settles the solar system, and
+ * everything else is settled by how far away the thing actually is. The breadcrumb
+ * used to push "Solar System" onto every address in the atlas, which put TON 618
+ * inside it; rooting by layer alone then put M87* — drawn in the galactic layer
+ * because of its apparent size, not its address — inside the Milky Way. Distance
+ * from the Sun is a measurement the registry already holds, and it answers the
+ * question directly.
+ */
+function addressRoot(node: SceneNodeHandle | null): { id: string; name: string } {
+  if (!node) return { id: 'observable-universe', name: 'Observable Universe' }
+  if (SOLAR_LAYERS.has(node.layer)) return { id: 'solar-system', name: 'Solar System' }
+  const r = Math.hypot(node.worldPosition.x, node.worldPosition.y, node.worldPosition.z)
+  return r < MILKY_WAY_REACH_M
+    ? { id: 'milky-way', name: 'Milky Way' }
+    : { id: 'observable-universe', name: 'Observable Universe' }
+}
+
+/** The widest instant `new Date` can represent, in milliseconds either side of 1970. */
+const MAX_EPOCH_MS = 8.64e15
 
 export interface ViewerSnapshot {
   anchorId: string | null
@@ -33,6 +108,10 @@ export interface ViewerSnapshot {
   activeLayers: string[]
   /** Containment chain from the outermost structure down to the anchor. */
   addressPath: { id: string; name: string }[]
+  /** True when the time rate is spinning a visible body faster than the frame rate can show. */
+  rotationAliased: boolean
+  /** True when the clock is the real one: see `AtlasViewer.trackingNow`. */
+  trackingNow: boolean
 }
 
 export interface AtlasViewerOptions {
@@ -60,6 +139,77 @@ function arrivalRadii(objectClass: string): number {
   return objectClass === 'black-hole' ? 34 : 4.2
 }
 
+/**
+ * View span, in metres, to frame an object whose catalogue records no size — one entry
+ * per layer, because the layer a node is drawn in is the only statement the catalogue
+ * makes about the scale of the thing.
+ *
+ * `radiusMetres: 0` means "no size was recorded", not "this thing is a point", and 100
+ * of the 2,132 registered destinations were in that state before the catalogues began
+ * stating `framingRadiusMetres`. The flat 1e9 m arrival distance that covered all of
+ * them is a solar-system number: flying to 'The Sun'
+ * (the galactic catalogue's own marker for where we sit in the disc, registered as a
+ * point because its photosphere is 2e-8 kpc across) parked the camera at 1.44 solar
+ * radii and filled the frame with orange, and the Virgo Cluster — 16 Mpc away, in the
+ * cosmic layer — parked at the same 1e9 m, which is five hundred million times closer
+ * than the thing it was pointed at and renders as nothing at all.
+ *
+ * A span is the right quantity to pick rather than a distance, because it is what the
+ * layer bands and the scale ladder are stated in: 40 layer units across the frame puts
+ * the view a comfortable margin above the layer's SPAN floor, so the span band is not
+ * what switches the node's own layer off. Note the limit of that claim, which this
+ * comment used to overstate. A layer has two gates, and an arrival span only moves one
+ * of them: the DISTANCE band asks how far the camera ends up from the layer's own
+ * origin, and no choice of arrival distance can answer it for a node that sits outside
+ * its layer's band to begin with — flying to a deep-sky object registered in the
+ * stellar layer but projected onto the 100 kpc shell lands 1.57 kpc from the glyph and
+ * 100 kpc from the ICRF origin, three decades outside `stellar`'s [0, 3 kpc] band, and
+ * the arrival is black whatever span is asked for. That is a routing problem for the
+ * catalogue — the node belongs in the layer whose band contains its distance — not
+ * something an arrival distance can fix.
+ *
+ * Note also what this is NOT: a size for the object. Nothing here is written back into
+ * `radiusMetres`, so the inspector keeps reporting the catalogue's silence and no
+ * apparent-size fade is computed from it.
+ *
+ * Reach, as of the current catalogues: exactly one registered node has neither a radius
+ * nor a `framingRadiusMetres`, and it is 'sun-galactic' — so `galactic` is the only
+ * entry that is read today (measured: arrives 25 kpc out with the whole disc framed).
+ * The rest are untested fallbacks, kept so the lookup is total: a catalogue that later
+ * registers a sizeless node in its layer gets a span of the right order rather than an
+ * `undefined` distance, and the number it gets should be re-measured then.
+ */
+const POINT_ARRIVAL_SPAN_M: Record<LayerId, number> = {
+  // 40 Mpc: a CF4 group framed against the supercluster it belongs to.
+  cosmic: 40 * MPC_M,
+  // 40 kpc: the whole Milky Way disc, which is what a galactic-frame marker is for.
+  galactic: 40 * KPC_M,
+  // 40 pc: the solar neighbourhood around a star whose radius nobody recorded.
+  stellar: 40 * PC_M,
+  // Unchanged, deliberately: the 34 comets with no measured nucleus are helio nodes,
+  // and ~1e9 m is the distance their orbit neighbourhood reads at.
+  helio: 1.7e9,
+  system: 1.7e9,
+  surface: 1.7e9,
+}
+
+/**
+ * How far from the Sun "arrive on the lit side" still means anything, in metres.
+ *
+ * Roughly 6,700 AU — past the scattered disc, well inside the Oort cloud. Out to there
+ * the Sun is the only illumination worth framing against and a solid body has a day
+ * side to point at. Beyond it there is no lit side to arrive on.
+ */
+const SUNLIT_REACH_M = 1e15
+
+/**
+ * The orbit pose to arrive on when the destination sits at the frame origin and there
+ * is no direction to aim at. AtlasControls' own initial yaw and pitch, so the opening
+ * view of the atlas — which is a flight to the Sun — is unchanged.
+ */
+const ORIGIN_ARRIVAL_YAW = 0.6
+const ORIGIN_ARRIVAL_PITCH = 0.32
+
 /** How often the UI snapshot is published, in milliseconds. */
 const SNAPSHOT_INTERVAL_MS = 100
 
@@ -78,6 +228,18 @@ export class AtlasViewer {
 
   private readonly canvas: HTMLCanvasElement
   private readonly onSnapshot?: (snapshot: ViewerSnapshot) => void
+  /**
+   * Anchor identity lives here, with the thing that decides it.
+   *
+   * It used to live in two places that disagreed for the length of every flight.
+   * `focus` told the engine to re-anchor, and then the loop overwrote the engine's
+   * anchor with the CONTROLLER's — which only adopts the destination when the flight
+   * ends — so for the whole flight the near layers stayed re-originned on the object
+   * being left behind, and the engine's anchor flipped under the user on arrival. The
+   * controller's `anchorId` is its own business: what it is orbiting right now,
+   * mid-interpolation. What the atlas is focused on is this.
+   */
+  private currentAnchorId: string | null = null
   private rafHandle = 0
   private lastFrameTime = 0
   private lastSnapshotTime = 0
@@ -113,7 +275,13 @@ export class AtlasViewer {
     this.renderer.toneMapping = THREE.AgXToneMapping
     this.renderer.toneMappingExposure = 1.0
     this.renderer.outputColorSpace = THREE.SRGBColorSpace
-    this.renderer.setClearColor(0x05070a, 1)
+    // Pure black, and it has to be pure. Space is the floor under every star field in
+    // the atlas, and AgX lifts whatever sits there: 0x05070a — a colour chosen to read
+    // as "very dark blue" in a swatch — came out of the tone curve at rgb(42,49,59), a
+    // flat slate grey behind everything, which is what made the whole atlas look foggy
+    // and low-contrast. Any non-zero clear colour becomes a fog floor; the post stack
+    // owns the tone curve, the viewer owns only this.
+    this.renderer.setClearColor(0x000000, 1)
 
     this.engine = new Engine({ renderer: this.renderer })
     this.controls = new AtlasControls({ domElement: options.canvas, frame: 'ecliptic' })
@@ -145,7 +313,12 @@ export class AtlasViewer {
     this.refreshLabels()
     // Open on the inner solar system: close enough that the planets are distinct,
     // wide enough that the product's subject is immediately legible.
-    this.focus('sun', { instant: true, distanceMetres: 3.4 * AU_M })
+    //
+    // Unless something already chose a destination. The registry fills before boot
+    // finishes, so a click in that window ordered a real flight — and this call,
+    // being instant, routes through `endFlight(false)`, which cancelled it and
+    // snapped back to the Sun with no error and no explanation.
+    if (!this.currentAnchorId) this.focus('sun', { instant: true, distanceMetres: 3.4 * AU_M })
     options.onReady?.()
     this.start()
   }
@@ -153,7 +326,7 @@ export class AtlasViewer {
   /** Rebuild the label set from the registry. Call after modules add objects. */
   refreshLabels(): void {
     this.labels.setItems(
-      [...this.engine.registry.values()].map((node) => ({
+      oneLabelPerObject(this.engine.registry.values()).map((node) => ({
         node,
         priority: classStyle(node.objectClass).priority,
       })),
@@ -173,49 +346,112 @@ export class AtlasViewer {
   focus(id: string, options: { instant?: boolean; distanceMetres?: number } = {}): void {
     const node = this.engine.node(id)
     if (!node) return
-    const radius = Math.max(node.radiusMetres, 1)
+    // A catalogue that knows no radius may still state a size to frame against; see
+    // `framingRadiusMetres`. A node with neither — 'sun-galactic' is the last one in
+    // the registry — falls back to the span its layer is built for.
+    const framingRadius = node.radiusMetres > 0 ? node.radiusMetres : (node.framingRadiusMetres ?? 0)
     const distance =
-      options.distanceMetres ?? (node.radiusMetres > 0 ? radius * arrivalRadii(node.objectClass) : 1e9)
+      options.distanceMetres ??
+      (framingRadius > 0
+        ? framingRadius * arrivalRadii(node.objectClass)
+        : this.distanceForSpan(POINT_ARRIVAL_SPAN_M[node.layer]))
 
-    // Arrive on the lit side.
-    //
-    // A body's day side is where the surface detail is, and arriving at a black disc
-    // is both ugly and uninformative. The Sun sits at the origin of the heliocentric
-    // frame, so the sunward direction from any body is simply the negated normalised
-    // position. Offsetting by about 28 degrees keeps a crescent of night in frame, so
-    // the terminator still reads and the globe still looks like a sphere rather than a
-    // flat lit disc.
-    if (id !== 'sun' && node.radiusMetres > 0) {
-      const { x, y, z } = node.worldPosition
-      const length = Math.hypot(x, y, z)
-      if (length > 0) {
-        const sunwardYaw = Math.atan2(-y, -x)
-        const sunwardPitch = Math.asin(Math.min(Math.max(-z / length, -1), 1))
-        this.controls.setOrbit(sunwardYaw + 0.49, sunwardPitch + 0.22)
-      }
-    }
+    this.orientArrival(node)
 
     this.controls.flyTo(
       {
         anchorWorld: node.worldPosition,
+        frame: node.frame,
         radiusMetres: node.radiusMetres,
+        shapeRatio: node.shapeRatio,
         distanceMetres: distance,
         anchorId: id,
       },
       { instant: options.instant },
     )
+    this.currentAnchorId = id
     this.engine.setAnchor(id)
+  }
+
+  /**
+   * Choose the direction the camera arrives from.
+   *
+   * Both cases put the camera between the origin and the object, which is the same
+   * arithmetic for two different reasons, so the one block covers both.
+   *
+   * Inside the solar system that is the LIT side: a body's day side is where the
+   * surface detail is, and arriving at a black disc is both ugly and uninformative.
+   * The Sun sits at the origin of the heliocentric frame, so the sunward direction
+   * from any body is the negated normalised position. Offsetting by about 28 degrees
+   * keeps a crescent of night in frame, so the terminator still reads and the globe
+   * still looks like a sphere rather than a flat lit disc.
+   *
+   * Outside it there is no lit side, and the offset would only swing the camera off
+   * the approach for no reason — a star or a galaxy is not illuminated by our Sun and
+   * has no terminator to show. What is still true is that we come at it from our side
+   * of the sky, so it is framed against the far sky rather than flown past.
+   *
+   * The conversion is the other half of the fix: yaw and pitch are angles in the
+   * CONTROLLER's frame, and this block used to take them straight off `worldPosition`
+   * whatever frame that was stated in. For an ICRF star that is wrong by the
+   * obliquity, and for a supergalactic-frame galaxy it is wrong by about 60 degrees.
+   */
+  private orientArrival(node: SceneNodeHandle): void {
+    convertFrame(this.scratchWorld, node.worldPosition, node.frame, this.controls.frame)
+    const { x, y, z } = this.scratchWorld
+    const length = Math.hypot(x, y, z)
+    // The Sun itself, and the galactic catalogue's copy of it, sit at the origin of
+    // the controller's frame: there is no direction to derive, so a FIXED pose is
+    // used. Inheriting whatever pose the camera happened to hold is the obvious
+    // alternative and it leaks the previous destination into the new view — arriving
+    // at the Sun from Earth gave yaw -2.2468, and arriving at it again six simulated
+    // months later gave yaw +0.9152, for the same two bodies in the same relation.
+    // The pose below is the controller's own opening pose, so the atlas still opens on
+    // the view it always did.
+    if (length === 0) {
+      this.controls.setOrbit(ORIGIN_ARRIVAL_YAW, ORIGIN_ARRIVAL_PITCH)
+      return
+    }
+
+    const yaw = Math.atan2(-y, -x)
+    const pitch = Math.asin(Math.min(Math.max(-z / length, -1), 1))
+    const sunlit = node.radiusMetres > 0 && length < SUNLIT_REACH_M
+    if (sunlit) this.controls.setOrbit(yaw + 0.49, pitch + 0.22)
+    else this.controls.setOrbit(yaw, pitch)
   }
 
   /** Pause or resume the simulation clock. */
   setPaused(paused: boolean): void {
     this.paused = paused
+    // Rate 0 is the ladder's way of spelling "stopped" and it sets both fields, so
+    // resuming has to undo both: flipping the boolean alone left {rate 0, paused
+    // false}, a clock that is still frozen with nothing on screen acknowledging the
+    // keypress. The space bar is never a no-op.
+    if (!paused && this.timeRate === 0) this.timeRate = 1
   }
 
   /** Set simulated seconds per real second. Zero pauses. */
   setTimeRate(rate: number): void {
     this.timeRate = rate
     this.paused = rate === 0
+  }
+
+  /**
+   * Is the clock showing the present?
+   *
+   * Not the same question as "is the rate 1x", which is what the footer's live dot
+   * and the URL writer both used to ask. Run the clock at a year a second for six
+   * seconds and step the ladder back to Real time and the rate is 1 again while the
+   * epoch is five years out: the dot lit green beside a date in 2031, and the URL
+   * dropped `t=` altogether, so the link the app wrote for its own view reopened in
+   * the present. Comparing the two clocks answers it directly and needs no state.
+   *
+   * The tolerance is one frame of slack at 1x plus a margin: the simulated clock is
+   * integrated from `delta`, which is clamped, so it drifts from the wall clock by a
+   * few milliseconds per slow frame even while it is faithfully tracking real time.
+   */
+  get trackingNow(): boolean {
+    return !this.paused && this.timeRate === 1 && Math.abs(this.epochMs - Date.now()) < 2000
   }
 
   /** Snap the clock back to the real current instant and run at real time. */
@@ -227,9 +463,26 @@ export class AtlasViewer {
 
   /** Jump the camera to a given view span without changing the anchor. */
   setViewSpanMetres(span: number): void {
-    const halfFov = (this.engine.fovDegrees * Math.PI) / 360
-    const aspect = Math.max(this.canvas.clientWidth, 1) / Math.max(this.canvas.clientHeight, 1)
-    this.controls.setDistance(span / (2 * Math.tan(halfFov) * aspect))
+    this.controls.setDistance(this.distanceForSpan(span))
+  }
+
+  /** Anchor distance at which the viewport is `span` metres wide. */
+  private distanceForSpan(span: number): number {
+    return span / this.spanPerMetre()
+  }
+
+  /** Metres the viewport spans at `distance`. The inverse of `distanceForSpan`. */
+  private spanForDistance(distance: number): number {
+    return distance * this.spanPerMetre()
+  }
+
+  /** Viewport width in metres per metre of anchor distance. */
+  private spanPerMetre(): number {
+    return 2 * Math.tan((this.engine.fovDegrees * Math.PI) / 360) * this.aspect()
+  }
+
+  private aspect(): number {
+    return Math.max(this.canvas.clientWidth, 1) / Math.max(this.canvas.clientHeight, 1)
   }
 
   // -------------------------------------------------------------------------
@@ -254,36 +507,122 @@ export class AtlasViewer {
   private frame(now: number): void {
     // Clamp delta so a backgrounded tab does not resume by integrating a 30-second
     // step through every orbit in the system.
-    const delta = Math.min((now - this.lastFrameTime) / 1000, 0.1)
+    const rawDelta = (now - this.lastFrameTime) / 1000
+    const delta = Math.min(rawDelta, 0.1)
     this.lastFrameTime = now
 
     if (!this.paused) this.epochMs += delta * 1000 * this.timeRate
+    // A clamped frame is real time the simulated clock did not get, so a clock that
+    // was showing the present no longer is — background the tab for a minute and it
+    // comes back a minute behind, which turns the live dot off and starts writing a
+    // `t=` the user never asked for. Put it back on the wall clock, but only if it
+    // was already there: a clock deliberately left in 2031 has to stay in 2031.
+    if (this.clockWasLive && rawDelta > 0.1 && !this.paused && this.timeRate === 1) {
+      this.epochMs = Date.now()
+    }
+    this.clockWasLive = this.trackingNow
+    // The clock is user-driven and has no upper stop, and a few hours at a year a
+    // second walks it past the 8.64e15 ms that `new Date` can represent — after
+    // which every `toISOString` in the UI throws, taking the address-bar sync out
+    // silently and the Inspector's React tree out loudly. Clamp it where it is
+    // written, once, instead of guarding each reader.
+    this.epochMs = Math.min(Math.max(this.epochMs, -MAX_EPOCH_MS), MAX_EPOCH_MS)
 
+    // The order of the next four steps is the frame, and it is load-bearing.
+    //
+    // It used to run controller, tracker, modules — so the camera was built from an
+    // anchor position written on the previous frame, and then the modules moved that
+    // body again before it was drawn. The camera lagged the scene by two frames, which
+    // is nothing at live rate and catastrophic at any other: the error is two times the
+    // anchor's orbital speed times the simulated seconds per frame, so it grows
+    // linearly with the time rate. At a month per second the camera-to-Jupiter distance
+    // was 330% over the anchor distance it was supposed to be holding, and Earth sat 77
+    // degrees off an optical axis with a 39-degree horizontal half-FOV — the planet you
+    // had just flown to was simply not on screen.
+    //
+    // 0. a flight that has ended may not have ended where it was aimed.
+    //
+    // Interrupt one with the wheel or a drag and `endFlight` commits to whichever
+    // endpoint the camera is actually beside, which for an early interrupt is the
+    // body you left. `currentAnchorId` was moved to the destination the moment the
+    // flight was ordered and nothing moved it back, so the tracker below used to drag
+    // the camera to the destination on the next frame regardless — measured at
+    // 1.7e26 m on an interrupted Earth -> M87*, a black screen with no way back. The
+    // controller decides where the camera ended up; everything else follows it. This
+    // runs before the modules so no frame is ever built against the stale id.
+    if (!this.controls.flying && this.controls.anchorId !== this.currentAnchorId) {
+      this.currentAnchorId = this.controls.anchorId
+      this.engine.setAnchor(this.currentAnchorId)
+      this.onSelect?.(this.currentAnchorId)
+    }
+
+    // 1. modules move every body to this epoch, knowing nothing of the camera;
+    this.engine.anchorId = this.currentAnchorId
+    // Transit state is published BEFORE the modules run, not only before `draw`.
+    // `update` is where a module builds and tears down a close-range stand-in, and on
+    // the frame a flight is ordered it used to be handed `anchorId` already moved to
+    // the destination with `inTransit` still false — a pair that is wrong in both
+    // halves and reads as "we have arrived". Measured: the proxy for M87* was torn
+    // down on exactly that frame and the black hole filling the screen was replaced
+    // by empty sky. The orbit point used here is the controller's pre-update one,
+    // which at t=0 of a flight is the departure body itself, so it is also the right
+    // geometry for this half of the frame.
+    this.syncTransitAnchor()
+    this.engine.advance(this.epochMs, delta)
+
+    // The module that owns a body's rotation is the only code that knows its period, so
+    // it decides whether this frame's step has outrun the spin; the viewer only relays
+    // the verdict to the UI. Any module may raise it, so this is an OR, not an assign.
+    this.rotationAliased = this.engine.modules.some(
+      (module) => (module as { rotationAliased?: boolean }).rotationAliased === true,
+    )
+
+    // 2. the controller's anchor is re-glued to where its body now is;
+    //
+    // Never during a flight. The controller owns its orbit point then — it is
+    // interpolating one between the departure body and the destination — and writing
+    // the DESTINATION's position and radius into it on the first frame of the flight
+    // clamps the altitude floor against a body that is still light years away: Earth
+    // to the Sun took `anchorRadiusMetres` to 6.96e8 m while the camera was still
+    // 2.7e7 m from Earth.
+    if (!this.controls.flying) {
+      const anchor = this.engine.node(this.currentAnchorId)
+      if (anchor) {
+        copy3d(this.scratchWorld, anchor.worldPosition)
+        this.controls.trackAnchor(this.scratchWorld, anchor.frame)
+        this.controls.anchorRadiusMetres = anchor.radiusMetres
+        // Without this the floor reverts to the mean radius one frame after arrival
+        // and the wheel walks the camera back inside an oblate planet.
+        this.controls.anchorShapeRatio = anchor.shapeRatio ?? 1
+      }
+    }
+
+    // 3. the controller rebuilds the camera pose around that anchor;
     this.controls.update(delta)
 
-    // Keep the anchor glued to its body as that body moves along its own orbit.
-    const anchor = this.engine.node(this.controls.anchorId)
-    if (anchor) {
-      copy3d(this.scratchWorld, anchor.worldPosition)
-      this.controls.trackAnchor(this.scratchWorld, anchor.frame)
-      this.controls.anchorRadiusMetres = anchor.radiusMetres
-    }
+    // Geometry is measured from the point the camera is ACTUALLY orbiting, which for
+    // the length of a flight is neither endpoint. Handing the engine the destination
+    // instead measured the anchor distance 1.7e26 m out while the camera was in the
+    // inner solar system, which switched every band off and left the middle of every
+    // intergalactic flight black. Identity still belongs to the destination, so
+    // `anchorId` is untouched; see Engine.transitAnchorWorld.
+    // ... and again, now with the orbit point the controller has just interpolated,
+    // which is the one `draw` measures and re-origins against.
+    this.syncTransitAnchor()
 
     copy3d(this.engine.cameraWorld, this.controls.cameraWorld)
     this.engine.cameraFrame = this.controls.frame
     this.engine.cameraQuaternion.copy(this.controls.quaternion)
-    this.engine.anchorId = this.controls.anchorId
 
-    const halfFov = (this.engine.fovDegrees * Math.PI) / 360
-    const aspect = Math.max(this.canvas.clientWidth, 1) / Math.max(this.canvas.clientHeight, 1)
-    this.lastViewSpanMetres = 2 * Math.tan(halfFov) * aspect * this.controls.distanceMetres
+    this.lastViewSpanMetres = this.spanForDistance(this.controls.distanceMetres)
 
+    // 4. and only now is anything measured against the anchor and the camera together.
     this.engine.renderTarget = this.post.sceneTarget
-    this.engine.renderFrame(this.epochMs, delta)
+    this.engine.draw()
     this.elapsed += delta
     this.post.render(this.elapsed)
     this.labels.selectedId = this.selectedId
-    this.labels.anchorId = this.controls.anchorId
+    this.labels.anchorId = this.currentAnchorId
     this.hits = this.labels.render(this.engine, this.lastViewSpanMetres).hits
 
     this.frameAccumulator += delta
@@ -300,39 +639,110 @@ export class AtlasViewer {
     }
   }
 
+  /**
+   * Hand the engine the point the camera is actually orbiting, and the body it is
+   * leaving, for as long as a flight is in progress.
+   *
+   * Geometry is measured from that point and from neither endpoint. Handing the engine
+   * the destination instead measured the anchor distance 1.7e26 m out while the camera
+   * was in the inner solar system, which switched every band off and left the middle
+   * of every intergalactic flight black. Identity still belongs to the destination, so
+   * `anchorId` is untouched; see `Engine.transitAnchorWorld` and
+   * `FrameContext.transitFromId`. The controller's own `anchorId` is the departure
+   * body: it adopts the destination only when the flight lands.
+   */
+  private syncTransitAnchor(): void {
+    this.engine.setTransitAnchor(
+      this.controls.flying ? this.controls.anchorWorld : null,
+      this.controls.frame,
+      this.controls.anchorId,
+    )
+  }
+
   private publish(): void {
     if (!this.onSnapshot) return
-    const anchor = this.engine.node(this.controls.anchorId)
+    // The name and the distance have to describe the SAME object, and during a flight
+    // `currentAnchorId` is where the camera is going, not where it is. Pairing the
+    // destination's name with the controller's distance made the HUD read "0.000 m
+    // above M87*" ten frames into an Earth → M87 flight, with the camera still inside
+    // the orbit of Mars, and "1.22e21 m above M87*" twenty frames later when the true
+    // distance was 5.17e23 m. So the HUD reports where the camera IS; the destination
+    // takes over at the crossover, which is where it starts being the nearer truth.
+    const anchor = this.controls.flying ? this.nearerEndpoint() : this.engine.node(this.currentAnchorId)
+    // Measured camera-to-body, not `controls.distanceMetres`: in transit the controller
+    // measures against an interpolated point in empty space that no node names, so the
+    // two diverge by most of the trip.
+    const distanceMetres = anchor ? this.distanceToNode(anchor) : this.controls.distanceMetres
     const stats = this.engine.stats()
-    const halfFov = (this.engine.fovDegrees * Math.PI) / 360
-    const aspect = Math.max(this.canvas.clientWidth, 1) / Math.max(this.canvas.clientHeight, 1)
 
     this.onSnapshot({
-      anchorId: this.controls.anchorId,
+      anchorId: anchor?.id ?? null,
       anchorName: anchor?.name ?? 'Space',
-      distanceMetres: this.controls.distanceMetres,
-      altitudeMetres: Math.max(this.controls.distanceMetres - (anchor?.radiusMetres ?? 0), 0),
-      viewSpanMetres: 2 * Math.tan(halfFov) * aspect * this.controls.distanceMetres,
+      distanceMetres,
+      altitudeMetres: Math.max(distanceMetres - (anchor?.radiusMetres ?? 0), 0),
+      // Span stays on the controller's distance even in transit, because span is what
+      // the eye actually sees: the camera's own orbit radius about whatever it is
+      // circling is the width of the frame, whichever body that point is near.
+      viewSpanMetres: this.spanForDistance(this.controls.distanceMetres),
       epochMs: this.epochMs,
       fps: this.fps,
       drawCalls: stats.drawCalls,
       registered: stats.registered,
       activeLayers: stats.activeLayers,
-      addressPath: this.addressPath(),
+      addressPath: this.addressPath(anchor?.id ?? null),
+      rotationAliased: this.rotationAliased,
+      trackingNow: this.trackingNow,
     })
   }
 
+  /**
+   * Which end of a flight the camera is actually nearer to.
+   *
+   * A flight orbits a point interpolated between the two bodies, and no node names
+   * that point, so there is no single body the HUD can honestly measure against for
+   * the whole trip. Naming the destination from the first frame reads "0.000 m above
+   * M87*" with the camera still inside the orbit of Mars; naming the departure body
+   * all the way reads "54.8 Mly above Earth" at the far end, which is true and useless.
+   * The nearer of the two is the one the view is about, and because the two distances
+   * are equal at the crossover the number on screen does not jump when the name does.
+   */
+  private nearerEndpoint(): SceneNodeHandle | null {
+    const from = this.engine.node(this.controls.anchorId)
+    const to = this.engine.node(this.currentAnchorId)
+    if (!from || from === to) return to
+    if (!to) return from
+    return this.distanceToNode(from) <= this.distanceToNode(to) ? from : to
+  }
+
+  /** Camera-to-node distance in metres, measured in the camera's own frame. */
+  private distanceToNode(node: SceneNodeHandle): number {
+    convertFrame(this.scratchWorld, node.worldPosition, node.frame, this.engine.cameraFrame)
+    return distance3d(this.engine.cameraWorld, this.scratchWorld)
+  }
+
   /** Walk the containment hierarchy from the anchor outward, then reverse it. */
-  private addressPath(): { id: string; name: string }[] {
+  private addressPath(fromId: string | null): { id: string; name: string }[] {
     const path: { id: string; name: string }[] = []
-    let current = this.engine.node(this.controls.anchorId)
+    let current = this.engine.node(fromId)
     const guard = new Set<string>()
     while (current && !guard.has(current.id)) {
       guard.add(current.id)
       path.push({ id: current.id, name: current.name })
       current = this.engine.node(current.parentId)
     }
-    path.push({ id: 'solar-system', name: 'Solar System' })
+    // The root of the chain is whatever structure actually contains the object, and
+    // for most of the atlas that is not the solar system: pushing 'Solar System'
+    // unconditionally put TON 618 — a quasar 18 billion light years away — inside
+    // it, which is the breadcrumb asserting something false. Containment is not
+    // catalogued for most nodes, but the layer that draws one is a true statement
+    // about where it sits, and that is enough for the top of the address.
+    const anchor = this.engine.node(fromId)
+    const root = addressRoot(anchor)
+    // The registry contains some of these structures as real, flyable nodes — the
+    // Milky Way is one — so a chain that already climbed to one must not have it
+    // pushed on top of itself: the breadcrumb read "Milky Way > Milky Way > Sgr A*".
+    const top = path[path.length - 1]
+    if (!top || (top.id !== root.id && top.name !== root.name)) path.push(root)
     return path.reverse()
   }
 
@@ -396,7 +806,7 @@ export class AtlasViewer {
    * when they are lost.
    */
   focusParent(): boolean {
-    const current = this.engine.node(this.controls.anchorId)
+    const current = this.engine.node(this.currentAnchorId)
     const parentId = current?.parentId
     if (!parentId || !this.engine.node(parentId)) return false
     this.focus(parentId)
@@ -407,6 +817,28 @@ export class AtlasViewer {
 
   /** The object the user has selected, which is not necessarily the camera anchor. */
   selectedId: string | null = null
+
+  /**
+   * True when the time rate is spinning a visible body faster than the frame rate can
+   * show it, so its rotation is aliased: at more than half a turn per frame the spin
+   * direction a viewer reads off the screen is not the direction the body is turning.
+   *
+   * Written by the module that owns the rotation, which is the only code that knows
+   * the periods of the bodies in frame; published in the snapshot so the UI can say so
+   * rather than letting the atlas quietly show Jupiter spinning backwards.
+   */
+  rotationAliased = false
+
+  /** Whether the clock was tracking the present on the previous frame; see `frame`. */
+  private clockWasLive = true
+
+  /**
+   * The object the camera is focused on. Changes the instant a flight is ordered, not
+   * when it lands — the destination is what the engine re-anchors onto.
+   */
+  get anchorId(): string | null {
+    return this.currentAnchorId
+  }
 
   private resize(): void {
     const width = this.canvas.clientWidth || window.innerWidth

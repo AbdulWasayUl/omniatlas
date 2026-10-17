@@ -236,11 +236,25 @@ function kelvinToLinearRgb(kelvin: number): [number, number, number] {
   return [r / peak, g / peak, b / peak]
 }
 
+/**
+ * Flux scale for the star fields.
+ *
+ * 1.25, not 1. Every quad used to be as many pixels wide as it was tall in NDC,
+ * which on a 16:9 window made it 1.72 times wider than tall; sizing x from the
+ * viewport width took that factor straight out of the field's integrated flux.
+ * Measured at the 100 ly rung: frame mean 14.7 before the width fix, 10.5 after.
+ * This gives most of it back. It is deliberately not the full 1.72 — the lost light
+ * was in the wings of quads that should never have been that wide, and the cores are
+ * already at the top of the tone curve.
+ */
+const STAR_GAIN = 1.25
+
 const STAR_VERTEX = /* glsl */ `
   attribute vec3 starPosition;   // parsecs, layer-local
   attribute vec3 starColor;      // linear sRGB, luminance-normalised
   attribute float absMag;        // absolute magnitude
 
+  uniform float uPixelWidth;     // viewport width in device pixels
   uniform float uPixelHeight;    // viewport height in device pixels
   uniform float uTanHalfFov;
   uniform float uMagLimit;       // faintest apparent magnitude drawn
@@ -276,7 +290,10 @@ const STAR_VERTEX = /* glsl */ `
 
     // Offset in clip space so the quad keeps a constant pixel size at any depth.
     vec4 clip = projectionMatrix * viewPosition;
-    float pixelScale = 2.0 * radiusPx / uPixelHeight;
+    // NDC x spans the viewport WIDTH and NDC y its HEIGHT, so one shared offset would
+    // make every quad W/H times wider than tall and the circular discard would cut an
+    // ellipse. Scale each axis by its own pixel count.
+    vec2 pixelScale = 2.0 * radiusPx / vec2(uPixelWidth, uPixelHeight);
     clip.xy += position.xy * pixelScale * clip.w;
     gl_Position = clip;
   }
@@ -442,12 +459,13 @@ export class StarsModule implements AtlasModule {
 
     const material = new THREE.ShaderMaterial({
       uniforms: {
+        uPixelWidth: { value: 1920 },
         uPixelHeight: { value: 1080 },
         uTanHalfFov: { value: 0.46 },
         uMagLimit: { value: 6.5 },
         uMinRadiusPx: { value: 0.7 },
         uMaxRadiusPx: { value: 18 },
-        uGain: { value: 1 },
+        uGain: { value: STAR_GAIN },
       },
       vertexShader: STAR_VERTEX,
       fragmentShader: STAR_FRAGMENT,
@@ -689,13 +707,21 @@ export class StarsModule implements AtlasModule {
     })
     this.constellations = new THREE.LineSegments(geometry, material)
     this.constellations.frustumCulled = false
-    this.constellations.renderOrder = -9
+    // Before the star fields (-10), not after them. These lines are NormalBlending,
+    // so drawn second they alpha-blended over every star they crossed and cut a dark
+    // blue notch through it — at 8 pc a (172,169,167) star pixel came out
+    // (77,102,122). Drawing the figure first lets the additive star sprites lay over
+    // it instead. Switching the lines to AdditiveBlending would also remove the notch
+    // and was measured: it raises the overlay's own contribution to the frame 2.4x,
+    // which is the opposite of what this overlay needs.
+    this.constellations.renderOrder = -11
     this.engine.layer(LAYER).scene.add(this.constellations)
   }
 
   preRender(ctx: FrameContext): void {
     const layer = this.engine.layer(LAYER)
     const dpr = Math.min(window.devicePixelRatio, 2)
+    const pixelWidth = ctx.width * dpr
     const pixelHeight = ctx.height * dpr
 
     // The limiting magnitude follows the field of view the way a telescope's does:
@@ -704,16 +730,34 @@ export class StarsModule implements AtlasModule {
     const fovRef = 50
     const magLimit = 6.2 + 5 * Math.log10(fovRef / Math.max(ctx.fovDegrees, 1)) + 2.4
 
+    // The engine's verdict on this layer's role in this frame, not the raw span band:
+    // drawn as the backdrop behind a subject in another layer, the star field has to
+    // read as sky. `spanOpacity` stays raw, as the measurement it is.
+    const layerFade = layer.renderOpacity
+
     for (const material of this.materials) {
+      material.uniforms.uPixelWidth.value = pixelWidth
       material.uniforms.uPixelHeight.value = pixelHeight
       material.uniforms.uMagLimit.value = magLimit
       material.uniforms.uTanHalfFov.value = Math.tan((ctx.fovDegrees * Math.PI) / 360)
+      material.uniforms.uGain.value = STAR_GAIN * layerFade
     }
 
     if (this.constellations) {
       // Distance of the camera from the Sun, in parsecs.
+      //
+      // A constellation figure is a projection of one vantage point, and it stops
+      // meaning anything as soon as the camera has moved far enough for the stars in
+      // it to have separated on the sky. Measured over all 1,683 figure vertices
+      // (median radius 60.8 pc), an 8 pc camera offset moves the median vertex 5.2
+      // degrees and the figures still read; at 30 pc it is 18.4 degrees median and
+      // 60 at p90, which is the spiderweb of chords converging on where the Sun used
+      // to be. The old (1, 50) schedule was still drawing that web at 0.14 alpha, and
+      // against a near-black sky after AgX that is not faint. (5, 20) keeps the
+      // overlay across the whole solar neighbourhood, where it is correct and useful,
+      // and lets go where the geometry does.
       const distancePc = layer.cameraDistanceMetres / PC_M
-      const opacity = 0.42 * (1 - smoothstep(1, 50, distancePc))
+      const opacity = 0.42 * (1 - smoothstep(5, 20, distancePc)) * layer.renderOpacity
       const material = this.constellations.material as THREE.LineBasicMaterial
       material.opacity = opacity
       this.constellations.visible = opacity > 0.01

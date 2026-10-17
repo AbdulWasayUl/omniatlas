@@ -128,10 +128,33 @@ function hasTrustworthyDistance(kind: number, distancePc: number, redshift: numb
 
 const SHELL_PC = 1e5
 
-/** Camera distances (pc from the Sun) over which the direction-only shell fades out. */
-const SHELL_FADE_PC: [number, number] = [400, 4000]
-/** The same, for the traced outlines, which are contours as seen from here. */
-const OUTLINE_FADE_PC: [number, number] = [150, 1500]
+/**
+ * Camera distances (pc from the Sun) over which the direction-only shell fades out.
+ *
+ * The shell is the same kind of claim as the contours below: a bearing taken from
+ * here. It used to outlive them by more than a decade in distance, so there was a
+ * long stretch where the traced outlines had gone and the glyphs they annotate were
+ * still at full strength. It still lets go later than they do — a bearing stays
+ * roughly right much further than a traced shape does — but on the same scale.
+ */
+const SHELL_FADE_PC: [number, number] = [120, 1200]
+/**
+ * The same, for the traced outlines.
+ *
+ * These are contours of what a telescope ON EARTH records, pinned to the shell, so
+ * they are a statement about one vantage point rather than about the object. They used
+ * to hold full strength out to 150 pc — 489 light years, most of the way to Orion —
+ * and only finish at 1.5 kpc, which drew an Earth-vantage tracing over a view Earth has
+ * never had. They now let go on the same scale as the constellation figures, which are
+ * the same kind of claim, and well before the shell they sit on.
+ *
+ * The window is set by the aspect change, not by a round number: the nearest contour,
+ * the Pleiades nebulosity, is 136 pc away, so an 8 pc camera offset is 3 degrees of
+ * changed viewing angle and a 45 pc one is 19 degrees, which no traced outline
+ * survives. An earlier [3, 80] let go too early at the near end and too late at the
+ * far one.
+ */
+const OUTLINE_FADE_PC: [number, number] = [8, 45]
 
 /** Assumed magnitude for the 1,827 drawn objects the catalogue gives no V or B for. */
 const ASSUMED_MAGNITUDE = 14.2
@@ -173,6 +196,84 @@ const TYPE_CATEGORY: Record<string, DeepSkyCategory> = {
   Nova: 'starLike',
   Other: 'other',
 }
+
+/**
+ * OpenNGC classifications that are not objects you can go to.
+ *
+ * `Dup` is a second listing of something already in the catalogue and `NonEx` is an
+ * entry the catalogue itself retracts; 661 rows carry one or the other. They are
+ * already dropped from the drawn field, but the named list registered them anyway, and
+ * the M102 row — a `Dup` of M101 with no coordinates, no size and no distance of its
+ * own — therefore put a second 'Messier 101' on the shell, four megaparsecs from the
+ * real one.
+ *
+ * `*` and `**` are single and double STARS that happen to carry an NGC or IC number.
+ * Alnilam and gamma Cygni are stars, already registered by the star module under
+ * their own names, so the deep-sky copy is a duplicate — but only when the star
+ * module can be expected to have them. Messier 40 is the double star Winnecke 4, and
+ * nothing else in the atlas knows it by that name: folding it in with the duplicates
+ * made one of the hundred and ten Messier objects unsearchable. A Messier number is
+ * the test, because it is exactly the identity the star catalogue does not carry.
+ */
+const NON_OBJECT_TYPES = new Set(['Dup', 'NonEx'])
+const STELLAR_TYPES = new Set(['*', '**'])
+
+/**
+ * Published major axes, in arcminutes, for the famous rows OpenNGC leaves sizeless.
+ *
+ * The registry is the search index, so a row with no size is not merely unframeable,
+ * it is unfindable — and dropping every sizeless row took the Coalsack, Messier 73
+ * and Messier 40 out of the palette. These three extents are not in dispute in the
+ * literature, and the alternative to writing them down is pretending the objects do
+ * not exist. Keyed by OpenNGC designation; same spirit as `literatureDistancePc`.
+ */
+const LITERATURE_MAJOR_AXIS_ARCMIN: Record<string, number> = {
+  // The Coalsack is quoted as roughly 7 x 5 degrees of dark nebula (Nyman et al. 1989).
+  C099: 420,
+  // Messier 73, the four-star asterism in Aquarius: about 2.8' across (OpenNGC's own
+  // entry for the asterism's members).
+  NGC6994: 2.8,
+  // Messier 40 is the double star Winnecke 4; its extent is the pair's SEPARATION,
+  // 51.7" (WDS J12222+5805AB). See `SEPARATION_NOT_EXTENT_TYPES`: this number frames
+  // the camera on the pair and is never reported as a size.
+  M040: 0.86,
+}
+
+/**
+ * Published distances for the famous rows OpenNGC leaves distanceless and
+ * `deepSkyDistances` does not cover.
+ *
+ * Without one a row is projected onto the 100 kpc direction-only shell, which is an
+ * honest statement of a bearing but makes the object unvisitable: you arrive 25 kpc
+ * out in intergalactic space looking at nothing, because the thing you flew to is a
+ * direction rather than a place. The Coalsack is the case that forced this — it is a
+ * naked-eye object with a well-determined distance that simply is not in either
+ * table.
+ *
+ * Same standing as `deepSkyDistances`: a consensus literature figure, not a reduction
+ * done here, so rows placed from it are badged `literature` and `derived` exactly as
+ * that table's are. It belongs in `src/data/deepSkyDistances.ts` next to the rest;
+ * it is here only because this module does not own that file.
+ */
+const LITERATURE_DISTANCE_PC: Record<string, number> = {
+  // The Coalsack, 180 pc (Franco 1989; Seidensticker & Schmidt-Kaler 1989 give 174
+  // pc, Gaia-era extinction work the same to within the rounding).
+  C099: 180,
+}
+
+/**
+ * OpenNGC types whose catalogued major axis is a separation between bodies rather
+ * than the extent of one.
+ *
+ * A visual double's "size" is how far apart the two stars are. Carried into
+ * `radiusMetres` it says the atlas has measured a single object that big, and the
+ * proxy then draws one: Messier 40, two 9th-magnitude stars 51.7" apart, arrived as a
+ * single smooth sphere 8,000 AU across filling the frame. The separation is still the
+ * right thing to FRAME on, so it goes to `framingRadiusMetres` and the row keeps its
+ * registry slot — the point of listing M40's axis at all was that it is one of the
+ * hundred and ten Messier objects and has to be findable.
+ */
+const SEPARATION_NOT_EXTENT_TYPES = new Set(['**'])
 
 /** The registry class (and therefore glyph and label colour) for each category. */
 const CATEGORY_OBJECT_CLASS: Record<DeepSkyCategory, string> = {
@@ -312,7 +413,16 @@ export interface DeepSkyManifest {
     assumedMagnitude: number
     byCategory: Record<string, { drawn: number; measured: number; directionOnly: number }>
   }
-  named: { registered: number; measured: number; directionOnly: number; literature: number }
+  named: {
+    registered: number
+    measured: number
+    directionOnly: number
+    literature: number
+    /** Rows dropped by `NON_OBJECT_TYPES`. */
+    skippedNonObject: number
+    /** Rows OpenNGC records no angular size for, so nothing could be framed or drawn. */
+    skippedSizeless: number
+  }
   globulars: {
     registered: number
     nearestKpc: number
@@ -336,6 +446,16 @@ export interface DeepSkyNode extends SceneNodeHandle {
   provenance: 'measured' | 'derived' | 'illustration'
   /** True when only the direction is known and the position is a shell projection. */
   directionOnly: boolean
+  /**
+   * How wide to open the camera on arrival, in metres — NOT a size of the object.
+   *
+   * For a placed object it is the same number as `radiusMetres`. For a direction-only
+   * one it is the catalogued angular size carried out to the 100 kpc shell the glyph
+   * is drawn on, which is a statement about the picture and not about the object, and
+   * is why it does not go in `radiusMetres`: the inspector prints that one as a
+   * measurement. Nothing reads this yet; `focus()` is the intended consumer.
+   */
+  framingRadiusMetres: number
   distanceSource: 'parallax' | 'redshift' | 'literature' | 'harris-2010' | 'none'
   designation: string
   catalogue: string
@@ -360,6 +480,7 @@ const POINT_VERTEX = /* glsl */ `
   attribute vec3 dsColor;
   attribute float dsOutline;   // angular radius of this object's traced outline, degrees
 
+  uniform float uPixelWidth;
   uniform float uPixelHeight;
   uniform float uTanHalfFov;
   uniform float uMagLimit;
@@ -369,6 +490,7 @@ const POINT_VERTEX = /* glsl */ `
   uniform float uMinPx;
   uniform float uMaxPx;
   uniform float uOutlineTakeoverPx;
+  uniform float uSolFade;      // how much of the traced-outline overlay is still drawn
   uniform float uUnitPc;       // parsecs per layer unit
   uniform float uLayerFade;    // crossfade between the stellar and galactic copies
 
@@ -414,9 +536,13 @@ const POINT_VERTEX = /* glsl */ `
     float radiusPx = clamp(max(magPx, extentPx), uMinPx, uMaxPx);
 
     // Where a traced contour exists and is large on screen, the sprite steps aside and
-    // lets the real shape carry the object.
+    // lets the real shape carry the object. It only steps aside while there is in fact
+    // something there to step aside for: the takeover depends on field of view alone,
+    // so once the outlines had been faded out on camera distance it went on dimming
+    // the nine largest glyphs in the set — Orion, Cygnus, the LMC, the Veil — by up to
+    // 92% in favour of a contour that was no longer being drawn.
     float outlinePx = (dsOutline * DEG2RAD) / uTanHalfFov * uPixelHeight * 0.5;
-    alpha *= 1.0 - 0.92 * smoothstep(uOutlineTakeoverPx, uOutlineTakeoverPx * 2.4, outlinePx);
+    alpha *= 1.0 - 0.92 * uSolFade * smoothstep(uOutlineTakeoverPx, uOutlineTakeoverPx * 2.4, outlinePx);
 
     // Flux, spread over the sprite: an extended object is not a bright point, it is a
     // faint smear with the same total light.
@@ -426,7 +552,10 @@ const POINT_VERTEX = /* glsl */ `
     vColor = dsColor;
 
     vec4 clip = projectionMatrix * viewPosition;
-    clip.xy += position.xy * (2.0 * radiusPx / uPixelHeight) * clip.w;
+    // NDC x spans the viewport WIDTH and NDC y its HEIGHT, so one shared offset would
+    // make every quad W/H times wider than tall and the circular discard would cut an
+    // ellipse. Scale each axis by its own pixel count.
+    clip.xy += position.xy * (2.0 * radiusPx / vec2(uPixelWidth, uPixelHeight)) * clip.w;
     clip.z = 0.0; // sky content: never depth-clipped, never depth-tested
     gl_Position = clip;
   }
@@ -460,6 +589,7 @@ const GLOBULAR_VERTEX = /* glsl */ `
   attribute float gcAbsMag;    // integrated absolute V magnitude
   attribute vec3 gcColor;
 
+  uniform float uPixelWidth;
   uniform float uPixelHeight;
   uniform float uTanHalfFov;
   uniform float uMagLimit;
@@ -497,7 +627,7 @@ const GLOBULAR_VERTEX = /* glsl */ `
     vColor = gcColor;
 
     vec4 clip = projectionMatrix * viewPosition;
-    clip.xy += position.xy * (2.0 * radiusPx / uPixelHeight) * clip.w;
+    clip.xy += position.xy * (2.0 * radiusPx / vec2(uPixelWidth, uPixelHeight)) * clip.w;
     clip.z = 0.0;
     gl_Position = clip;
   }
@@ -628,7 +758,14 @@ export class DeepSkyModule implements AtlasModule {
       assumedMagnitude: 0,
       byCategory: {},
     },
-    named: { registered: 0, measured: 0, directionOnly: 0, literature: 0 },
+    named: {
+      registered: 0,
+      measured: 0,
+      directionOnly: 0,
+      literature: 0,
+      skippedNonObject: 0,
+      skippedSizeless: 0,
+    },
     globulars: {
       registered: 0,
       nearestKpc: 0,
@@ -873,15 +1010,18 @@ export class DeepSkyModule implements AtlasModule {
 
       const material = new THREE.ShaderMaterial({
         uniforms: {
+          uPixelWidth: { value: 1920 },
           uPixelHeight: { value: 1080 },
           uTanHalfFov: { value: 0.466 },
           uMagLimit: { value: 12.8 },
-          uGain: { value: 0.055 },
+          // Up 1.25 with the sprite-width fix; see the note on the star field's uGain.
+          uGain: { value: 0.069 },
           uShell: { value: SHELL_PC * k },
           uShellFade: { value: 1 },
           uMinPx: { value: 1.1 },
           uMaxPx: { value: 190 },
           uOutlineTakeoverPx: { value: 26 },
+          uSolFade: { value: 1 },
           uUnitPc: { value: spec.unitPc },
           uLayerFade: { value: spec.near ? 1 : 0 },
         },
@@ -921,15 +1061,44 @@ export class DeepSkyModule implements AtlasModule {
     const stats = this.manifest.named
     for (const object of payload.objects) {
       if (!Number.isFinite(object.raDeg) || !Number.isFinite(object.decDeg)) continue
+      if (NON_OBJECT_TYPES.has(object.type) || (STELLAR_TYPES.has(object.type) && object.messier == null)) {
+        stats.skippedNonObject++
+        continue
+      }
       const category = TYPE_CATEGORY[object.type] ?? 'other'
       const catalogued = typeof object.distancePc === 'number' && object.distancePc > 0
       // Fall back to a published distance before falling back to the shell. Without
       // this the Orion Nebula is 100 kpc away and 8,000 light years across.
-      const literaturePc = catalogued ? null : literatureDistancePc(object.designation, object.messier)
+      const literaturePc = catalogued
+        ? null
+        : (literatureDistancePc(object.designation, object.messier) ??
+          LITERATURE_DISTANCE_PC[object.designation] ??
+          null)
       const placed = catalogued || literaturePc !== null
       const distPc = catalogued ? (object.distancePc as number) : (literaturePc ?? SHELL_PC)
+
+      const majAxArcmin = object.majAxArcmin || LITERATURE_MAJOR_AXIS_ARCMIN[object.designation]
+      if (!majAxArcmin) {
+        // No angular size in the row and none in the literature table either: nothing
+        // to frame and nothing to draw, so it is not offered as a destination.
+        stats.skippedSizeless++
+        continue
+      }
+      // Counted after the size filter, not before, so the manifest's buckets describe
+      // the rows that were actually registered.
       if (literaturePc !== null) stats.literature++
 
+      // A radius is a physical size, and SHELL_PC is not a distance. Deriving one from
+      // the other turns a placeholder into a measurement, so an object with no distance
+      // gets no size either and is drawn as the bearing it actually is. This was briefly
+      // reversed, and the Horsehead went into the registry at 87 pc across — 170 times
+      // its real extent — under a field the inspector prints as "Mean radius, Measured".
+      //
+      // `framingRadiusMetres` carries the number a camera needs instead. It is the same
+      // arithmetic, but it is in a field nothing presents as a property of the object.
+      const angularSizeRadius = this.radiusFromAngularSize(majAxArcmin, distPc)
+      // ...and a separation is not an extent either; see SEPARATION_NOT_EXTENT_TYPES.
+      const separationOnly = SEPARATION_NOT_EXTENT_TYPES.has(object.type)
       const node = this.makeNode({
         id: `ngc:${object.designation}`,
         name: this.displayName(object),
@@ -939,10 +1108,8 @@ export class DeepSkyModule implements AtlasModule {
         raDeg: object.raDeg,
         decDeg: object.decDeg,
         distancePc: distPc,
-        // A radius is a physical size, and SHELL_PC is not a distance. Deriving one
-        // from the other turns a placeholder into a measurement, so an object with no
-        // distance gets no size either and is drawn as the bearing it actually is.
-        radiusMetres: placed ? this.radiusFromAngularSize(object.majAxArcmin, distPc) : 0,
+        radiusMetres: placed && !separationOnly ? angularSizeRadius : 0,
+        framingRadiusMetres: angularSizeRadius,
         measured: placed,
         distanceSource: catalogued
           ? object.distanceKind === 'parallax'
@@ -985,6 +1152,8 @@ export class DeepSkyModule implements AtlasModule {
     decDeg: number
     distancePc: number
     radiusMetres: number
+    /** Defaults to `radiusMetres`; set it where the two legitimately differ. */
+    framingRadiusMetres?: number
     measured: boolean
     distanceSource: DeepSkyNode['distanceSource']
     parentId: string | null
@@ -996,13 +1165,20 @@ export class DeepSkyModule implements AtlasModule {
       worldPosition: world,
       frame: REGISTRY_FRAME,
       radiusMetres: spec.radiusMetres,
+      framingRadiusMetres: spec.framingRadiusMetres ?? spec.radiusMetres,
       layer: LAYER,
       objectClass: spec.objectClass,
       name: spec.name,
       parentId: spec.parentId,
       // A direction-only object has no position, only a bearing. Saying 'measured'
       // here would launder a projection into an observation.
-      provenance: spec.measured ? 'measured' : 'illustration',
+      //
+      // Nor is a literature distance one. `deepSkyDistances` says so itself — a
+      // consensus figure from the general literature, no primary reduction and no
+      // uncertainty travelling with it — but every row placed from that table still
+      // came through here badged 'Measured', and the radius computed from it with
+      // them. 'Derived' is what the table asks for and what the chip should read.
+      provenance: !spec.measured ? 'illustration' : spec.distanceSource === 'literature' ? 'derived' : 'measured',
       directionOnly: !spec.measured,
       distanceSource: spec.distanceSource,
       designation: spec.designation,
@@ -1072,13 +1248,18 @@ export class DeepSkyModule implements AtlasModule {
       const ngcDesignation = openNgcDesignation(columns.id[i])
       let inheritedName: string | null = null
       if (ngcDesignation) {
-        const duplicate = this.engine.node(`ngc:${ngcDesignation}`)
+        const duplicate = this.engine.node(`ngc:${ngcDesignation}`) as DeepSkyNode | null
         if (duplicate) {
           inheritedName = duplicate.name
           this.engine.unregister(duplicate.id)
           const at = this.nodeIds.indexOf(duplicate.id)
           if (at >= 0) this.nodeIds.splice(at, 1)
           this.manifest.named.registered--
+          // The removed row was counted in exactly one of the two buckets that are
+          // supposed to add up to `registered`; decrementing only the total left the
+          // manifest reporting 191 + 34 against a registered count of 194.
+          if (duplicate.directionOnly) this.manifest.named.directionOnly--
+          else this.manifest.named.measured--
           duplicates++
         }
         const row = this.designationToRow.get(ngcDesignation)
@@ -1136,10 +1317,12 @@ export class DeepSkyModule implements AtlasModule {
 
       const material = new THREE.ShaderMaterial({
         uniforms: {
+          uPixelWidth: { value: 1920 },
           uPixelHeight: { value: 1080 },
           uTanHalfFov: { value: 0.466 },
           uMagLimit: { value: 12.8 },
-          uGain: { value: 0.07 },
+          // Up 1.25 with the sprite-width fix; see the note on the star field's uGain.
+          uGain: { value: 0.088 },
           uMinPx: { value: 1.6 },
           uMaxPx: { value: 150 },
           uUnitPc: { value: spec.unitPc },
@@ -1390,6 +1573,7 @@ export class DeepSkyModule implements AtlasModule {
   preRender(ctx: FrameContext): void {
     const layer = this.engine.layer(LAYER)
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
+    const pixelWidth = ctx.width * dpr
     const pixelHeight = ctx.height * dpr
     const tanHalfFov = Math.tan((ctx.fovDegrees * Math.PI) / 360)
 
@@ -1414,11 +1598,19 @@ export class DeepSkyModule implements AtlasModule {
     // AU view of the inner planets as a wall of white speckle. Distance from the Sun
     // is the wrong question; how wide the view is, is the right one. A deep-sky object
     // only means anything once the view is wider than the solar system itself.
+    //
+    // `renderOpacity` rides on the same gate: it is the engine's verdict on how much
+    // of this layer belongs in this frame, and it drops to a backdrop value when the
+    // stellar layer is only on screen because nothing nearer is drawing a sky. Drawn
+    // at full strength in that role the catalogue stops being a backdrop and becomes
+    // the subject again. `spanOpacity` is deliberately not used here: it is the raw
+    // band measure and knows nothing about the layer's role.
     const logSpan = Math.log10(Math.max(ctx.viewSpanMetres, 1))
-    const scaleGate = smoothstep(Math.log10(2e14), Math.log10(2e16), logSpan)
+    const scaleGate = smoothstep(Math.log10(2e14), Math.log10(2e16), logSpan) * layer.renderOpacity
 
     for (const material of this.materials) {
       const u = material.uniforms
+      if (u.uPixelWidth) u.uPixelWidth.value = pixelWidth
       if (u.uPixelHeight) u.uPixelHeight.value = pixelHeight
       if (u.uTanHalfFov) u.uTanHalfFov.value = tanHalfFov
       if (u.uMagLimit) u.uMagLimit.value = magLimit

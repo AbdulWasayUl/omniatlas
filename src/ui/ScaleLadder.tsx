@@ -1,4 +1,4 @@
-import { SCALE_LADDER, ladderFraction, rungForSpan } from '../data/scaleLadder'
+import { type RailRung, railFraction } from './scaleRungs'
 
 /**
  * The scale rail.
@@ -9,17 +9,29 @@ import { SCALE_LADDER, ladderFraction, rungForSpan } from '../data/scaleLadder'
  * the range has a defined top and bottom at all. Without it, zooming out of the solar
  * system feels like falling off the edge of the product.
  *
- * Rungs with no content yet are drawn greyed rather than hidden, so coverage is visible.
+ * The rungs are built for the anchor rather than fixed — see `railFor` — so the rail
+ * at a comet is not the rail at a galaxy cluster, and the bottom rung is the object
+ * you are at. Rungs with no content yet are drawn greyed rather than hidden, so
+ * coverage is still visible.
  */
 export function ScaleLadder({
   spanMetres,
+  rail,
+  active,
   onPick,
 }: {
   spanMetres: number
-  onPick: (spanMetres: number) => void
+  /** The rungs for the current anchor, closest first. */
+  rail: readonly RailRung[]
+  /**
+   * The rung the view is on. Passed in rather than derived here because the HUD reads
+   * the same answer out a few pixels away, and two derivations eventually disagree.
+   */
+  active: RailRung
+  onPick: (rung: RailRung) => void
 }) {
-  const active = rungForSpan(spanMetres)
-  const thumb = ladderFraction(spanMetres)
+  const thumb = railFraction(spanMetres, rail)
+  const index = rail.findIndex((rung) => rung.id === active.id)
 
   return (
     <div
@@ -27,25 +39,26 @@ export function ScaleLadder({
       role="slider"
       aria-label="Scale"
       aria-valuemin={0}
-      aria-valuemax={SCALE_LADDER.length - 1}
-      aria-valuenow={SCALE_LADDER.indexOf(active)}
+      aria-valuemax={rail.length - 1}
+      aria-valuenow={Math.max(index, 0)}
       aria-valuetext={`${active.label}. ${active.caption}`}
       tabIndex={0}
       onKeyDown={(event) => {
-        const index = SCALE_LADDER.indexOf(active)
-        if (event.key === 'ArrowUp' || event.key === 'ArrowRight') {
-          event.preventDefault()
-          onPick(SCALE_LADDER[Math.min(index + 1, SCALE_LADDER.length - 1)].spanMetres)
-        }
-        if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') {
-          event.preventDefault()
-          onPick(SCALE_LADDER[Math.max(index - 1, 0)].spanMetres)
-        }
+        // preventDefault does not stop the bubble, and AppChrome's window listener maps
+        // the same four keys to orbitBy: every arrow press on the focused rail moved the
+        // rung AND pitched the camera, which makes the rail unusable as a slider.
+        const up = event.key === 'ArrowUp' || event.key === 'ArrowRight'
+        const down = event.key === 'ArrowDown' || event.key === 'ArrowLeft'
+        if (!up && !down) return
+        event.preventDefault()
+        event.stopPropagation()
+        const next = Math.min(Math.max((index < 0 ? 0 : index) + (up ? 1 : -1), 0), rail.length - 1)
+        onPick(rail[next])
       }}
     >
       <div className="ladder-track">
-        {SCALE_LADDER.map((rung) => {
-          const top = ladderFraction(rung.spanMetres) * 100
+        {rail.map((rung) => {
+          const top = railFraction(rung.spanMetres, rail) * 100
           return (
             <button
               type="button"
@@ -54,9 +67,10 @@ export function ScaleLadder({
               style={{ top: `${top}%` }}
               data-active={rung.id === active.id}
               data-shipped={rung.shipped}
+              data-anchor={rung.isAnchor}
               title={rung.shipped ? rung.caption : `${rung.caption} — coming in a later release`}
               aria-label={`${rung.label}${rung.shipped ? '' : ' (not yet available)'}`}
-              onClick={() => onPick(rung.spanMetres)}
+              onClick={() => onPick(rung)}
             >
               <span className="ladder-label">{rung.label}</span>
             </button>

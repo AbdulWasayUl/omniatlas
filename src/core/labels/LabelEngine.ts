@@ -60,6 +60,21 @@ const MAX_MARKED = 34
 const DISTANCE_MISMATCH_PENALTY = 26
 
 /**
+ * Decades of distance mismatch resolved by the penalty above.
+ *
+ * At 26 points per decade the raw mismatch resolves differences down to the float
+ * noise floor, which is far finer than the catalogue it is reading. AT-HYG gives the
+ * two components of a visual binary independent parallaxes: Sirius lands at 2.1148e17 m
+ * and Sirius B at 2.1183e17 m — 2,300 AU apart where the true separation is ~20 AU.
+ * Across that 0.16% gap the penalty differs by 0.018, while the sizeBonus meant to keep
+ * the primary differs by 4e-6, so the brightest star in the sky lost its name to its
+ * 8th-magnitude white dwarf. A 0.05-decade bucket is ~12% in distance: coarser than any
+ * binary pair's catalogue inconsistency, finer than the one-decade granularity the
+ * penalty is actually reasoning about.
+ */
+const MISMATCH_QUANTUM = 0.05
+
+/**
  * How far below the best object on screen something may score and still be marked.
  *
  * The budget alone is not enough. There are nine planets and over a thousand comets,
@@ -98,6 +113,25 @@ const ABSOLUTE_SCORE_FLOOR = 8
  */
 const DESIGNATION_PENALTY = 16
 
+/**
+ * How much a visual binary's companion gives up to its primary.
+ *
+ * Both components of a naked-eye binary are registered, both carry the flat priority
+ * of 90 that every named star gets, and they land within a pixel of each other, so the
+ * declutterer labels exactly one of the pair and the score decides which. Nothing else
+ * in the score knows which one a reader means by the pair's name: AT-HYG gives Porrima
+ * a radius of 9.351e8 m and Porrima B 9.682e8 m, and that 3% — worth about 1e-8 of a
+ * point of sizeBonus at 38 light-years, far too fine for the radius tiebreak below to
+ * ever see — was enough to put PORRIMA B on screen with no Porrima anywhere. A
+ * companion's designation is its primary's name plus a letter, which is a fact about
+ * the name rather than about the catalogue's radii, so that is what this reads.
+ *
+ * Four points clears a one-bucket difference in the mismatch term (26 x 0.05 = 1.3,
+ * for a pair whose independent parallaxes straddle a bucket edge) and is far inside
+ * the 42-point relative floor, so it orders a pair without changing who gets marked.
+ */
+const COMPANION_PENALTY = 4
+
 /** Cheap test for "this is a catalogue number rather than a name". */
 function isDesignation(name: string): boolean {
   return /\d/.test(name)
@@ -115,6 +149,8 @@ export class LabelEngine {
   private readonly ctx: CanvasRenderingContext2D
   private readonly items: LabelItem[] = []
   private readonly index = new Map<string, number>()
+  /** Ids whose name is another registered name plus a component letter. */
+  private readonly companions = new Set<string>()
   private readonly placed: Placed[] = []
   private readonly projected = new THREE.Vector3()
   private dpr = 1
@@ -153,9 +189,23 @@ export class LabelEngine {
   setItems(items: LabelItem[]): void {
     this.items.length = 0
     this.index.clear()
+    this.companions.clear()
+    const names = new Set<string>()
     for (const item of items) {
       this.index.set(item.node.id, this.items.length)
       this.items.push(item)
+      names.add(item.node.name)
+    }
+    // Companions are found here and not in the frame loop: the relation depends only
+    // on what is registered, and the set is read for every candidate of every frame.
+    for (const item of items) {
+      const name = item.node.name
+      const cut = name.lastIndexOf(' ')
+      // One or two trailing letters only. "Porrima B" and "Alpha Centauri B" are
+      // companions of something; "Coma Star Cluster" and "47 Tuc" are not.
+      if (cut <= 0 || name.length - cut > 3) continue
+      if (!/^[A-Za-z]{1,2}$/.test(name.slice(cut + 1))) continue
+      if (names.has(name.slice(0, cut))) this.companions.add(item.node.id)
     }
   }
 
@@ -217,7 +267,8 @@ export class LabelEngine {
       const selected = item.node.id === this.selectedId || item.node.id === this.anchorId
 
       const distanceMetres = distance * layer.config.unitMetres
-      const mismatch = Math.abs(Math.log10(Math.max(distanceMetres, 1)) - logSpan)
+      const mismatch =
+        Math.round(Math.abs(Math.log10(Math.max(distanceMetres, 1)) - logSpan) / MISMATCH_QUANTUM) * MISMATCH_QUANTUM
       // Objects big enough to see get credit for it; a planet filling the screen
       // should never lose its label to a better-scoring point source.
       const sizeBonus = Math.min(apparentPixels, 40)
@@ -226,12 +277,26 @@ export class LabelEngine {
         : item.priority +
           sizeBonus -
           DISTANCE_MISMATCH_PENALTY * mismatch -
-          (isDesignation(item.node.name) ? DESIGNATION_PENALTY : 0)
+          (isDesignation(item.node.name) ? DESIGNATION_PENALTY : 0) -
+          (this.companions.has(item.node.id) ? COMPANION_PENALTY : 0)
 
       candidates.push({ item, x, y, apparentPixels, score, selected })
     }
 
-    candidates.sort((a, b) => b.score - a.score)
+    // Ties are now common by design (see MISMATCH_QUANTUM), so they have to be broken
+    // deliberately rather than by whichever float happened to compare larger. True
+    // physical size is the right discriminator where the catalogue's radii are
+    // comparable — a planet before its own moon, Sirius A 1.03e9 m before Sirius B
+    // 3.5e7 m — but it is NOT what settles a binary in general: AT-HYG has Porrima B
+    // larger than Porrima, so the pairs are ordered by COMPANION_PENALTY in the score
+    // above and this only has to be stable. The id makes it so, frame to frame, which
+    // the greedy declutterer depends on.
+    candidates.sort(
+      (a, b) =>
+        b.score - a.score ||
+        b.item.node.radiusMetres - a.item.node.radiusMetres ||
+        (a.item.node.id < b.item.node.id ? -1 : 1),
+    )
     // The floor is measured from the best NON-selected score. Selected and anchored
     // objects score Infinity so they are never dropped, but letting that set the
     // reference would push the floor to -Infinity and mark everything on screen the
@@ -240,26 +305,30 @@ export class LabelEngine {
     const floor = Math.max(best - SCORE_FLOOR_BELOW_BEST, ABSOLUTE_SCORE_FLOOR)
     const marked = candidates.filter((c) => c.selected || c.score >= floor).slice(0, MAX_MARKED)
 
-    // Pass 2: draw the survivors, highest score first so declutter favours them.
-    for (const { item, x, y, apparentPixels, selected } of marked) {
-      const style = classStyle(item.node.objectClass)
-
-      // Marker opacity: full when the body is sub-pixel, gone once it carries itself.
-      const markerAlpha = selected
-        ? 1
-        : 1 - smoothstep(MARKER_FULL_BELOW, MARKER_GONE_ABOVE, apparentPixels)
-
+    // Pass 2a: markers, LOWEST score first.
+    //
+    // Co-located markers are not decluttered — suppressing one would erase Earth from
+    // the solar-system overview — and identical hairline rings composite to one ring
+    // anyway. What is visible is the colour: drawn in score order, Jupiter's and
+    // Saturn's rings were overpainted by their moons' grey at the outer-system rung.
+    // Painting back to front puts the object the view is actually about on top.
+    for (let i = marked.length - 1; i >= 0; i--) {
+      const { item, x, y, apparentPixels, selected } = marked[i]
+      const markerAlpha = markerAlphaFor(apparentPixels, selected)
       if (markerAlpha > 0.01) {
-        this.drawMarker(x, y, style.color, markerAlpha, apparentPixels, selected)
+        this.drawMarker(x, y, classStyle(item.node.objectClass).color, markerAlpha, apparentPixels, selected)
       }
-      hits.push({ id: item.node.id, x, y, r: Math.max(MARKER_RADIUS + 4, apparentPixels) })
+    }
 
+    // Pass 2b: hits and labels, highest score first so declutter favours them.
+    for (const { item, x, y, apparentPixels, selected } of marked) {
+      hits.push({ id: item.node.id, x, y, r: Math.max(MARKER_RADIUS + 4, apparentPixels) })
 
       // Labels appear once the object is worth naming: either it has a marker, or it
       // is large enough on screen to be looked at.
-      const labelAlpha = Math.max(markerAlpha, apparentPixels > 3 ? 1 : 0)
+      const labelAlpha = Math.max(markerAlphaFor(apparentPixels, selected), apparentPixels > 3 ? 1 : 0)
       if (labelAlpha > 0.05) {
-        this.drawLabel(item, x, y, style.color, labelAlpha, apparentPixels, selected)
+        this.drawLabel(item, x, y, classStyle(item.node.objectClass).color, labelAlpha, apparentPixels, selected)
       }
     }
 
@@ -387,6 +456,11 @@ export class LabelEngine {
     }
     return false
   }
+}
+
+/** Marker opacity: full when the body is sub-pixel, gone once it carries itself. */
+function markerAlphaFor(apparentPixels: number, selected: boolean): number {
+  return selected ? 1 : 1 - smoothstep(MARKER_FULL_BELOW, MARKER_GONE_ABOVE, apparentPixels)
 }
 
 function smoothstep(edge0: number, edge1: number, x: number): number {

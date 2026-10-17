@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type { AtlasModule, Engine, FrameContext, SceneNodeHandle } from '../../core/Engine'
 import { KPC_M, type Vec3d, vec3d } from '../../core/world'
 import {
+  type ArmFit,
   type ArmModelFile,
   R0_KPC,
   angularDiameterToRadiusKpc,
@@ -64,6 +65,15 @@ export type Provenance = 'measured' | 'derived' | 'illustration'
 export interface ProvenancedNode extends SceneNodeHandle {
   provenance: Provenance
   provenanceNote: string
+  /**
+   * The catalogue's own morphology class, for the close-range stand-in.
+   *
+   * localgroup.json publishes a de Vaucouleurs class for 80 of its rows and the module
+   * already read it to pick a tint, then threw it away — so the LMC, a barred
+   * irregular, arrived as a textbook grand-design spiral. Same field name and same
+   * strings as the cosmos module's `proxyMorphology`, which is what the proxy parses.
+   */
+  proxyMorphology?: string
 }
 
 export interface ProvenanceEntry {
@@ -140,8 +150,11 @@ interface LocalGroupFile {
  * Flux scale for the disc field. Each point stands for an equal slice of stellar mass,
  * so its screen brightness falls as 1/d^2 — which is what makes the same cloud read as
  * a galaxy from outside and as a band of light from inside without a second code path.
+ *
+ * 1.25 of the 420 it was eye-tuned at, which gives back most of the integrated flux
+ * the sprite-width fix took out of the field; see the note on the star field's uGain.
  */
-const FIELD_GAIN = 420
+const FIELD_GAIN = 525
 /**
  * Above this, a point is spread over a larger quad instead of getting brighter, up to
  * `uMaxRadiusPx`. Past that cap the spreading stops and the sample is simply dimmed:
@@ -170,19 +183,91 @@ const FIELD_NEAR_FADE_END_KPC = 3.5
  */
 const ARM_WIDTH_SCALE = 2
 
+/**
+ * Flux scale for the Local Group glow sprites.
+ *
+ * Up 1.25 from the 0.5 it was eye-tuned at, with the sprite-width fix; see the note
+ * on the star field's uGain.
+ */
+const LOCAL_GROUP_GAIN = 0.62
+
 /** Maser glyph brightness, and the brightness of their 1-sigma error bars. */
 const MASER_INTENSITY = 0.45
 const MASER_BAR_OPACITY = 0.22
 
-/** Per-arm ribbon colours. Reinforcement only — the label carries the identity. */
+/**
+ * Per-arm ribbon colours. Reinforcement only — the label carries the identity.
+ *
+ * Seven hues spread right across the colour wheel — purple, teal, cyan, khaki,
+ * magenta and two oranges — read as a categorical legend, not as one stellar
+ * population seen in seven places, and the Milky Way rung is the first thing a
+ * visitor sees. They are now one lightness and one family: a warm neutral at
+ * roughly #d5d8e9, each arm nudged by 8 degrees of hue from the next and all of them
+ * at one lightness and one saturation, so they stay individually traceable where they
+ * overlap without reading as seven different kinds of thing. A warm-to-cool split is
+ * not enough: two families still read as two categories. Do not re-widen this spread
+ * until arms.json's `name` field is registered as a labelled node; until then the
+ * colour is the only identity there is, and it is not worth seven hues.
+ */
 const ARM_COLORS: Record<string, number> = {
-  '3kpc-near': 0xc98a6a,
-  norma: 0xd6a066,
-  'scutum-centaurus': 0x6fb6e8,
-  'sagittarius-carina': 0x7fd9c0,
-  local: 0xf2e6a8,
-  perseus: 0x9a9ff0,
-  outer: 0xc88ad8,
+  '3kpc-near': 0xd5e0e9,
+  norma: 0xd5dee9,
+  'scutum-centaurus': 0xd5dbe9,
+  'sagittarius-carina': 0xd5d8e9,
+  local: 0xd5d6e9,
+  perseus: 0xd7d5e9,
+  outer: 0xdad5e9,
+}
+
+/**
+ * Half-width samples across a ribbon, from the ridge out to the fitted edge.
+ *
+ * The cross-section is a Gaussian, and two vertices per side can only interpolate a
+ * triangular tent of it — which puts a gradient discontinuity exactly on the ridge
+ * and reads as a bright crease down the middle of every arm. Four samples bake the
+ * curve into the vertex alpha instead, at the cost of 6 quads per segment rather
+ * than 2 (about 60k vertices on the whole model) and no extra draw call, no extra
+ * fill and no shader.
+ */
+const ARM_CROSS_SECTION = [0, 1 / 3, 2 / 3, 1]
+
+/** exp(-2.5 t^2), renormalised so the ribbon edge reaches exactly zero. */
+function armCrossSectionWeight(t: number): number {
+  const edge = Math.exp(-2.5)
+  return (Math.exp(-2.5 * t * t) - edge) / (1 - edge)
+}
+
+/**
+ * How much of a ribbon's alpha the parallaxes support at this azimuth, 0.06 to 0.24.
+ *
+ * `isExtrapolated` is a boolean, and stepping alpha 4x across the single quad that
+ * straddles the measured/extrapolated boundary put a knife edge mid-arm — fourteen of
+ * them, two per arm, each a hard rectangular block a few pixels wide at the 10-20 kpc
+ * rungs. Ramping over a 6-degree window of azimuth says the same thing (it is still
+ * 4x dimmer where there are no parallaxes) without the edge. The taper at the ends of
+ * the draw range is the other half of it: every arm's drawn extent already ends in
+ * the extrapolated state, so without it each arm finishes in a flat 0.06 chevron with
+ * a blunt square end. 12% of the azimuth span is what it takes for that end to read
+ * as "the measurements stop here" rather than as a cut.
+ */
+const ARM_CONFIDENCE_WINDOW_DEG = 6
+const ARM_END_TAPER_FRACTION = 0.12
+
+function armAlphaAt(arm: ArmFit, betaDeg: number): number {
+  const below = arm.extrapolatedBelowDeg
+  const above = arm.extrapolatedAboveDeg
+  let support = 1
+  if (below !== null) support = Math.min(support, smoothstep(below - ARM_CONFIDENCE_WINDOW_DEG, below, betaDeg))
+  if (above !== null) support = Math.min(support, 1 - smoothstep(above, above + ARM_CONFIDENCE_WINDOW_DEG, betaDeg))
+
+  const [betaMin, betaMax] = arm.betaDrawRangeDeg
+  const span = Math.abs(betaMax - betaMin)
+  const taperDeg = Math.max(span * ARM_END_TAPER_FRACTION, 1e-6)
+  const fromStart = Math.abs(betaDeg - betaMin)
+  const fromEnd = Math.abs(betaMax - betaDeg)
+  const taper = Math.min(smoothstep(0, taperDeg, fromStart), smoothstep(0, taperDeg, fromEnd))
+
+  return (0.06 + 0.18 * support) * taper
 }
 
 export class GalaxyModule implements AtlasModule {
@@ -203,6 +288,8 @@ export class GalaxyModule implements AtlasModule {
   private fieldMesh: THREE.Mesh | null = null
   private maserMaterial: THREE.ShaderMaterial | null = null
   private maserBarMaterial: THREE.LineBasicMaterial | null = null
+  private sunMarker: THREE.LineSegments | null = null
+  private sunMarkerMaterial: THREE.LineBasicMaterial | null = null
   private localGroupMaterial: THREE.ShaderMaterial | null = null
   private armMaterials: (THREE.MeshBasicMaterial | THREE.LineBasicMaterial)[] = []
   private readonly armBaseOpacity: number[] = []
@@ -304,6 +391,8 @@ export class GalaxyModule implements AtlasModule {
     cross.frustumCulled = false
     cross.renderOrder = -6
     cross.name = 'galaxy:sun-marker'
+    this.sunMarker = cross
+    this.sunMarkerMaterial = material
     cross.userData = {
       provenance: 'measured',
       note: 'R0 = 8.15 +/- 0.15 kpc, z_sun = 5.5 pc (Reid et al. 2019).',
@@ -387,23 +476,30 @@ export class GalaxyModule implements AtlasModule {
         const wb = b.halfWidthKpc * ARM_WIDTH_SCALE
 
         // Alpha carries two separate facts: the Gaussian cross-section (bright ridge,
-        // transparent edges) and whether parallaxes constrain this azimuth at all.
-        const alphaA = a.extrapolated ? 0.06 : 0.24
-        const alphaB = b.extrapolated ? 0.06 : 0.24
+        // transparent edges) and how well parallaxes constrain this azimuth. Both are
+        // now continuous — see armAlphaAt and ARM_CROSS_SECTION.
+        const alphaA = armAlphaAt(arm, a.betaDeg)
+        const alphaB = armAlphaAt(arm, b.betaDeg)
 
-        const aL = galactocentricToSceneOffsetKpc(offsetPoint(a.position, a.normal, wa))
-        const aC = galactocentricToSceneOffsetKpc(a.position)
-        const aR = galactocentricToSceneOffsetKpc(offsetPoint(a.position, a.normal, -wa))
-        const bL = galactocentricToSceneOffsetKpc(offsetPoint(b.position, b.normal, wb))
-        const bC = galactocentricToSceneOffsetKpc(b.position)
-        const bR = galactocentricToSceneOffsetKpc(offsetPoint(b.position, b.normal, -wb))
-
-        pushQuad(ribbonPositions, aL, aC, bC, bL)
-        pushQuadColors(ribbonColors, colour, 0, alphaA, alphaB, 0)
-        pushQuad(ribbonPositions, aC, aR, bR, bC)
-        pushQuadColors(ribbonColors, colour, alphaA, 0, 0, alphaB)
+        // One strip per cross-section step, mirrored about the ridge.
+        for (let k = 0; k < ARM_CROSS_SECTION.length - 1; k++) {
+          const t0 = ARM_CROSS_SECTION[k]
+          const t1 = ARM_CROSS_SECTION[k + 1]
+          const w0 = armCrossSectionWeight(t0)
+          const w1 = armCrossSectionWeight(t1)
+          for (const side of [1, -1]) {
+            const a0 = galactocentricToSceneOffsetKpc(offsetPoint(a.position, a.normal, side * wa * t0))
+            const a1 = galactocentricToSceneOffsetKpc(offsetPoint(a.position, a.normal, side * wa * t1))
+            const b0 = galactocentricToSceneOffsetKpc(offsetPoint(b.position, b.normal, side * wb * t0))
+            const b1 = galactocentricToSceneOffsetKpc(offsetPoint(b.position, b.normal, side * wb * t1))
+            pushQuad(ribbonPositions, a1, a0, b0, b1)
+            pushQuadColors(ribbonColors, colour, alphaA * w1, alphaA * w0, alphaB * w0, alphaB * w1)
+          }
+        }
 
         const target = a.extrapolated || b.extrapolated ? extrapolatedLine : measuredLine
+        const aC = galactocentricToSceneOffsetKpc(a.position)
+        const bC = galactocentricToSceneOffsetKpc(b.position)
         target.push(aC[0], aC[1], aC[2], bC[0], bC[1], bC[2])
       }
     }
@@ -436,8 +532,14 @@ export class GalaxyModule implements AtlasModule {
     // The ridge lines, split so that the extrapolated reaches are visibly weaker. The
     // dataset tells us exactly where the parallaxes stop; hiding that would turn a
     // measurement-limited model into a confident drawing.
-    this.addRidgeLine(measuredLine, 0.38, 'galaxy:arm-ridge-measured')
-    this.addRidgeLine(extrapolatedLine, 0.11, 'galaxy:arm-ridge-extrapolated')
+    //
+    // The measured line used to sit at 0.38 in #dfe9ff over the ribbon, and THAT, not
+    // the vertex-colour tent, is what read as a bright white crease down the centre of
+    // every arm. Softening the ribbon without softening this would have made the
+    // crease relatively more prominent, not less. At 0.14, tinted into the same warm
+    // neutral family as the ribbons, the ridge is a line on a map again.
+    this.addRidgeLine(measuredLine, 0.14, 'galaxy:arm-ridge-measured')
+    this.addRidgeLine(extrapolatedLine, 0.05, 'galaxy:arm-ridge-extrapolated')
 
     this.provenance.push({
       id: 'arms',
@@ -453,7 +555,7 @@ export class GalaxyModule implements AtlasModule {
     const geometry = new THREE.BufferGeometry()
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3))
     const material = new THREE.LineBasicMaterial({
-      color: 0xdfe9ff,
+      color: 0xdcdcd4,
       transparent: true,
       opacity,
       blending: THREE.AdditiveBlending,
@@ -516,6 +618,7 @@ export class GalaxyModule implements AtlasModule {
 
     const material = new THREE.ShaderMaterial({
       uniforms: {
+        uPixelWidth: { value: 1920 },
         uPixelHeight: { value: 1080 },
         uRadiusPx: { value: 2.1 },
         uColor: { value: new THREE.Color(0x9ef0ff) },
@@ -626,8 +729,6 @@ export class GalaxyModule implements AtlasModule {
         row.majorAxisArcmin !== null && row.majorAxisArcmin > 0
           ? angularDiameterToRadiusKpc(row.majorAxisArcmin, distance)
           : 0
-      if (radiusKpc === 0) this.localGroupWithoutSize++
-
       const nodeId = `lg:${row.id}`
       const parentId = hostId(row.host)
       this.addNode({
@@ -637,13 +738,32 @@ export class GalaxyModule implements AtlasModule {
         // A catalogue host that resolves to the galaxy itself (M31's own row says
         // host = M31) would make the containment hierarchy a loop.
         parentId: parentId === nodeId ? null : parentId,
+        // A measured distance with no measured size. The registry is the search
+        // index, so dropping the row makes a catalogued galaxy vanish from the
+        // atlas — which is what happened to And XXX, an M31 dwarf with no major
+        // axis, no magnitude and no morphology in either this table or UNGC: this
+        // module skipped it for want of a size and the cosmos module skipped its
+        // UNGC row for the same reason, each believing the other had it. It is
+        // registered, it is findable, and `radiusMetres` stays 0 so the inspector
+        // reports the silence. No `framingRadiusMetres` either: there is no size to
+        // frame on, and AtlasViewer falls back to the layer's own arrival span.
         radiusMetres: radiusKpc * KPC_M,
         worldHeliocentricKpc: helio,
         provenance: 'measured',
-        provenanceNote: `Distance ${distance.toFixed(1)} kpc by ${row.distanceMethod ?? 'unstated method'} (UNGC). Extent from the catalogued D25 major axis.`,
+        provenanceNote:
+          radiusKpc > 0
+            ? `Distance ${distance.toFixed(1)} kpc by ${row.distanceMethod ?? 'unstated method'} (UNGC). Extent from the catalogued D25 major axis.`
+            : `Distance ${distance.toFixed(1)} kpc by ${row.distanceMethod ?? 'unstated method'} (UNGC). No D25 major axis is published for it, so no extent is reported and nothing is drawn here.`,
+        proxyMorphology: row.morphology ?? undefined,
       })
 
-      if (radiusKpc <= 0) continue
+      if (radiusKpc === 0) {
+        // Registered above but not drawn: the field sizes every splat from its D25
+        // radius, and there is no honest size to give this one.
+        this.localGroupWithoutSize++
+        continue
+      }
+
       positions.push(sx, sy, sz)
       radii.push(radiusKpc)
       // Brightness ordering comes from the measured apparent B magnitude, with a floor
@@ -669,10 +789,11 @@ export class GalaxyModule implements AtlasModule {
 
     const material = new THREE.ShaderMaterial({
       uniforms: {
+        uPixelWidth: { value: 1920 },
         uPixelHeight: { value: 1080 },
         uTanHalfFov: { value: 0.46 },
         uMinRadiusPx: { value: 1.5 },
-        uGain: { value: 0.5 },
+        uGain: { value: LOCAL_GROUP_GAIN },
       },
       vertexShader: GALAXY_VERTEX,
       fragmentShader: GALAXY_FRAGMENT,
@@ -698,7 +819,12 @@ export class GalaxyModule implements AtlasModule {
       id: 'local-group',
       label: `${this.nodes.filter((n) => n.id.startsWith('lg:')).length} Local Group galaxies`,
       provenance: 'measured',
-      note: `Positions from Cepheid/TRGB/CMD distances. Drawn extent is the measured D25 major axis; the glow filling it is an illustration. ${this.localGroupWithoutSize} of them have no published D25 and are drawn as markers only.`,
+      note:
+        'Positions from Cepheid/TRGB/CMD distances. Drawn extent is the measured D25 major axis; ' +
+        `the glow filling it is an illustration. ${this.localGroupWithoutSize} row` +
+        `${this.localGroupWithoutSize === 1 ? ' has' : 's have'} no published D25, so ` +
+        `${this.localGroupWithoutSize === 1 ? 'it is' : 'they are'} searchable and carry no ` +
+        'extent, but nothing is drawn for them: the field sizes every galaxy from its measured D25.',
       source: file.attribution,
     })
   }
@@ -765,6 +891,7 @@ export class GalaxyModule implements AtlasModule {
 
     const material = new THREE.ShaderMaterial({
       uniforms: {
+        uPixelWidth: { value: 1920 },
         uPixelHeight: { value: 1080 },
         uGain: { value: FIELD_GAIN },
         uMaxIntensity: { value: FIELD_MAX_INTENSITY },
@@ -820,10 +947,20 @@ export class GalaxyModule implements AtlasModule {
     this.positionGalacticCentre()
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
+    const pixelWidth = ctx.width * dpr
     const pixelHeight = ctx.height * dpr
     const tanHalfFov = Math.tan((ctx.fovDegrees * Math.PI) / 360)
 
+    // The engine's verdict on this layer's place in this frame, which is NOT the raw
+    // span band: anchored on a star eight kiloparsecs out, the galactic layer is six
+    // decades under its span floor and is on screen only because it is the one thing
+    // drawing a sky. `renderOpacity` is the number that knows that; `spanOpacity`,
+    // which stays raw so the engine can keep using it to decide, is 0 there.
+    const layerFade = layer.renderOpacity
+    const asBackdrop = layer.isBackdrop
+
     if (this.fieldMaterial) {
+      this.fieldMaterial.uniforms.uPixelWidth.value = pixelWidth
       this.fieldMaterial.uniforms.uPixelHeight.value = pixelHeight
 
       // Density LOD for the disc field.
@@ -844,18 +981,29 @@ export class GalaxyModule implements AtlasModule {
         // Below about a kiloparsec on screen the field is already fading out against
         // the real star catalogue, so the full set only matters in the middle band.
         const spanKpc = ctx.viewSpanMetres / KPC_M
-        const fraction = spanKpc > 60 ? 0.22 : spanKpc > 25 ? 0.3 : spanKpc > 8 ? 0.62 : 1
+        // As a backdrop the field is a wash of light behind the subject rather than
+        // the subject, so it is not worth a third of a million additive splats: a
+        // tenth of them, brightness-compensated the same way, is indistinguishable at
+        // 35% opacity. Interleaved A/B anchored on Sagittarius A*, four rounds in one
+        // run on the software rasteriser: 30,000 instances 24.9 / 21.9 / 23.2 / 25.4
+        // fps against 300,000 at 18.2 / 20.4 / 23.6 / 23.2 — a mean of 23.9 against
+        // 21.4. Worth keeping, and a good deal smaller than the win from detaching
+        // the cosmic layer's children (Layer.ts), which is a different change.
+        const fraction = asBackdrop ? 0.1 : spanKpc > 60 ? 0.22 : spanKpc > 25 ? 0.3 : spanKpc > 8 ? 0.62 : 1
         const drawn = Math.max(1, Math.round(total * fraction))
         geometry.instanceCount = drawn
-        this.fieldMaterial.uniforms.uGain.value = FIELD_GAIN * (total / drawn)
+        this.fieldMaterial.uniforms.uGain.value = FIELD_GAIN * (total / drawn) * layerFade
       }
     }
     if (this.maserMaterial) {
+      this.maserMaterial.uniforms.uPixelWidth.value = pixelWidth
       this.maserMaterial.uniforms.uPixelHeight.value = pixelHeight
     }
     if (this.localGroupMaterial) {
+      this.localGroupMaterial.uniforms.uPixelWidth.value = pixelWidth
       this.localGroupMaterial.uniforms.uPixelHeight.value = pixelHeight
       this.localGroupMaterial.uniforms.uTanHalfFov.value = tanHalfFov
+      this.localGroupMaterial.uniforms.uGain.value = LOCAL_GROUP_GAIN * layerFade
     }
 
     // The arm model is a map, and a map is read from outside. Sitting inside the disc,
@@ -877,19 +1025,39 @@ export class GalaxyModule implements AtlasModule {
       smoothstep(22, 40, distanceFromCentre),
     )
     const farFade = 1 - smoothstep(90, 200, distanceFromCentre)
-    const fade = nearFade * farFade
+    const fade = nearFade * farFade * layerFade
     for (let i = 0; i < this.armMaterials.length; i++) {
       const material = this.armMaterials[i]
       material.opacity = this.armBaseOpacity[i] * fade
       material.visible = material.opacity > 0.004
     }
+    // The Sun marker is an instrument cross with 60 pc arms, which is the right size
+    // for a map of the disc and absurd anywhere nearer: at the hundred-light-year rung
+    // it was two cream lines a hundred and twenty parsecs long crossing the entire
+    // frame and converging on the viewer, the loudest thing on screen after the
+    // constellation web was fixed. It says "the Sun is here", which is only worth
+    // saying while enough of the disc is in frame for "here" to mean anything.
+    if (this.sunMarkerMaterial && this.sunMarker) {
+      const markerFade = smoothstep(0.3, 2, ctx.viewSpanMetres / KPC_M) * layerFade
+      this.sunMarkerMaterial.opacity = 0.85 * markerFade
+      this.sunMarker.visible = this.sunMarkerMaterial.opacity > 0.004
+    }
+
+    const maserFade = farFade * layerFade
     if (this.maserMaterial) {
-      this.maserMaterial.uniforms.uIntensity.value = MASER_INTENSITY * farFade
-      this.maserMaterial.visible = farFade > 0.01
+      this.maserMaterial.uniforms.uIntensity.value = MASER_INTENSITY * maserFade
+      this.maserMaterial.visible = maserFade > 0.01
     }
     if (this.maserBarMaterial) {
-      this.maserBarMaterial.opacity = MASER_BAR_OPACITY * farFade
-      this.maserBarMaterial.visible = farFade > 0.01
+      // The bar length is the 1-sigma distance uncertainty, so the bars ARE the
+      // evidence and their opacity is the only thing that may be touched. At the
+      // Milky Way rung, though, every bar is a line crossing a good fraction of the
+      // frame and together they dominate a view whose subject is the disc, so they
+      // step back as the view widens past the few kiloparsecs over which an
+      // individual parallax error is the interesting quantity.
+      const barSpanFade = 1 - 0.73 * smoothstep(5, 30, ctx.viewSpanMetres / KPC_M)
+      this.maserBarMaterial.opacity = MASER_BAR_OPACITY * maserFade * barSpanFade
+      this.maserBarMaterial.visible = this.maserBarMaterial.opacity > 0.004
     }
   }
 
@@ -965,6 +1133,7 @@ export class GalaxyModule implements AtlasModule {
     provenanceNote: string
     worldGalactocentricKpc?: { x: number; y: number; z: number }
     worldHeliocentricKpc?: { x: number; y: number; z: number }
+    proxyMorphology?: string
   }): ProvenancedNode {
     const helio = spec.worldHeliocentricKpc ??
       (spec.worldGalactocentricKpc
@@ -992,6 +1161,7 @@ export class GalaxyModule implements AtlasModule {
       worldPosition,
       provenance: spec.provenance,
       provenanceNote: spec.provenanceNote,
+      proxyMorphology: spec.proxyMorphology,
     }
     this.engine.register(node)
     this.nodes.push(node)
@@ -1022,6 +1192,7 @@ const FIELD_VERTEX = /* glsl */ `
   attribute vec3 iPosition;
   attribute vec3 iColor;
 
+  uniform float uPixelWidth;
   uniform float uPixelHeight;
   uniform float uGain;
   uniform float uMaxIntensity;
@@ -1060,7 +1231,10 @@ const FIELD_VERTEX = /* glsl */ `
     vColor = iColor;
 
     vec4 clip = projectionMatrix * viewPosition;
-    float pixelScale = 2.0 * radiusPx / uPixelHeight;
+    // NDC x spans the viewport WIDTH and NDC y its HEIGHT, so one shared offset would
+    // make every quad W/H times wider than tall and the circular discard would cut an
+    // ellipse. Scale each axis by its own pixel count.
+    vec2 pixelScale = 2.0 * radiusPx / vec2(uPixelWidth, uPixelHeight);
     clip.xy += position.xy * pixelScale * clip.w;
     gl_Position = clip;
   }
@@ -1083,6 +1257,7 @@ const FIELD_FRAGMENT = /* glsl */ `
 const POINT_VERTEX = /* glsl */ `
   attribute vec3 iPosition;
 
+  uniform float uPixelWidth;
   uniform float uPixelHeight;
   uniform float uRadiusPx;
 
@@ -1092,7 +1267,10 @@ const POINT_VERTEX = /* glsl */ `
     vQuad = position.xy;
     vec4 viewPosition = modelViewMatrix * vec4(iPosition, 1.0);
     vec4 clip = projectionMatrix * viewPosition;
-    float pixelScale = 2.0 * uRadiusPx / uPixelHeight;
+    // NDC x spans the viewport WIDTH and NDC y its HEIGHT, so one shared offset would
+    // make every quad W/H times wider than tall and the circular discard would cut an
+    // ellipse. Scale each axis by its own pixel count.
+    vec2 pixelScale = 2.0 * uRadiusPx / vec2(uPixelWidth, uPixelHeight);
     clip.xy += position.xy * pixelScale * clip.w;
     gl_Position = clip;
   }
@@ -1126,6 +1304,7 @@ const GALAXY_VERTEX = /* glsl */ `
   attribute float iIntensity;
   attribute vec3 iColor;
 
+  uniform float uPixelWidth;
   uniform float uPixelHeight;
   uniform float uMinRadiusPx;
   uniform float uGain;
@@ -1155,7 +1334,10 @@ const GALAXY_VERTEX = /* glsl */ `
     vIntensity = iIntensity * uGain * visible;
 
     vec4 clip = projectionMatrix * viewPosition;
-    float pixelScale = 2.0 * radiusPx / uPixelHeight;
+    // NDC x spans the viewport WIDTH and NDC y its HEIGHT, so one shared offset would
+    // make every quad W/H times wider than tall and the circular discard would cut an
+    // ellipse. Scale each axis by its own pixel count.
+    vec2 pixelScale = 2.0 * radiusPx / vec2(uPixelWidth, uPixelHeight);
     clip.xy += position.xy * pixelScale * clip.w;
     gl_Position = clip;
   }
