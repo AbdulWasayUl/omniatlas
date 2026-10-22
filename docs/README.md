@@ -7,6 +7,7 @@ These documents define the product before the catalogue and renderer grow beyond
 3. [DATA_AND_COORDINATES.md](DATA_AND_COORDINATES.md) — object schema, reference frames, time, source provenance, and tiling/indexing.
 4. [RENDERING.md](RENDERING.md) — precision, levels of detail, materials, lighting, picking, performance, and quality policy.
 5. [ROADMAP.md](ROADMAP.md) — sequenced delivery plan and explicit exit criteria.
+6. [PERFORMANCE.md](PERFORMANCE.md) — measured network cost of a cold boot, and the ranked work to reduce it.
 
 ## Core decisions
 
