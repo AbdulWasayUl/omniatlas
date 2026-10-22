@@ -638,7 +638,7 @@ export class GalaxyModule implements AtlasModule {
     mesh.userData = {
       provenance: 'measured',
       badge: file.badge,
-      note: `${rows.length} VLBI trigonometric parallaxes — the observational constraints on the arm model drawn beside them.`,
+      note: `${rows.length} VLBI trigonometric parallaxes: the observational constraints on the arm model drawn beside them.`,
     }
     this.gcGroup.add(mesh)
     this.geometries.push(geometry)

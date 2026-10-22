@@ -788,7 +788,7 @@ export class DeepSkyModule implements AtlasModule {
         'Sprite brightness recomputed from the true camera distance each frame',
       ],
       illustration: [
-        `Direction-only objects projected onto a ${SHELL_PC / 1000} kpc shell — a projection, not a position`,
+        `Direction-only objects projected onto a ${SHELL_PC / 1000} kpc shell: a projection, not a position`,
         'Outline contours drawn on that same shell, and faded out away from the Sun',
         `Assumed magnitude ${ASSUMED_MAGNITUDE} for objects with no catalogued V or B magnitude`,
       ],

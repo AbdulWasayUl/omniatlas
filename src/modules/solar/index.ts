@@ -107,7 +107,9 @@ const FLATTENING: Record<string, number> = {
  * measured colour and the mosaic's absolute level is arbitrary.
  */
 const MAP_GAIN: Record<string, number> = {
-  triton: 2.6,
+  // Triton is absent on purpose: its map is a processed, albedo-matched product rather
+  // than a raw mosaic, so the 2.6 stops that used to sit here clipped the nitrogen
+  // frost to flat white.
   titania: 1.8,
 }
 

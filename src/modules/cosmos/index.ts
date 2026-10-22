@@ -227,7 +227,7 @@ const DEEP_FIELD_MAX_RADIUS_PX = 6
 const DEEP_FIELD_NOTE =
   'Not a catalogue and not an observation. Every survey in this atlas is Sun-centred ' +
   'and none reaches past about 770 Mpc, so beyond that the sky would otherwise be ' +
-  `empty — which is a bigger untruth than a drawing. These ${DEEP_FIELD_COUNT.toLocaleString('en-GB')} ` +
+  `empty, which is a bigger untruth than a drawing. These ${DEEP_FIELD_COUNT.toLocaleString('en-GB')} ` +
   'smudges are a fixed seeded illustration of "the sky is not empty here", pinned to ' +
   'the camera so they never resolve, never get closer and cannot be flown to. They ' +
   'appear only outside the catalogues, in distance and in direction alike: none is ' +
@@ -829,7 +829,7 @@ export class CosmosModule implements AtlasModule {
 
     const omitted: CosmosDataset['omitted'] = []
     if (skippedMilkyWay > 0)
-      omitted.push({ count: skippedMilkyWay, reason: 'the Milky Way itself — drawn by the galaxy module, not here' })
+      omitted.push({ count: skippedMilkyWay, reason: 'the Milky Way itself, drawn by the galaxy module, not here' })
     if (skippedNoDistance > 0)
       omitted.push({ count: skippedNoDistance, reason: 'no usable position or distance in the catalogue row' })
     // Counted since the size filter landed but never reported, so the one row it drops
@@ -837,7 +837,7 @@ export class CosmosModule implements AtlasModule {
     if (skippedNoSize > 0)
       omitted.push({
         count: skippedNoSize,
-        reason: 'no isophotal diameter and no HI mass — no size to frame, so drawn but not offered as a destination',
+        reason: 'no isophotal diameter and no HI mass, so there is no size to frame: drawn, but not offered as a destination',
       })
 
     this.datasets.push({
@@ -1168,7 +1168,7 @@ export class CosmosModule implements AtlasModule {
       distanceKind: 'redshift',
       drawn,
       omitted: [
-        { count: noRedshift, reason: 'no redshift measured — no honest distance exists, so they are not placed' },
+        { count: noRedshift, reason: 'no redshift measured, so no honest distance exists and they are not placed' },
         { count: nonPositive, reason: 'blueshifted or at rest: peculiar motion, not distance' },
       ],
       attribution: '2MASS Redshift Survey — Huchra, Macri, Masters et al. (2012), ApJS 199, 26. Retrieved from VizieR (CDS).',
@@ -1361,7 +1361,7 @@ export class CosmosModule implements AtlasModule {
         // proxy's `default: return null`, keeps the framing radius above, and the
         // marker takes classStyle()'s fallback glyph.
         objectClass: 'region',
-        name: 'Zone of Avoidance — no survey coverage',
+        name: 'Zone of Avoidance: no survey coverage',
         parentId: null,
         distanceKind: 'redshift',
         // The coverage limits are measured; this node's POSITION is not. It is a

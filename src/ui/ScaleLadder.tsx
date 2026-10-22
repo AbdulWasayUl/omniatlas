@@ -68,7 +68,7 @@ export function ScaleLadder({
               data-active={rung.id === active.id}
               data-shipped={rung.shipped}
               data-anchor={rung.isAnchor}
-              title={rung.shipped ? rung.caption : `${rung.caption} — coming in a later release`}
+              title={rung.shipped ? rung.caption : `${rung.caption} (coming in a later release)`}
               aria-label={`${rung.label}${rung.shipped ? '' : ' (not yet available)'}`}
               onClick={() => onPick(rung)}
             >

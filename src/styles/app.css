@@ -110,7 +110,12 @@ button {
   border-radius: 3px;
 }
 
-/* --- zone 1: top bar -------------------------------------------------------- */
+/* --- zone 1: top bar --------------------------------------------------------
+ * A scrim, not a slab. The bar used to be a filled surface with a hard bottom
+ * border, which cut the sky off in a straight line two pixels under the wordmark
+ * and made the whole window read as a web page with a 3D viewport in it. Fading
+ * into the scene instead costs one gradient and keeps the scene the interface.
+ */
 
 .topbar {
   position: absolute;
@@ -121,84 +126,164 @@ button {
   z-index: var(--z-chrome);
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 0 16px;
-  background: var(--surface-1);
-  border-bottom: 1px solid var(--line);
+  gap: 18px;
+  padding: 0 var(--gutter);
+  background: linear-gradient(to bottom, var(--scrim-strong) 0%, var(--scrim-mid) 72%, var(--scrim-none) 100%);
+}
+
+/* The fade continues past the bar's own box, so there is no edge to see. The
+   element itself has to stay exactly --topbar-h tall because every other zone is
+   positioned off that number. */
+.topbar::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: var(--scrim-fade);
+  background: linear-gradient(to bottom, var(--scrim-mid), var(--scrim-none));
+  pointer-events: none;
 }
 
 .wordmark {
   display: flex;
-  align-items: center;
-  gap: 9px;
+  align-items: baseline;
+  gap: 7px;
   font-family: var(--font-display);
-  font-size: 17px;
-  letter-spacing: -0.012em;
+  font-size: 15px;
   color: var(--text-1);
   white-space: nowrap;
+  user-select: none;
 }
 
 .wordmark b {
   font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
+/* Set apart by tracking and weight rather than by a second colour: two greys in a
+   four-letter wordmark reads as a gradient someone forgot to finish. */
 .wordmark span {
-  font-weight: 200;
-  color: var(--text-2);
+  font-weight: 300;
+  font-size: 12px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--text-3);
 }
 
 .topbar-spacer {
   flex: 1;
 }
 
+/* The focus reticle the scene draws around the anchored body, reused as the
+   chrome's one ornament. Four corner brackets on an invisible box: it is the same
+   mark in the same accent, so the panel and the thing it describes are visibly
+   part of one instrument. */
+.brackets {
+  position: relative;
+}
+
+.brackets::before,
+.brackets::after {
+  content: '';
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--accent);
+  opacity: 0.45;
+  pointer-events: none;
+  transition: opacity var(--d-micro) var(--ease-micro);
+}
+
+.brackets::before {
+  top: -1px;
+  left: -1px;
+  border-right: none;
+  border-bottom: none;
+}
+
+.brackets::after {
+  bottom: -1px;
+  right: -1px;
+  border-left: none;
+  border-top: none;
+}
+
 .search-trigger {
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: 260px;
-  height: 32px;
-  padding: 0 10px;
+  gap: 9px;
+  width: 300px;
+  height: 34px;
+  padding: 0 11px;
   border: 1px solid var(--line-strong);
   border-radius: var(--r-control);
-  background: var(--surface-2);
+  background: rgb(23 27 34 / 62%);
   color: var(--text-3);
   font-size: 13px;
   letter-spacing: -0.01em;
-  transition: border-color var(--d-micro) var(--ease-micro), color var(--d-micro) var(--ease-micro);
+  transition: border-color var(--d-micro) var(--ease-micro), color var(--d-micro) var(--ease-micro),
+    background var(--d-micro) var(--ease-micro);
 }
 
-.search-trigger:hover {
-  border-color: var(--accent);
+.search-trigger:hover,
+.search-trigger:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: rgb(23 27 34 / 86%);
   color: var(--text-2);
+}
+
+.search-trigger:hover::before,
+.search-trigger:hover::after {
+  opacity: 0.9;
+}
+
+.search-glyph {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  color: var(--text-4);
+  transition: color var(--d-micro) var(--ease-micro);
+}
+
+.search-trigger:hover .search-glyph {
+  color: var(--accent);
 }
 
 .search-trigger kbd {
   margin-left: auto;
   font-family: var(--font-ui);
-  font-size: 11px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
   color: var(--text-4);
   border: 1px solid var(--line-strong);
-  border-radius: 4px;
-  padding: 1px 5px;
+  border-radius: 2px;
+  padding: 2px 5px;
+  line-height: 1;
 }
 
 .tool-button {
-  height: 32px;
-  padding: 0 11px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid transparent;
   border-radius: var(--r-control);
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  color: var(--text-2);
-  transition: background var(--d-micro) var(--ease-micro), color var(--d-micro) var(--ease-micro);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  transition: background var(--d-micro) var(--ease-micro), color var(--d-micro) var(--ease-micro),
+    border-color var(--d-micro) var(--ease-micro);
 }
 
 .tool-button:hover {
-  background: var(--surface-3);
+  border-color: var(--line-strong);
   color: var(--text-1);
 }
 
 .tool-button[aria-pressed='true'] {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
   background: var(--accent-tint);
   color: var(--accent-hi);
 }
@@ -414,19 +499,44 @@ button {
 
 /* --- zone 3: inspector --------------------------------------------------------- */
 
+/*
+ * The drawer stops at the time bar rather than at the window. It used to run to
+ * `bottom: 0` at a z-index above the chrome, so on every viewport the inspector
+ * was open it covered the clock's transport: the rate stepper and the Now button
+ * were simply not there, and nothing on screen said why.
+ */
 .inspector {
   position: absolute;
   top: var(--topbar-h);
   right: 0;
-  bottom: 0;
+  bottom: var(--timebar-h);
   width: var(--inspector-w);
   z-index: var(--z-inspector);
-  background: var(--surface-1);
-  border-left: 1px solid var(--line);
+  background: var(--surface-0);
+  border-left: 1px solid var(--line-strong);
   display: flex;
   flex-direction: column;
   animation: slide-in var(--d-enter) var(--ease-out);
   overflow: hidden;
+}
+
+/* A hairline of the object's own class colour down the docked edge. One pixel,
+   and it is the only thing in the panel that has to change when the subject
+   changes class, which is what makes the drawer feel attached to the thing in
+   the viewport rather than to the window. */
+.inspector::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--class-accent, var(--accent)) 70%, transparent),
+    transparent 62%
+  );
+  pointer-events: none;
 }
 
 @keyframes slide-in {
@@ -437,54 +547,151 @@ button {
 }
 
 .inspector-head {
-  padding: 18px var(--gutter) 14px;
+  position: relative;
+  padding: 16px var(--gutter) 15px;
   border-bottom: 1px solid var(--line);
+  background: linear-gradient(to bottom, var(--surface-1), var(--surface-0));
 }
 
 .inspector-class {
   display: flex;
   align-items: center;
   gap: 7px;
-  margin-bottom: 7px;
+  margin-bottom: 6px;
+  /* Leaves room for the close control, so a long class label never runs under it. */
+  padding-right: 30px;
 }
 
 .class-dot {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--class-accent, var(--accent)) 16%, transparent);
 }
 
 .inspector-title {
   font-family: var(--font-display);
-  font-size: 22px;
-  line-height: 1.25;
-  letter-spacing: -0.02em;
+  font-size: 23px;
+  line-height: 1.2;
+  letter-spacing: -0.022em;
   font-weight: 600;
   margin: 0;
+  padding-right: 30px;
+}
+
+/*
+ * Close is an affordance of the drawer, not an item in its content. It used to be
+ * a pill sitting next to "Fly here" in the body, which put a destructive-ish action
+ * and the panel's one real action side by side in the same shape, and left the
+ * header with no way out at all.
+ */
+.inspector-close {
+  position: absolute;
+  top: 12px;
+  right: calc(var(--gutter) - 8px);
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-control);
+  color: var(--text-4);
+  transition: background var(--d-micro) var(--ease-micro), color var(--d-micro) var(--ease-micro);
+}
+
+.inspector-close:hover {
+  background: var(--surface-2);
+  color: var(--text-1);
 }
 
 .inspector-body {
   flex: 1;
   overflow-y: auto;
-  padding: 18px var(--gutter) 28px;
+  padding: 16px var(--gutter) 28px;
   scrollbar-width: thin;
   scrollbar-color: var(--surface-4) transparent;
 }
 
 .inspector-prose {
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.62;
   color: var(--text-2);
-  margin: 0 0 20px;
+  margin: 0 0 16px;
 }
 
+/*
+ * One primary action, full width, with the scene's bracket marks on it. "Fly here"
+ * is the only thing most visits to this panel are for, and as a 26px pill it was
+ * the same weight as the Close beside it and lighter than the provenance badge
+ * further down.
+ */
+.fly-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 38px;
+  margin-bottom: 4px;
+  border: 1px solid color-mix(in srgb, var(--accent) 48%, transparent);
+  border-radius: var(--r-control);
+  background: var(--accent-tint);
+  color: var(--accent-hi);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: background var(--d-micro) var(--ease-micro), border-color var(--d-micro) var(--ease-micro),
+    color var(--d-micro) var(--ease-micro);
+}
+
+.fly-button:hover {
+  background: color-mix(in srgb, var(--accent) 22%, var(--accent-tint));
+  border-color: var(--accent);
+  color: #dff2ff;
+}
+
+.fly-button:active {
+  transform: translateY(1px);
+}
+
+.fly-button svg {
+  flex: none;
+}
+
+/* Already there: flying would be a no-op, so the control states that rather than
+   animating a 0 m journey. */
+.fly-button:disabled {
+  border-color: var(--line-strong);
+  background: none;
+  color: var(--text-4);
+  cursor: default;
+  transform: none;
+}
+
+/*
+ * Facts as ruled rows. The bare two-column grid left label and value floating at
+ * opposite edges of a 312px panel with nothing joining them, which is unreadable
+ * the moment a value wraps — "Likely a captured Kuiper Belt object" broke to two
+ * lines under a label it no longer looked related to.
+ */
 .fact-grid {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 7px 18px;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0 18px;
   font-size: 13px;
-  line-height: 1.54;
+  line-height: 1.5;
+}
+
+.fact-label,
+.fact-value {
+  padding: 7px 0;
+  border-top: 1px solid var(--line-hair);
+}
+
+.fact-grid > :is(.fact-label, .fact-value):nth-child(-n + 2) {
+  border-top: none;
+  padding-top: 0;
 }
 
 .fact-label {
@@ -498,13 +705,27 @@ button {
   font-variant-numeric: tabular-nums slashed-zero;
 }
 
+/*
+ * Section heads carry a rule out to the panel edge, so the body reads as banded
+ * sections rather than as one column of text with occasional small caps in it.
+ */
 .section-head {
-  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-3);
-  margin: 24px 0 10px;
+  color: var(--text-4);
+  margin: 22px 0 10px;
+}
+
+.section-head::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
 }
 
 .chip-row {
@@ -519,7 +740,7 @@ button {
   gap: 6px;
   height: 26px;
   padding: 0 10px;
-  border-radius: var(--r-pill);
+  border-radius: var(--r-control);
   background: var(--surface-2);
   border: 1px solid var(--line);
   font-size: 12px;
@@ -532,10 +753,21 @@ button.chip:hover {
   color: var(--text-1);
 }
 
+/* A footnote under a section, not a paragraph in the prose column. */
+.inspector-note {
+  font-size: 12px;
+  line-height: 1.58;
+  color: var(--text-3);
+  margin: 10px 0 0;
+  padding-left: 10px;
+  border-left: 1px solid var(--line-strong);
+}
+
 .source-link {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  margin-top: 12px;
   font-size: 12px;
   color: var(--accent);
   text-decoration: none;
@@ -579,7 +811,14 @@ button.chip:hover {
 }
 
 /* --- zone 4: time bar ------------------------------------------------------------
- * The one translucent surface in the product. Nothing critical sits behind it.
+ * Scrimmed like the top bar, and for the same reason. This used to be the one
+ * blurred surface in the product; the blur is gone, because `backdrop-filter` over
+ * a canvas that repaints every frame is a compositor readback every frame, and a
+ * gradient buys the same legibility for nothing.
+ *
+ * The clock reads left, the transport reads right, and both are framed modules
+ * rather than loose text: a bare timestamp floating over a starfield next to two
+ * chevrons gave no clue that the two belonged to one control.
  */
 .timebar {
   position: absolute;
@@ -592,69 +831,139 @@ button.chip:hover {
   align-items: center;
   gap: 14px;
   padding: 0 var(--gutter);
-  background: color-mix(in srgb, var(--surface-1) 92%, transparent);
-  backdrop-filter: blur(16px);
-  border-top: 1px solid var(--line);
+  background: linear-gradient(to top, var(--scrim-strong) 0%, var(--scrim-mid) 68%, var(--scrim-none) 100%);
+}
+
+.timebar::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: var(--scrim-fade);
+  background: linear-gradient(to top, var(--scrim-mid), var(--scrim-none));
+  pointer-events: none;
 }
 
 .time-now {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  min-width: 0;
 }
 
+/* A ring rather than a filled dot, and it breathes. The clock can be stopped, fast,
+   reversed or live, and only one of those four states is worth an eye-catch; a
+   static dot was reading as a decoration next to the timestamp. */
 .live-dot {
+  position: relative;
   width: 7px;
   height: 7px;
   border-radius: 50%;
   background: var(--live);
   flex: none;
+  box-shadow: 0 0 0 3px rgb(94 219 129 / 14%);
+  animation: live-pulse 2.4s var(--ease-standard) infinite;
 }
 
-/* The aliasing note. Quiet by design: it reports a rendering compromise, not an error. */
+@keyframes live-pulse {
+  50% {
+    box-shadow: 0 0 0 5px rgb(94 219 129 / 6%);
+  }
+}
+
+/* The notes. Quiet by design: they report a rendering compromise or a boundary of
+   the ephemeris, not an error, so they take the warn hue at low saturation and
+   never a filled badge. */
 .time-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 11px;
-  color: var(--text-3);
+  letter-spacing: -0.005em;
+  color: var(--warn);
   white-space: nowrap;
-  padding-left: 10px;
-  border-left: 1px solid var(--line);
+  padding: 3px 9px;
+  border: 1px solid color-mix(in srgb, var(--warn) 28%, transparent);
+  border-radius: var(--r-control);
+  background: color-mix(in srgb, var(--warn) 9%, transparent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .time-stamp {
   font-size: 13px;
+  letter-spacing: 0.015em;
   color: var(--text-1);
   font-variant-numeric: tabular-nums slashed-zero;
   white-space: nowrap;
 }
 
+/* One bordered module holding the stepper and its readout, with Now outside it:
+   stepping the rate and jumping to the present are different actions and should not
+   look like three buttons in a row. */
 .rate-group {
   display: flex;
   align-items: center;
-  gap: 2px;
   margin-left: auto;
+  flex: none;
+}
+
+.rate-stepper {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-control);
+  background: rgb(15 18 24 / 68%);
+  overflow: hidden;
 }
 
 .rate-label {
-  min-width: 96px;
+  min-width: 104px;
+  padding: 0 4px;
   text-align: center;
-  font-size: 12px;
-  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-1);
   font-variant-numeric: tabular-nums;
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+}
+
+/* Dimmed, not hidden: a stopped clock still has a rate it will resume at, and
+   blanking the readout made the space bar look like it had cleared the setting. */
+.rate-label[data-paused='true'] {
+  color: var(--text-3);
 }
 
 .icon-button {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 100%;
+  min-height: 30px;
   display: grid;
   place-items: center;
-  border-radius: var(--r-control);
-  color: var(--text-2);
+  font-size: 15px;
+  line-height: 1;
+  color: var(--text-3);
   transition: background var(--d-micro) var(--ease-micro), color var(--d-micro) var(--ease-micro);
 }
 
 .icon-button:hover {
   background: var(--surface-3);
   color: var(--text-1);
+}
+
+.icon-button:disabled {
+  color: var(--text-4);
+  cursor: default;
+  background: none;
 }
 
 /* --- command palette --------------------------------------------------------- */
@@ -671,14 +980,14 @@ button.chip:hover {
 }
 
 .palette {
-  width: min(620px, calc(100vw - 32px));
-  max-height: 60vh;
+  width: min(660px, calc(100vw - 32px));
+  max-height: min(68vh, 640px);
   display: flex;
   flex-direction: column;
-  background: var(--surface-1);
+  background: var(--surface-0);
   border: 1px solid var(--line-strong);
-  border-radius: 12px;
-  box-shadow: 0 24px 64px rgb(0 0 0 / 60%);
+  border-radius: 6px;
+  box-shadow: 0 28px 80px rgb(0 0 0 / 72%), 0 0 0 1px rgb(255 255 255 / 3%);
   overflow: hidden;
   animation: palette-in var(--d-enter) var(--ease-out);
 }
@@ -690,15 +999,32 @@ button.chip:hover {
   }
 }
 
-.palette input {
-  height: 52px;
-  padding: 0 18px;
-  border: none;
+.palette-input {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 0 16px;
   border-bottom: 1px solid var(--line);
+  background: var(--surface-1);
+}
+
+.palette-input .search-glyph {
+  width: 15px;
+  height: 15px;
+  color: var(--text-4);
+}
+
+.palette input {
+  flex: 1;
+  min-width: 0;
+  height: 50px;
+  padding: 0;
+  border: none;
   background: transparent;
   color: var(--text-1);
   font: inherit;
   font-size: 15px;
+  letter-spacing: -0.012em;
   outline: none;
 }
 
@@ -706,26 +1032,83 @@ button.chip:hover {
   color: var(--text-4);
 }
 
+/*
+ * The scope strip. It filters, and it is also the only place the product lists what
+ * it actually holds: six labels with counts answer "is this just the solar system"
+ * before anyone types a character.
+ */
+.palette-scopes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-1);
+}
+
+.scope-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 25px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: var(--r-control);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--text-3);
+  transition: background var(--d-micro) var(--ease-micro), color var(--d-micro) var(--ease-micro),
+    border-color var(--d-micro) var(--ease-micro);
+}
+
+.scope-chip:hover {
+  background: var(--surface-2);
+  color: var(--text-1);
+}
+
+.scope-chip[aria-pressed='true'] {
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  background: var(--accent-tint);
+  color: var(--accent-hi);
+}
+
+.scope-count {
+  font-size: 10px;
+  color: var(--text-4);
+  font-variant-numeric: tabular-nums;
+}
+
+.scope-chip[aria-pressed='true'] .scope-count {
+  color: color-mix(in srgb, var(--accent-hi) 72%, transparent);
+}
+
 .palette-results {
+  flex: 1;
   overflow-y: auto;
   padding: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-4) transparent;
 }
 
 .palette-group {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-4);
-  padding: 10px 12px 5px;
+  padding: 12px 10px 5px;
 }
 
 .palette-row {
-  display: flex;
+  display: grid;
+  /* Name takes the slack; class and distance are fixed rails, so the three columns
+     line up down the list instead of each row finding its own alignment. */
+  grid-template-columns: 8px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 8px 12px;
+  padding: 7px 10px;
   border-radius: var(--r-control);
   text-align: left;
   transition: background var(--d-micro) var(--ease-micro);
@@ -733,25 +1116,79 @@ button.chip:hover {
 
 .palette-row[data-active='true'],
 .palette-row:hover {
-  background: var(--surface-3);
+  background: var(--surface-2);
+}
+
+.palette-row[data-active='true'] {
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 
 .palette-name {
   font-size: 14px;
   color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palette-class {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-4);
+  white-space: nowrap;
 }
 
 .palette-path {
+  min-width: 72px;
   font-size: 12px;
   color: var(--text-3);
-  margin-left: auto;
+  text-align: right;
   white-space: nowrap;
 }
 
 .palette-empty {
-  padding: 28px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 34px 18px;
   text-align: center;
   font-size: 13px;
+  color: var(--text-3);
+}
+
+.palette-empty p {
+  margin: 0;
+}
+
+.palette-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 14px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-1);
+  font-size: 11px;
+  color: var(--text-4);
+}
+
+.palette-keys {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.palette-keys kbd {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  line-height: 1;
+  padding: 3px 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
   color: var(--text-3);
 }
 
@@ -827,8 +1264,32 @@ button.chip:hover {
   text-shadow: 0 1px 3px rgb(0 0 0 / 90%);
 }
 
-.inspector ~ .stats {
+/*
+ * Both of these sit bottom-right, which is exactly where the drawer is, so both have
+ * to step aside when it opens.
+ *
+ * Through `:has()` on the shell, because the sibling form this replaced never matched
+ * anything: the inspector is rendered inside `#atlas-readouts` while the stats and the
+ * credits are siblings of that wrapper, so `.inspector ~ .stats` asked for a sibling
+ * relationship the DOM does not have. The credit line has been running underneath the
+ * open drawer, clipped mid-sentence, for as long as both have existed.
+ */
+.app-shell:has(.inspector) :is(.stats, .credits) {
   right: calc(var(--inspector-w) + var(--gutter));
+}
+
+/*
+ * Below this the drawer leaves the credit line less room than the HUD caption on the
+ * other side of the same gutter already takes, and the two run into each other. The
+ * stats overlay is three short right-aligned lines and still fits; the credits are a
+ * paragraph and do not. Dropping them here follows what the phone breakpoint already
+ * does, and the same attributions stay in the inspector's Evidence section and in
+ * docs/DATA_AND_COORDINATES.md.
+ */
+@media (width < 1180px) {
+  .app-shell:has(.inspector) .credits {
+    display: none;
+  }
 }
 
 /* --- credits ------------------------------------------------------------------- */
@@ -910,33 +1371,89 @@ button.chip:hover {
     left: var(--gutter);
   }
 
+  /* The sheet used to own the safe-area inset because it was the bottom-most element.
+     It no longer is, so the clock takes it. */
   .timebar {
     gap: 8px;
-    padding: 0 12px;
+    padding: 0 12px env(safe-area-inset-bottom);
+    height: calc(var(--timebar-h) + env(safe-area-inset-bottom));
   }
 
+  .palette-footer {
+    font-size: 10px;
+  }
+
+  /* Four rails do not fit at 360px: the class column is the one a phone can infer
+     from the dot's colour and the group heading. */
+  .palette-class {
+    display: none;
+  }
+
+  .palette-row {
+    grid-template-columns: 8px minmax(0, 1fr) auto;
+  }
+
+  /* At 375px the clock and the transport want 396px between them, so both give a
+     little. The timestamp keeps its UTC suffix: the one thing worse than a cramped
+     clock is a clock that does not say which zone it is in. */
   .rate-label {
-    min-width: 72px;
-    font-size: 11px;
+    min-width: 62px;
+    font-size: 10px;
+    letter-spacing: 0.04em;
   }
 
   .time-stamp {
-    font-size: 12px;
+    font-size: 11px;
+    letter-spacing: 0;
+  }
+
+  .icon-button {
+    width: 27px;
+  }
+
+  /* The notes are a sentence each and there is no room for one beside the clock.
+     Clipped rather than `display: none`, because these carry `role="status"` and a
+     removed element announces nothing: the extrapolation warning is exactly the
+     thing a phone user must still be told. */
+  .time-note {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
   }
 
   .inspector {
     top: auto;
     left: 0;
     right: 0;
-    bottom: 0;
+    /* Above the clock here too, for the same reason it is on desktop: a sheet that
+       covers the transport leaves no way to change the rate without closing it. The
+       clock carries the safe-area inset on this breakpoint, so clear that as well. */
+    bottom: calc(var(--timebar-h) + env(safe-area-inset-bottom));
     width: 100%;
-    max-height: 60vh;
+    max-height: 56vh;
     border-left: none;
-    border-top: 1px solid var(--line);
-    border-radius: 14px 14px 0 0;
-    padding-bottom: env(safe-area-inset-bottom);
+    border-top: 1px solid var(--line-strong);
+    border-radius: 10px 10px 0 0;
     z-index: var(--z-sheet);
     animation: sheet-in var(--d-sheet) var(--ease-out);
+  }
+
+  /* The class hairline runs along the sheet's top edge, not its left one. */
+  .inspector::before {
+    left: 0;
+    right: 0;
+    bottom: auto;
+    width: auto;
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      color-mix(in srgb, var(--class-accent, var(--accent)) 70%, transparent),
+      transparent 62%
+    );
   }
 
   @keyframes sheet-in {
@@ -977,9 +1494,28 @@ button.chip:hover {
   display: none;
 }
 
+/* Outside the stepper, and bordered, because it is a jump rather than a step. */
 .now-button {
   margin-left: 8px;
   flex: none;
+  height: 32px;
+  border-color: var(--line-strong);
+  color: var(--text-2);
+}
+
+.now-button:hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: var(--accent-tint);
+  color: var(--accent-hi);
+}
+
+/* Already on the present instant: the jump has nowhere to go, so it reads as a
+   state rather than offering an action that would do nothing. */
+.now-button:disabled {
+  color: var(--text-4);
+  border-color: var(--line);
+  background: none;
+  cursor: default;
 }
 
 @media (width < 768px) {

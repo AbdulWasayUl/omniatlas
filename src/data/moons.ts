@@ -148,7 +148,7 @@ const MOON_SEEDS: MoonSeed[] = [
     radiusKm: 1_560.8,
     orderIndex: 1,
     description:
-      'An ice-shelled Galilean moon that likely hides a global saltwater ocean beneath its cracked, relatively young surface — a leading target in the search for life.',
+      'An ice-shelled Galilean moon that likely hides a global saltwater ocean beneath its cracked, relatively young surface. It is a leading target in the search for life.',
     facts: [
       ['Mean radius', '1,560.8 km'],
       ['Semi-major axis', '671,100 km'],
@@ -206,7 +206,7 @@ const MOON_SEEDS: MoonSeed[] = [
     radiusKm: 198.2,
     orderIndex: 0,
     description:
-      'The smallest and innermost of Saturn’s major moons, dominated by the huge impact crater Herschel — giving it a “Death Star” silhouette.',
+      'The smallest and innermost of Saturn’s major moons, dominated by the huge impact crater Herschel, which gives it a “Death Star” silhouette.',
     facts: [
       ['Mean radius', '198.2 km'],
       ['Semi-major axis', '186,000 km'],
@@ -317,7 +317,7 @@ const MOON_SEEDS: MoonSeed[] = [
     radiusKm: 734.3,
     orderIndex: 6,
     description:
-      'A distant, dramatically two-toned moon — one hemisphere dark as coal tar, the other bright ice — with a strange equatorial ridge.',
+      'A distant, dramatically two-toned moon with a strange equatorial ridge: one hemisphere is dark as coal tar, the other bright ice.',
     facts: [
       ['Mean radius', '734.3 km'],
       ['Semi-major axis', '3,561,700 km'],
@@ -436,9 +436,13 @@ const MOON_SEEDS: MoonSeed[] = [
       ['Origin', 'Likely a captured Kuiper Belt object'],
     ],
     textureUrl: '/textures/moons/triton.jpg',
-    // Voyager 2 imaged roughly the southern 40% of Triton in the 1989 flyby; the rest
-    // of the USGS mosaic is empty.
-    unimagedFill: '#dce6ea',
+    // No `unimagedFill` here, unlike Titania. The file this used to point at was not a
+    // map at all: it was an oblique three-quarter VIEW of the globe pasted into a
+    // 1440x720 frame, so sampling it as equirectangular smeared one crescent of real
+    // terrain across the whole sphere and left the rest flat. Nothing in the shader
+    // could rescue that; the asset was the bug. The replacement is a genuine
+    // cylindrical projection that carries its own neutral fill over the hemisphere
+    // Voyager 2 never saw, which is why the no-data substitution is switched off.
     color: '#c7d6de',
     source: 'keplerian',
     elements: elements(354_800, 0.000016, 157.3, 5.876994, 178.1, 0, 63),

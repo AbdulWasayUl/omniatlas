@@ -180,6 +180,22 @@ export function AppChrome({ viewer }: { viewer: AtlasViewer | null }) {
   )
 }
 
+/**
+ * The search glyph.
+ *
+ * Inline rather than a sprite reference: it is nine path commands, and the one
+ * sprite in `public/` is unrelated template leftover. `currentColor` lets the
+ * trigger's own hover rule tint it without a second selector.
+ */
+function SearchGlyph() {
+  return (
+    <svg className="search-glyph" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="7" cy="7" r="4.6" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M10.4 10.4 14 14" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 function TopBar({
   onSearch,
   onToggleStats,
@@ -193,11 +209,15 @@ function TopBar({
     <header className="topbar">
       <div className="wordmark">
         <b>OMNI</b>
-        <span>ATLAS</span>
+        <span>Atlas</span>
       </div>
       <div className="topbar-spacer" />
-      <button type="button" className="search-trigger" onClick={onSearch} aria-label="Search the atlas">
-        <span className="search-label-long">Search the atlas</span>
+      <button type="button" className="search-trigger brackets" onClick={onSearch} aria-label="Search the atlas">
+        <SearchGlyph />
+        {/* The long form names the scope, which is the whole point of the control
+            here: the atlas is not only the solar system, and a bare "Search" let
+            people assume it was. */}
+        <span className="search-label-long">Search anything in the atlas</span>
         <span className="search-label-short" aria-hidden="true">Search</span>
         <kbd>⌘K</kbd>
       </button>
@@ -389,14 +409,14 @@ function TimeBar({ viewer, snapshot }: { viewer: AtlasViewer | null; snapshot: V
     <footer className="timebar">
       <div className="time-now">
         {live && <span className="live-dot" aria-hidden="true" />}
-        <span className="time-stamp num">{epochMs === null ? '—' : `${formatUtc(epochMs)} UTC`}</span>
+        <span className="time-stamp num">{epochMs === null ? 'Syncing' : `${formatUtc(epochMs)} UTC`}</span>
         {/* Past about half a turn per frame the renderer stops integrating a body's spin
             and shows a smoothed stand-in, because sampled rotation below Nyquist runs
             backwards. Saying so is cheaper than letting someone read a planet's
             direction of rotation off a stroboscope. */}
         {snapshot?.rotationAliased && (
           <span className="time-note" role="status">
-            Rotation too fast to show at this rate — spin is smoothed
+            Rotation too fast to show at this rate. Spin is smoothed.
           </span>
         )}
         {/* Outside the window the ephemeris is fitted over, the positions are an
@@ -404,24 +424,36 @@ function TimeBar({ viewer, snapshot }: { viewer: AtlasViewer | null; snapshot: V
             top rung reaches it, and nothing else in the product would say so. */}
         {epochMs !== null && !epochIsFitted(epochMs) && (
           <span className="time-note" role="status">
-            Outside the ephemeris window (1700–2200) — positions are extrapolated
+            Outside the ephemeris window (1700 to 2200). Positions are extrapolated.
           </span>
         )}
       </div>
 
       <div className="rate-group">
-        <button type="button" className="icon-button" aria-label="Slower" onClick={() => apply(-1)}>
-          ‹
-        </button>
-        <span className="rate-label num" aria-live="polite">
-          {formatRate(effective)}
-        </span>
-        <button type="button" className="icon-button" aria-label="Faster" onClick={() => apply(1)}>
-          ›
-        </button>
+        <div className="rate-stepper">
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Slower"
+            // A stopped clock is already the slowest rung, so the control says so
+            // instead of silently swallowing the press — `apply` has always ignored
+            // it, and a button that does nothing when clicked reads as broken.
+            disabled={paused}
+            onClick={() => apply(-1)}
+          >
+            ‹
+          </button>
+          <span className="rate-label num" data-paused={paused} aria-live="polite">
+            {formatRate(effective)}
+          </span>
+          <button type="button" className="icon-button" aria-label="Faster" onClick={() => apply(1)}>
+            ›
+          </button>
+        </div>
         <button
           type="button"
           className="tool-button now-button"
+          disabled={live}
           onClick={() => viewer?.resumeLive()}
         >
           Now
@@ -486,8 +518,8 @@ function ControlHint({ ready }: { ready: boolean }) {
 function Credits() {
   return (
     <div className="credits">
-      Positions from astronomy-engine (VSOP87/ELP) · Textures NASA / USGS / Solar System Scope · Stars AT-HYG v4.0
-      CC&nbsp;BY-SA&nbsp;4.0
+      Positions from astronomy-engine (VSOP87/ELP) · Textures NASA / USGS / Solar System Scope, Triton map by
+      A.&nbsp;Anpilogov CC&nbsp;BY&nbsp;3.0 · Stars AT-HYG v4.0 CC&nbsp;BY-SA&nbsp;4.0
     </div>
   )
 }

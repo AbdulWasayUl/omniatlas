@@ -13,8 +13,8 @@ import { aliasContains, aliasesFor } from '../../src/ui/searchMatch'
 
 describe('formatDistance', () => {
   it('refuses to present a broken number as a measurement', () => {
-    expect(formatDistance(Number.NaN).text).toBe('—')
-    expect(formatDistance(Number.POSITIVE_INFINITY).text).toBe('—')
+    expect(formatDistance(Number.NaN).text).toBe('Unknown')
+    expect(formatDistance(Number.POSITIVE_INFINITY).text).toBe('Unknown')
   })
 
   it('keeps the sign of a signed separation', () => {

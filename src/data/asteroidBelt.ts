@@ -123,7 +123,7 @@ const NOTABLE_BODY_SEEDS: NotableBodySeed[] = [
     periodYears: 5.59,
     meanAnomalyDegAtEpoch: 312,
     description:
-      'The fourth-largest main-belt object, orbiting in the outer belt and found by VLT imaging to be nearly spherical — a possible dwarf-planet candidate.',
+      'The fourth-largest main-belt object, orbiting in the outer belt and found by VLT imaging to be nearly spherical, making it a possible dwarf-planet candidate.',
   },
 ]
 

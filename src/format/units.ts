@@ -73,7 +73,7 @@ const DISTANCE_UNITS: { divisor: number; unit: string; until: number }[] = [
 export function formatDistance(metres: number): FormattedDistance {
   // NaN reaches here from the camera whenever a flight path degenerates, and a HUD
   // reading "NaN Gly" presents a broken number as a measurement.
-  if (!Number.isFinite(metres)) return { text: '—', unit: '', value: 0, lightTime: '' }
+  if (!Number.isFinite(metres)) return { text: 'Unknown', unit: '', value: 0, lightTime: '' }
 
   const m = Math.abs(metres)
   // A caller may hand this a signed separation — a difference of two coordinates, an

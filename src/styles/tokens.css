@@ -55,11 +55,26 @@
   --class-cluster: #a5b6ff;
   --class-black-hole: #aebde5;
 
-  /* --- geometry -------------------------------------------------------------- */
-  --r-panel: 8px;
-  --r-control: 6px;
+  /* --- geometry --------------------------------------------------------------
+   * Squarer than the usual dark-UI default on purpose. The scene's own focus
+   * reticle is four hard corner brackets, and the chrome echoes it: a 12px pill
+   * next to a 2px bracket reads as two products sharing a window.
+   */
+  --r-panel: 4px;
+  --r-control: 3px;
   --r-pill: 999px;
   --sp: 4px;
+
+  /* The scrim both bars fade into. No blur anywhere in it: `backdrop-filter`
+   * forces the compositor to read the WebGL layer back on every frame the canvas
+   * changes, which is every frame. A gradient costs nothing and, by letting the
+   * scene run under the chrome instead of stopping at a slab edge, is also the
+   * thing that makes the bars read as glass rather than as toolbars. */
+  --scrim-strong: rgb(5 7 10 / 94%);
+  --scrim-mid: rgb(5 7 10 / 82%);
+  --scrim-none: rgb(5 7 10 / 0%);
+  /* Depth of the fade past each bar's own edge. */
+  --scrim-fade: 22px;
 
   --gutter: 24px;
   --topbar-h: 48px;

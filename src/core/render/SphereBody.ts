@@ -186,8 +186,8 @@ function surfaceShader(spec: SphereBodySpec): SurfaceShader | null {
     // sRGB 24-100 — well above the window, so it survived and drew as a hard dark
     // outline around the imaged patch, which reads as a rendering bug rather than as
     // a coverage boundary. Taking the darkest of a small cross erodes the imaged
-    // region by the sample radius and takes the ring with it. Both partial mosaics in
-    // the atlas (Triton, Titania) are 1440x720; a differently sized one would want a
+    // region by the sample radius and takes the ring with it. The one partial mosaic
+    // still on this path (Titania) is 1440x720; a differently sized one would want a
     // different offset here.
     parts.afterMap += `
       vec2 fillStep = vec2(1.5 / 1440.0, 1.5 / 720.0);

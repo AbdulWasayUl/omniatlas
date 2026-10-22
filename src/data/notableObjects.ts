@@ -89,7 +89,7 @@ export const NOTABLE_OBJECTS: NotableObject[] = [
     solarMasses: 6.6e10,
     objectClass: 'black-hole',
     description:
-      'One of the most massive black holes known: roughly 66 billion solar masses, fifteen times M87* and ten thousand times the one at the centre of our own galaxy. Its event horizon is about 1,300 AU across — forty times Neptune’s orbit — and the quasar it powers outshines the entire Milky Way several hundred times over. The mass comes from the width of its broad emission lines, which is a model-dependent estimate, not a dynamical measurement.',
+      'One of the most massive black holes known: roughly 66 billion solar masses, fifteen times M87* and ten thousand times the one at the centre of our own galaxy. Its event horizon is about 1,300 AU across, forty times Neptune’s orbit, and the quasar it powers outshines the entire Milky Way several hundred times over. The mass comes from the width of its broad emission lines, which is a model-dependent estimate, not a dynamical measurement.',
     facts: [
       ['Mass', '6.6 × 10¹⁰ M☉'],
       ['Schwarzschild radius', '1,300 AU'],
@@ -156,7 +156,7 @@ export const NOTABLE_OBJECTS: NotableObject[] = [
     solarMasses: 5.5e7,
     objectClass: 'black-hole',
     description:
-      'The nearest active galactic nucleus, in the peculiar elliptical galaxy NGC 5128. It drives a radio jet a million light years long, and the Event Horizon Telescope resolved the base of that jet in 2021 — the sharpest view yet of where a jet is actually launched.',
+      'The nearest active galactic nucleus, in the peculiar elliptical galaxy NGC 5128. It drives a radio jet a million light years long, and the Event Horizon Telescope resolved the base of that jet in 2021, the sharpest view yet of where a jet is actually launched.',
     facts: [
       ['Mass', '5.5 × 10⁷ M☉'],
       ['Distance', '3.8 Mpc · 12.4 million ly'],
@@ -178,7 +178,7 @@ export const NOTABLE_OBJECTS: NotableObject[] = [
     solarMasses: 1.4e8,
     objectClass: 'black-hole',
     description:
-      'The black hole at the centre of the Andromeda Galaxy, thirty times more massive than our own and sitting inside a double nucleus — an eccentric disc of old stars that appears as two brightness peaks, with the black hole at the fainter one.',
+      'The black hole at the centre of the Andromeda Galaxy, thirty times more massive than our own and sitting inside a double nucleus: an eccentric disc of old stars that appears as two brightness peaks, with the black hole at the fainter one.',
     facts: [
       ['Mass', '1.4 × 10⁸ M☉'],
       ['Distance', '785 kpc · 2.56 million ly'],
@@ -199,7 +199,7 @@ export const NOTABLE_OBJECTS: NotableObject[] = [
     solarMasses: 1e10,
     objectClass: 'black-hole',
     description:
-      'The black hole at the heart of the Phoenix Cluster, which hosts the most extreme cooling flow and the fiercest starburst known in any cluster core — around 500 solar masses of new stars a year. Mass estimates range over an order of magnitude depending on the scaling relation used, so treat the figure here as indicative rather than measured.',
+      'The black hole at the heart of the Phoenix Cluster, which hosts the most extreme cooling flow and the fiercest starburst known in any cluster core, around 500 solar masses of new stars a year. Mass estimates range over an order of magnitude depending on the scaling relation used, so treat the figure here as indicative rather than measured.',
     facts: [
       ['Mass', '~10¹⁰ M☉ (estimate)'],
       ['Redshift', 'z = 0.596'],
@@ -270,7 +270,7 @@ export const NOTABLE_OBJECTS: NotableObject[] = [
     solarMasses: 9.62,
     objectClass: 'black-hole',
     description:
-      'The closest black hole to Earth yet found, three times nearer than any previously known. It is dormant — nothing is falling into it, so it emits nothing — and was discovered purely from the wobble it induces in an ordinary Sun-like star orbiting it every 186 days. How a binary like this survives the supernova that made the black hole is still unexplained.',
+      'The closest black hole to Earth yet found, three times nearer than any previously known. It is dormant, so nothing is falling into it and it emits nothing, and it was discovered purely from the wobble it induces in an ordinary Sun-like star orbiting it every 186 days. How a binary like this survives the supernova that made the black hole is still unexplained.',
     facts: [
       ['Mass', '9.62 M☉'],
       ['Schwarzschild radius', '28.4 km'],
@@ -293,7 +293,7 @@ export const NOTABLE_OBJECTS: NotableObject[] = [
     solarMasses: 12.4,
     objectClass: 'black-hole',
     description:
-      'The first object in the galaxy seen to launch jets that appear to move faster than light — an illusion of geometry, from material travelling at 92 per cent of light speed almost straight towards us. It has been in continuous outburst since 1992 and is the most rapidly spinning black hole known, dragging spacetime around itself close to the theoretical maximum.',
+      'The first object in the galaxy seen to launch jets that appear to move faster than light, an illusion of geometry produced by material travelling at 92 per cent of light speed almost straight towards us. It has been in continuous outburst since 1992 and is the most rapidly spinning black hole known, dragging spacetime around itself close to the theoretical maximum.',
     facts: [
       ['Mass', '12.4 M☉'],
       ['Distance', '8.6 kpc · 28,000 ly'],
@@ -363,7 +363,7 @@ export const NOTABLE_OBJECTS: NotableObject[] = [
     radiusMetres: 1.1e19, // ~1,200 ly across; compact even for its era
     objectClass: 'galaxy',
     description:
-      'For several years the most distant object ever confirmed, and still one of the most studied. It is tiny — about one per cent of the Milky Way’s mass in a region 25 times smaller — yet already forming stars twenty times faster, and JWST has since found a growing black hole in it. We see it as it was 13.4 billion years ago.',
+      'For several years the most distant object ever confirmed, and still one of the most studied. It is tiny, about one per cent of the Milky Way’s mass in a region 25 times smaller, yet already forming stars twenty times faster, and JWST has since found a growing black hole in it. We see it as it was 13.4 billion years ago.',
     facts: [
       ['Redshift', 'z = 10.60'],
       ['Age of universe then', '~400 million years'],

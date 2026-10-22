@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import type { AtlasViewer } from '../core/AtlasViewer'
 import type { SceneNodeHandle } from '../core/Engine'
 import { classStyle } from '../data/objectClasses'
@@ -34,7 +35,7 @@ function provenanceChip(node: (SceneNodeHandle & NodeProvenance) | null): { kind
   // A shell projection is a direction with a placeholder depth. Nothing derived from
   // it — not the distance, not the size — is a measurement of this object.
   if (node.directionOnly) return { kind: 'illustration', text: 'Direction only' }
-  const suffix = node.distanceKind ? ` — ${DISTANCE_KIND_LABEL[node.distanceKind]}` : ''
+  const suffix = node.distanceKind ? ` · ${DISTANCE_KIND_LABEL[node.distanceKind]}` : ''
   if (node.provenance) {
     const text = node.provenance === 'measured' ? 'Measured' : node.provenance === 'derived' ? 'Derived' : 'Illustrated'
     return { kind: node.provenance, text: `${text}${suffix}` }
@@ -91,8 +92,19 @@ export function Inspector({ viewer }: { viewer: AtlasViewer | null }) {
     distanceText = formatDistance(distance3d(viewer.engine.cameraWorld, nodeInCameraFrame)).text
   }
 
+  // Flying to the object you are already anchored on is a no-op dressed as a
+  // journey. The button says so rather than running a zero-length flight.
+  const alreadyHere = snapshot?.anchorId === selectedId
+
   return (
-    <aside className="inspector" id="inspector-region" aria-label={`${name} details`}>
+    <aside
+      className="inspector"
+      id="inspector-region"
+      aria-label={`${name} details`}
+      // Picked up by the edge hairline and the class dot's halo. Set here rather
+      // than on each element so one assignment colours the whole drawer.
+      style={{ '--class-accent': style.color } as CSSProperties}
+    >
       <div className="inspector-head">
         <div className="inspector-class">
           <span className="class-dot" style={{ background: style.color }} aria-hidden="true" />
@@ -100,29 +112,44 @@ export function Inspector({ viewer }: { viewer: AtlasViewer | null }) {
         </div>
         <h2 className="inspector-title">{name}</h2>
         {distanceText && (
-          <div className="hud-sub num" style={{ marginTop: 4 }}>
+          <div className="hud-sub num" style={{ marginTop: 5 }}>
             {/* For a shell projection this is the range to where the glyph was drawn,
                 which is not the range to the object. Say which one it is. */}
             {distanceText} {directionOnly ? 'to its shell projection' : 'from here'}
           </div>
         )}
+        <button type="button" className="inspector-close" onClick={() => select(null)} aria-label="Close details">
+          <svg viewBox="0 0 16 16" width="13" height="13" fill="none" aria-hidden="true">
+            <path d="m4 4 8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+          </svg>
+        </button>
       </div>
 
       <div className="inspector-body">
         {entity?.description && <p className="inspector-prose">{entity.description}</p>}
 
-        <div className="chip-row">
-          <button
-            type="button"
-            className="chip"
-            onClick={() => viewer?.focus(selectedId)}
-          >
-            Fly here
-          </button>
-          <button type="button" className="chip" onClick={() => select(null)}>
-            Close
-          </button>
-        </div>
+        <button
+          type="button"
+          className="fly-button"
+          disabled={alreadyHere}
+          onClick={() => viewer?.focus(selectedId)}
+        >
+          {/* Two states, two marks: a target you are standing on, or an approach to
+              one. The arrow stops short of the ring rather than running through it,
+              so at 13 px the two shapes stay separate instead of reading as a plus. */}
+          {alreadyHere ? (
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" aria-hidden="true">
+              <circle cx="8" cy="8" r="5" stroke="currentColor" strokeWidth="1.3" />
+              <circle cx="8" cy="8" r="1.6" fill="currentColor" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" aria-hidden="true">
+              <path d="M1.5 8h5.5M4.8 5.4 7.4 8l-2.6 2.6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+              <circle cx="11.6" cy="8" r="3" stroke="currentColor" strokeWidth="1.3" />
+            </svg>
+          )}
+          {alreadyHere ? 'You are here' : 'Fly here'}
+        </button>
 
         {entity?.facts && entity.facts.length > 0 && (
           <>
@@ -162,7 +189,7 @@ export function Inspector({ viewer }: { viewer: AtlasViewer | null }) {
                       ? 'Not measured'
                       : node.radiusMetres > 0
                         ? formatDistance(node.radiusMetres).text
-                        : '—'}
+                        : 'Unknown'}
                   </span>
                 </>
               )}
@@ -190,7 +217,7 @@ export function Inspector({ viewer }: { viewer: AtlasViewer | null }) {
           )}
         </div>
         {directionOnly && (
-          <p className="hud-sub" style={{ marginTop: 10 }}>
+          <p className="inspector-note">
             No distance to this object has been measured. Its direction on the sky is real; its depth is a
             placeholder, so it is drawn on a shell at an arbitrary radius. The size it is drawn at follows from
             that shell and is not a size for this object.
@@ -199,12 +226,12 @@ export function Inspector({ viewer }: { viewer: AtlasViewer | null }) {
         {/* Written by the catalogue modules for the objects that need it, and until now
             displayed by nothing at all. */}
         {node?.caveat && (
-          <p className="hud-sub" style={{ marginTop: 10 }}>
+          <p className="inspector-note">
             {node.caveat}
           </p>
         )}
         {node?.provenanceNote && (
-          <p className="hud-sub" style={{ marginTop: 10 }}>
+          <p className="inspector-note">
             {node.provenanceNote}
           </p>
         )}
@@ -214,13 +241,13 @@ export function Inspector({ viewer }: { viewer: AtlasViewer | null }) {
           </a>
         )}
         {ephemerisBody && (
-          <p className="hud-sub" style={{ marginTop: 10 }}>
+          <p className="inspector-note">
             Position and orientation computed for the displayed instant from astronomy-engine's VSOP87 and ELP
             models and the IAU 2015 rotation elements.
           </p>
         )}
         {illustratedShape && !directionOnly && (
-          <p className="hud-sub" style={{ marginTop: 10 }}>
+          <p className="inspector-note">
             {/* Only say the astrometry is measured when the node says so. A quasar placed
                 from its redshift has an illustrated shape AND a derived position. */}
             {chip?.kind === 'measured'
