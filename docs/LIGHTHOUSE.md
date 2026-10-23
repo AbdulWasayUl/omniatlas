@@ -236,7 +236,14 @@ All are headers, and `vercel.json` is already where the project sets headers:
   nothing at runtime and makes production stack traces readable.
 
 All done in `vercel.json` and `vite.config.ts`: CSP, HSTS, XFO, COOP, a
-`Permissions-Policy`, and `build.sourcemap: true`.
+`Permissions-Policy`, and `build.sourcemap: 'hidden'`.
+
+`'hidden'` rather than `true`, and the reason only showed up after a production deploy:
+**Vercel returns 403 for `.map` files.** `true` emits a `//# sourceMappingURL` comment
+pointing at something no browser can fetch, which is a worse state than no source maps at
+all and which Lighthouse flagged accordingly. `'hidden'` emits the maps without the
+comment, so they ship with the deployment and can be handed to an error tracker, nothing
+requests them over the wire, and the audit goes from failing to not-applicable.
 
 The CSP was tested before shipping rather than after, because `vite preview` ignores
 `vercel.json` and a broken CSP is invisible until production. A small static server in the

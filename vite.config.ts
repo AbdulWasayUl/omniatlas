@@ -17,10 +17,15 @@ export default defineConfig({
   },
   build: {
     target: 'esnext',
-    // Lighthouse flags their absence under Best Practices, and the real reason to want
-    // them is that a production stack trace from a minified 589 KB bundle names nothing.
-    // They are a separate download that only a devtools session asks for, so they cost
-    // visitors nothing.
-    sourcemap: true,
+    // 'hidden', not true. Vercel returns 403 for `.map` files on a production
+    // deployment, so `sourcemap: true` emitted bundles whose `//# sourceMappingURL`
+    // comment pointed at something no browser could fetch — a reference that is worse
+    // than no reference, and which Lighthouse duly flagged.
+    //
+    // 'hidden' emits the maps and omits the comment. They are still uploaded with the
+    // deployment, so they can be fetched from it or handed to an error tracker when a
+    // production stack trace from a minified 589 KB bundle needs reading; nothing asks
+    // for them over the wire, and the audit becomes not-applicable rather than failing.
+    sourcemap: 'hidden',
   },
 })
