@@ -1223,6 +1223,70 @@ button.chip:hover {
   font-weight: 600;
 }
 
+.loading-lede {
+  margin: 0;
+  max-width: 34ch;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-3);
+}
+
+/*
+ * The fact card, and the page's Largest Contentful Paint.
+ *
+ * Sized deliberately. LCP picks the largest contentful element, and before this the
+ * winner was a HUD caption at about 10,800 px² that only renders once the engine is
+ * ready — so the metric was measuring the end of boot rather than the first useful
+ * paint. This block is roughly 420x120, which is comfortably the largest thing on
+ * screen at first paint and stays the largest afterwards, so LCP settles at FCP.
+ *
+ * `min-height` is not cosmetic. The webfont loads with `font-display: swap`, so the
+ * text paints in a fallback and reflows when Inter arrives; without a floor the card
+ * changes height at that moment, which is a layout shift on the one screen with nothing
+ * else on it. Four lines at this measure covers the longest fact in both faces.
+ */
+.loading-fact {
+  margin: 0;
+  max-width: 46ch;
+  min-height: 124px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  padding: 18px 22px;
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--r-panel);
+  background: var(--surface-1);
+}
+
+.loading-fact blockquote {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
+.loading-fact figcaption {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+@media (width < 768px) {
+  .loading-fact {
+    max-width: calc(100vw - 48px);
+    min-height: 150px;
+  }
+
+  .loading-lede {
+    max-width: calc(100vw - 64px);
+  }
+}
+
 .loading-bar {
   width: 180px;
   height: 2px;

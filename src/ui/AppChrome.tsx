@@ -7,6 +7,7 @@ import { useViewStore } from '../state/useViewStore'
 import { ScaleLadder } from './ScaleLadder'
 import { Inspector } from './Inspector'
 import { CommandPalette } from './CommandPalette'
+import { LOADING_FACTS, loadingFact } from './loadingFacts'
 
 /**
  * The chrome.
@@ -527,9 +528,18 @@ function Credits() {
 /**
  * The loading screen lifts as soon as the focus object is ready, not when every module
  * has finished — otherwise the overlay hides a scene that is already interactive.
+ *
+ * It carries a sourced fact, which is both the thing `docs/OVERHAUL_PLAN.md` asked for
+ * and the fix for a 40.8 s Largest Contentful Paint. A `<canvas>` is not an LCP
+ * candidate, so before this the largest text on the page was a HUD caption that renders
+ * only once the engine is ready: LCP was measuring the end of boot. Real text in the
+ * first paint moves it to roughly FCP, and gives someone on a slow connection something
+ * to read instead of a sweeping bar. See `docs/LIGHTHOUSE.md`.
  */
 function LoadingScreen({ done }: { done: boolean }) {
   const [hidden, setHidden] = useState(false)
+  // Chosen once per mount, so the card never changes under a reader mid-load.
+  const [fact] = useState(() => loadingFact(Math.floor(Math.random() * LOADING_FACTS.length)))
   const timer = useRef<number>(0)
 
   useEffect(() => {
@@ -540,14 +550,29 @@ function LoadingScreen({ done }: { done: boolean }) {
 
   if (hidden) return null
   return (
-    <div className="loading" data-done={done} role="status" aria-live="polite">
+    <div className="loading" data-done={done}>
       <div className="loading-mark">
         <b>OMNI</b>ATLAS
       </div>
+      <p className="loading-lede">A live, sourced atlas of known space, drawn at true scale.</p>
+
+      {/* Fixed min-height: the webfont swaps in after first paint, and a card that
+          changes height when it does is a layout shift on the one screen where there is
+          nothing else to blame it on. CLS is 0.004 and should stay there. */}
+      <figure className="loading-fact">
+        <blockquote>{fact.text}</blockquote>
+        <figcaption>{fact.source}</figcaption>
+      </figure>
+
       <div className="loading-bar">
         <i />
       </div>
-      <div className="hud-sub">{done ? 'Ready' : 'Computing ephemerides for the current instant'}</div>
+      {/* The live region is this line alone. With it on the wrapper, a screen reader
+          announced the whole fact card on load, which is a paragraph nobody asked to
+          have read to them. */}
+      <div className="hud-sub" role="status" aria-live="polite">
+        {done ? 'Ready' : 'Computing ephemerides for the current instant'}
+      </div>
     </div>
   )
 }

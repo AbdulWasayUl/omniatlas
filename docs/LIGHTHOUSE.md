@@ -31,7 +31,7 @@ follows from the first two and most of the rest is hygiene.
 
 CLS is 0.004 and SEO is 100. Neither needs work.
 
-## 1. LCP is 40.8 s because nothing paints text until the engine has booted
+## 1. LCP was 40.8 s because nothing painted text until the engine had booted (done)
 
 This is the whole performance story. 40.8 s of a 61 is one metric.
 
@@ -63,8 +63,20 @@ LCP from 40.8 s to near FCP.
 **Shorten time-to-ready**, which items 2 and 3 cover. That helps every visitor rather
 than just the metric.
 
-Do the first one first. It is small, it is already in the spec, and it is the difference
-between a 61 and something in the high 80s on its own.
+**Done: the loading screen now carries a sourced fact card.** Measured against the
+production build, LCP fires at **0.40 s, the same instant as FCP**, with one candidate at
+25,862 px². One candidate is the part that matters: the HUD caption is 10,783 px², so it
+never supersedes the card, and LCP stays at first paint instead of drifting to the end of
+boot. On the Slow 4G profile that should put LCP at roughly the 2.3 s FCP rather than
+40.8 s.
+
+The facts are real and sourced, and `tests/unit/loading-facts.test.ts` re-derives the
+counted ones from the same manifests the renderer reads. A fact card is exactly where a
+plausible wrong number would never be noticed, and an atlas whose whole claim is sourced
+truth cannot show invented trivia on its own splash screen.
+
+Shortening time-to-ready, which items 2 and 3 cover, is still worth doing. It just is no
+longer what LCP measures.
 
 ## 2. TBT 430 ms, 4.4 s of main-thread work, 15 long tasks
 
@@ -137,6 +149,23 @@ Named, so nobody has to hunt for them:
 All three are mine, from the chrome rework. `live-pulse` runs continuously on every frame
 the clock is live, so it is the one that matters; the other two fire only on interaction.
 
+## 6b. The webfont swap shifts the top bar
+
+Found while measuring the above, not in the report. The only layout shift on a cold load
+is a single 0.0138 entry at 0.68 s whose sources are the top bar's own elements,
+`.search-trigger.brackets` among them. That is Inter arriving under `font-display: swap`
+and reflowing chrome that was laid out in the fallback face.
+
+It is small and CLS stays well inside "good", so this is hygiene rather than a problem.
+The fix is `size-adjust` and the matching metric overrides on a local `@font-face`
+fallback, so the fallback occupies the same space Inter will. Preloading the woff2 helps
+separately: the fonts are currently reached through two levels of CSS `@import`, which is
+a request waterfall before the first byte of font data is asked for, and that is also one
+of the report's render-blocking findings.
+
+The fact card itself is not among the shift sources. Its `min-height` was set for exactly
+this reason.
+
 ## 7. Accessibility 95: `--text-4` fails AA, and the gate that was meant to catch it does not exist
 
 Measured contrast ratios against the surfaces the token is used on:
@@ -176,8 +205,8 @@ here. Worth doing before the app grows anything that complicates it.
 
 ## Order of work
 
-1. Loading screen fact card — LCP 40.8 s → ~FCP. Biggest single move, smallest change.
-2. Chunked or worker-based catalogue decode — TBT and time-to-ready.
+1. ~~Loading screen fact card~~ — **done**, LCP now fires at FCP.
+2. Chunked or worker-based catalogue decode — TBT and time-to-ready. Now the top item.
 3. `--text-4` contrast, plus the missing `check-contrast.mjs`.
 4. The three non-composited animations.
 5. Headers: CSP, HSTS, XFO, source maps.
