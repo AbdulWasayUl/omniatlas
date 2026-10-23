@@ -63,6 +63,20 @@ So the filenames became content-addressed instead. `scripts/hash-assets.mjs` run
 mapping the logical path to the deployed one. `src/data/assetUrl.ts` loads that manifest
 with a top-level await and resolves paths at the point they become requests.
 
+**One caveat, found the hard way.** Those three properties hold for everything
+`scripts/hash-assets.mjs` renames, which is `/data` and `/textures`. They do NOT hold
+universally for `/assets`, which Vite hashes itself: Vite computes a chunk's hash from
+the chunk code and appends the `//# sourceMappingURL` footer afterwards, so switching
+`build.sourcemap` from `true` to `'hidden'` changed the bytes of `index-CLTPRx_B.js`
+without changing its name. The same URL, served `immutable` for a year, carried different
+content before and after that deploy.
+
+It was inert here — the difference was one trailing comment, and anyone holding the old
+copy has a working bundle. It is recorded because the whole caching design rests on "the
+name changes when the bytes change", and that sentence is true of the files this
+repository hashes and merely usually true of the ones Vite does. Any future change that
+alters only a chunk's footer needs the same thought.
+
 Three properties follow, all verified against a real build:
 
 1. **The hash is the content.** All 257 filenames match `sha256(bytes)[:8]`.
