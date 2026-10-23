@@ -106,6 +106,17 @@ export interface SceneNodeHandle {
   objectClass: string
   /** Display name. */
   name: string
+  /**
+   * Other catalogue designations this node answers to, for identity across catalogues.
+   *
+   * `oneLabelPerObject` reads the designation out of the id, which settles the common
+   * case — `ungc:ngc5128` and `ngc:NGC5128` are one galaxy — but not the one where two
+   * tables number the same object out of two different catalogues. The Local Group
+   * table calls it `lg:messier031` and OpenNGC calls it `ngc:NGC0224`, and nothing in
+   * either id says those are the same galaxy. OpenNGC's rows carry the Messier number,
+   * so the module that has it states it here rather than leaving the dedupe to guess.
+   */
+  designations?: readonly string[]
   /** Parent in the containment hierarchy, for the cosmic address. */
   parentId: string | null
   /** Three.js object, when the node has one. */

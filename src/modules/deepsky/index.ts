@@ -1233,6 +1233,9 @@ export class DeepSkyModule implements AtlasModule {
           ? `${this.displayName(object)} (${displayName(object.designation)})`
           : this.displayName(object),
         designation: object.designation,
+        // The Messier number is the identity the Local Group and Local Volume tables
+        // use for these same galaxies, and it is the only place the two can meet.
+        designations: object.messier ? [object.designation, `M${object.messier}`] : undefined,
         catalogue: 'OpenNGC',
         objectClass: CATEGORY_OBJECT_CLASS[category],
         raDeg: object.raDeg,
@@ -1276,6 +1279,8 @@ export class DeepSkyModule implements AtlasModule {
     id: string
     name: string
     designation: string
+    /** Other catalogue designations for the same object; see `SceneNodeHandle`. */
+    designations?: readonly string[]
     catalogue: string
     objectClass: string
     raDeg: number
@@ -1292,6 +1297,7 @@ export class DeepSkyModule implements AtlasModule {
     const world = convertFrame(vec3d(), icrf, 'icrf', REGISTRY_FRAME)
     return {
       id: spec.id,
+      designations: spec.designations,
       worldPosition: world,
       frame: REGISTRY_FRAME,
       radiusMetres: spec.radiusMetres,

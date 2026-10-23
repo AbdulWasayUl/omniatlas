@@ -89,6 +89,30 @@ describe('oneLabelPerObject', () => {
     expect(ids(kept)).toEqual(['ngc:NGC224'])
   })
 
+  it('matches a stated Messier number against another catalogue\'s Messier id', () => {
+    // Nothing in `lg:messier031` and `ngc:NGC0224` says those are one galaxy, so the
+    // deep-sky module states the Messier number OpenNGC carries rather than leaving the
+    // dedupe to infer it. Six galaxies were labelled twice without this — M31, M32,
+    // M33, M81, M82 and M101, which is most of the famous ones.
+    const andromeda = node('ngc:NGC0224', 'Andromeda Galaxy', 7.78e5, 10.68, 3e20)
+    const kept = oneLabelPerObject([
+      node('lg:messier031', 'M31 Andromeda', 7.73e5, 10.68),
+      { ...andromeda, designations: ['NGC0224', 'M31'] },
+    ])
+    expect(ids(kept)).toEqual(['ngc:NGC0224'])
+  })
+
+  it('does not read a bare M in an id as a Messier number', () => {
+    // `bh:m87` is the black hole at the centre of M87, not the galaxy. Inferring the
+    // Messier number from the naming convention would merge the two and cost the atlas
+    // whichever lost — and the black hole, having no catalogued radius, would lose.
+    const kept = oneLabelPerObject([
+      node('bh:m87', 'M87*', 1.68e7, 187.7),
+      { ...node('ngc:NGC4486', 'Virgo Galaxy', 1.86e7, 187.7, 4e20), designations: ['NGC4486', 'M87'] },
+    ])
+    expect(ids(kept)).toEqual(['bh:m87', 'ngc:NGC4486'])
+  })
+
   it('prefers the row that carries a catalogued size, then the lower id', () => {
     // The survivor is the one that can be DRAWN rather than merely marked, and the
     // tie-break is the id so the answer does not depend on module load order.

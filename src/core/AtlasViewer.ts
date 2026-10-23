@@ -36,10 +36,24 @@ const MILKY_WAY_REACH_M = 1.54e21
  * case and separators differ too, so the comparison is over the catalogue prefix and
  * the number alone.
  */
-function designationKey(id: string): string | null {
+function designationKey(raw: string): string | null {
+  const match = /^(NGC|IC|UGCA|UGC|PGC|DDO|ESO|MESSIER|M)[\s_-]*0*(\d+[A-Za-z]*(?:-\d+)?)$/i.exec(raw)
+  if (!match) return null
+  const prefix = match[1].toUpperCase()
+  return `${prefix === 'M' ? 'MESSIER' : prefix}${match[2].toUpperCase()}`
+}
+
+/**
+ * The designation an id carries, if any.
+ *
+ * A bare "M" is deliberately not read as a Messier number here: `bh:m87` is the black
+ * hole at the centre of M87, not the galaxy, and merging the two would cost the atlas
+ * one of them. A module that means the Messier number says so in `designations`, where
+ * it is a statement rather than an inference from a naming convention.
+ */
+function idDesignationKey(id: string): string | null {
   const body = id.slice(id.indexOf(':') + 1)
-  const match = /^(NGC|IC|UGCA|UGC|PGC|DDO|ESO|MESSIER)[\s_-]*0*(\d+[A-Za-z]*(?:-\d+)?)$/i.exec(body)
-  return match ? `${match[1].toUpperCase()}${match[2].toUpperCase()}` : null
+  return /^m\d/i.test(body) ? null : designationKey(body)
 }
 
 /**
@@ -109,8 +123,11 @@ export function oneLabelPerObject(nodes: Iterable<SceneNodeHandle>): SceneNodeHa
     }
     const first = new Map<string, number>()
     for (let i = 0; i < members.length; i++) {
-      const designation = designationKey(members[i].id)
-      for (const key of [`n:${members[i].name.trim().toLowerCase()}`, designation && `d:${designation}`]) {
+      const designations = [idDesignationKey(members[i].id), ...(members[i].designations ?? []).map(designationKey)]
+      for (const key of [
+        `n:${members[i].name.trim().toLowerCase()}`,
+        ...designations.map((d) => d && `d:${d}`),
+      ]) {
         if (!key) continue
         const seen = first.get(key)
         if (seen === undefined) first.set(key, i)
