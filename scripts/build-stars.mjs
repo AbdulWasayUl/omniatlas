@@ -902,12 +902,14 @@ let worstAbsErrWithin1kpc = 0
 let quantBoundaryCrossings = 0
 let maxShell = 0
 const l2Chunks = []
+const l2Parts = []
 let l2Bytes = 0
+let l2Padding = 0
 
 for (let pix = 0; pix < NPIX; pix++) {
   const list = l2ByPix[pix]
   if (list.length === 0) {
-    l2Chunks.push({ pix, count: 0, bytes: 0, shells: [] })
+    l2Chunks.push({ pix, count: 0, bytes: 0, byteOffset: l2Bytes, shells: [] })
     continue
   }
   list.sort((a, b) => shellOf(sdist[a]) - shellOf(sdist[b]) || smag[a] - smag[b])
@@ -946,11 +948,27 @@ for (let pix = 0; pix < NPIX; pix++) {
       quantBoundaryCrossings++
     }
   }
-  writeFileSync(join(OUT_DIR, 'l2', `${pix}.bin`), buf)
+  // Records are 9 bytes, so a chunk with an odd record count is an odd number of bytes
+  // long and the next block would start on an odd offset. The loader reads each block's
+  // int16 fields in place, and `Int16Array` requires a 2-byte aligned byteOffset, so odd
+  // blocks are followed by one pad byte. 95 of the 192 chunks need one.
+  l2Parts.push(buf)
+  const byteOffset = l2Bytes
   l2Bytes += buf.length
+  if (l2Bytes % 2 !== 0) {
+    l2Parts.push(Buffer.alloc(1))
+    l2Bytes += 1
+    l2Padding += 1
+  }
   // Compact shell encoding: [shell, start, count]. radiusPc = 2^shell, scale = radiusPc / 32767.
-  l2Chunks.push({ pix, count: m, bytes: buf.length, shells: shells.map((s) => [s.shell, s.start, s.count]) })
+  l2Chunks.push({ pix, count: m, bytes: buf.length, byteOffset, shells: shells.map((s) => [s.shell, s.start, s.count]) })
 }
+
+// One file, not 192. Every chunk is loaded unconditionally by the renderer and
+// concatenated into a single mesh, so the per-pixel split cost 192 requests on every cold
+// boot and bought nothing: 74 per cent of the atlas's request count for 10 per cent of
+// its bytes. The blocks are byte-identical to the files they replace.
+writeFileSync(join(OUT_DIR, 'l2.bin'), Buffer.concat(l2Parts))
 
 const l0Buf = encodeTierA(l0src)
 const l1Buf = encodeTierA(l1src)
@@ -1039,8 +1057,12 @@ writeFileSync(join(OUT_DIR, 'l1.json'), JSON.stringify(tierManifest('l1', l1src,
 const nonEmptyChunks = l2Chunks.filter((c) => c.count > 0)
 const l2Index = {
   format:
-    'OmniAtlas star tier L2 — one little-endian, tightly packed struct-of-arrays chunk per HEALPix pixel. No header inside the .bin.',
-  files: 'l2/<pix>.bin, pix in [0, 192)',
+    'OmniAtlas star tier L2 — one little-endian, tightly packed struct-of-arrays block per HEALPix pixel, all 192 concatenated into a single file. No header inside the .bin.',
+  files: 'l2.bin, with chunks[].byteOffset giving each HEALPix pixel block',
+  alignment:
+    'Each chunk block starts on a 2-byte boundary so its int16 fields can be read in place; a chunk with an odd record count is followed by one pad byte. Chunk blocks are otherwise byte-identical to the per-pixel files this layout replaced.',
+  chunkLayout:
+    'chunks[].byteOffset is the start of that pixel block within l2.bin; the block is 9 * count bytes and its internal field offsets are relative to byteOffset.',
   scheme: { kind: 'HEALPix', ordering: 'NESTED', nside: NSIDE, npix: NPIX },
   angles: 'theta = acos(z / r), phi = atan2(y, x), from the ICRS cartesian parsec columns',
   recordCount: l2src.length,
@@ -1280,7 +1302,7 @@ writeFileSync(
       files: [
         { path: 'l0.bin', manifest: 'l0.json', bytes: sizeOf('l0.bin'), records: l0src.length },
         { path: 'l1.bin', manifest: 'l1.json', bytes: sizeOf('l1.bin'), records: l1src.length },
-        { path: 'l2/<pix>.bin', manifest: 'l2/index.json', bytes: l2Bytes, records: l2src.length },
+        { path: 'l2.bin', manifest: 'l2/index.json', bytes: l2Bytes, records: l2src.length },
         { path: 'constellations.bin', manifest: 'constellations.json', bytes: conBuf.length, records: segCount },
         { path: 'names.json', manifest: 'self-describing', bytes: sizeOf('names.json'), records: names.length },
         { path: 'exoplanets.json', manifest: 'self-describing', bytes: sizeOf('exoplanets.json'), records: hosts.size },
@@ -1382,7 +1404,7 @@ const emitted = [
   ['l0.json', sizeOf('l0.json'), 1],
   ['l1.bin', sizeOf('l1.bin'), l1src.length],
   ['l1.json', sizeOf('l1.json'), 1],
-  [`l2/*.bin (${nonEmptyChunks.length} chunks)`, l2Bytes, l2src.length],
+  [`l2.bin (${nonEmptyChunks.length} chunks, ${l2Padding} pad bytes)`, l2Bytes, l2src.length],
   ['l2/index.json', sizeOf(join('l2', 'index.json')), nonEmptyChunks.length],
   ['constellations.bin', sizeOf('constellations.bin'), segCount],
   ['constellations.json', sizeOf('constellations.json'), conOut.length],

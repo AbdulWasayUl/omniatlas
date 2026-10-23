@@ -97,32 +97,43 @@ failure degrades to the pre-hashing behaviour rather than a guaranteed 404.
 asset path in `src/` names a file that exists in `public/` and is non-empty. That used to
 fail at build time and now would not, because the fallback is forgiving.
 
-## 2. 186 of the 250 requests are one dataset
+## 2. The star tier was 186 requests (done)
 
-The deep star tier is 192 HEALPix chunks under `data/stars/l2/`, and
-`StarsModule.loadDeepTier` fetches **all of them, unconditionally, on every boot**, eight
-at a time, concatenating the lot into a single `Float32Array` and a single instanced
-mesh. The module says so itself:
+> Implemented. Packing in `scripts/build-stars.mjs`, loading in
+> `src/modules/stars/index.ts`.
+
+The deep star tier was 192 HEALPix chunks under `data/stars/l2/`, and `loadDeepTier`
+fetched all of them unconditionally on every boot, eight at a time, concatenating the lot
+into a single `Float32Array` and a single instanced mesh. The module said so itself:
 
 > All 192 are merged into one instanced mesh rather than 192 of them: the whole set is
 > under 3 MB, and one draw call for a third of a million stars is the entire point of the
 > instanced-quad approach.
 
-So the chunking buys nothing at runtime. There is no view-dependent streaming to preserve,
-no frustum test, no distance gate: 192 files are downloaded to build exactly one object,
-in every view, every time. They are 74 per cent of the request count and 10 per cent of
-the bytes.
+So the chunking bought nothing at runtime. There was no frustum test and no distance gate
+to preserve: 192 files were downloaded to build exactly one object, in every view, every
+time, for 74 per cent of the request count and 10 per cent of the bytes.
 
-The fix is in `scripts/build-stars.mjs`: emit one `l2.bin` that is the existing chunks
-concatenated, and keep the per-chunk record offsets in `l2/index.json` so the shell
-dequantisation still has its boundaries. `loadDeepTier` then drops its concurrency queue
-and reads one buffer with the offsets it already parses.
+They are now one file. `l2.bin` is those same chunk blocks laid end to end, and
+`chunks[].byteOffset` in `l2/index.json` says where each begins.
 
-**Effect: 250 requests to about 65, cold. Byte-identical output.**
+**One wrinkle worth knowing about.** A record is 9 bytes (`int16 x y z` plus `uint8 magu
+ciu flags`), so a chunk holding an odd number of records is an odd number of bytes long,
+and 95 of the 192 are. The loader reads each block's `int16` fields in place and
+`Int16Array` throws on an odd `byteOffset`, so every block starts on a 2-byte boundary and
+odd blocks are followed by one pad byte. Total padding is 95 bytes against 2.4 MB.
 
-If per-tile streaming is wanted later, it should be driven by the camera rather than
-reinstated by default — and at 2.4 MB for the whole tier it is not obvious that it is
-worth the complexity.
+Verified by decoding all 282,103 stars from the old per-pixel files and from the packed
+file and hashing the result: both give
+`afced15fb9a2c84aea185bb1ceb4b9a3ff2c7e6ab2236d29260e86e450edfdbf`. Byte-identical input
+to the renderer, not merely the same count.
+
+**Effect: a cold boot drops from 250 requests to 74.** Bytes are unchanged, which is the
+point: this trades nothing away.
+
+If per-tile streaming is ever wanted, it should be driven by the camera and cut by
+distance shell rather than reinstated wholesale. At 2.4 MB for the entire tier it is not
+obvious that it would pay for its own complexity.
 
 ## 3. Textures are half the bytes, and all of them load at boot
 
@@ -182,10 +193,14 @@ on every frame.
 
 ## Where it lands
 
-| | Measured | After item 1 (shipped) | After items 2-5 |
+| | Originally | Now (items 1-2 shipped) | After items 3-5 |
 |---|---|---|---|
-| Cold boot | 250 requests / 19.84 MB | 250 requests / 19.84 MB | ~45 requests / ~5 MB |
-| Refresh | 250 requests / 19.84 MB | **~2 requests / ~0 MB** | ~2 requests / ~0 MB |
+| Cold boot | 250 requests / 19.84 MB | **74 requests** / 19.84 MB | ~45 requests / ~5 MB |
+| Refresh | 250 requests / 19.84 MB | **5 requests / ~1 KB** | ~5 requests / ~1 KB |
+
+The refresh figure is measured on the live site: 245 of 250 resources served from cache
+with zero bytes, the five that touched the network being the manifest plus four ~0.3 KB
+`304`s that a browser reload forces regardless of freshness.
 
 ## How to re-measure
 

@@ -41,7 +41,13 @@ interface StarTier {
 
 interface L2Index {
   recordCount: number
-  chunks: { pix: number; count: number; shells: [shell: number, start: number, count: number][] }[]
+  chunks: {
+    pix: number
+    count: number
+    /** Start of this pixel's block within `l2.bin`. Always even; see `loadDeepTier`. */
+    byteOffset: number
+    shells: [shell: number, start: number, count: number][]
+  }[]
 }
 
 /**
@@ -500,12 +506,28 @@ export class StarsModule implements AtlasModule {
    * All 192 are merged into one instanced mesh rather than 192 of them: the whole set
    * is under 3 MB, and one draw call for a third of a million stars is the entire
    * point of the instanced-quad approach.
+   *
+   * And they arrive in ONE file. They used to be 192 separate requests, fetched eight at
+   * a time, which was 74 per cent of every request the atlas made on a cold boot for ten
+   * per cent of its bytes. The chunking bought nothing at runtime, because this function
+   * has always loaded every chunk unconditionally and concatenated them: there is no
+   * frustum test and no distance gate to preserve. `l2.bin` is those same chunk blocks
+   * laid end to end, and `chunks[].byteOffset` says where each one starts.
+   *
+   * Should per-tile streaming ever be wanted, it should be driven by the camera and cut
+   * by distance shell rather than reinstated wholesale; at 2.4 MB for the entire tier it
+   * is not obvious that it would pay for its own complexity.
    */
   private async loadDeepTier(): Promise<void> {
-    const index = await fetch(assetUrl(`${DATA}/l2/index.json`))
-      .then((r) => (r.ok ? (r.json() as Promise<L2Index>) : null))
-      .catch(() => null)
-    if (!index || this.engine.isDisposed) return
+    const [index, whole] = await Promise.all([
+      fetch(assetUrl(`${DATA}/l2/index.json`))
+        .then((r) => (r.ok ? (r.json() as Promise<L2Index>) : null))
+        .catch(() => null),
+      fetch(assetUrl(`${DATA}/l2.bin`))
+        .then((r) => (r.ok ? r.arrayBuffer() : null))
+        .catch(() => null),
+    ])
+    if (!index || !whole || this.engine.isDisposed) return
 
     const total = index.recordCount
     const positions = new Float32Array(total * 3)
@@ -515,59 +537,54 @@ export class StarsModule implements AtlasModule {
     const scratch = vec3d()
     let written = 0
 
-    // A small concurrency window: enough to keep the connection busy, not so much
-    // that 192 parallel fetches stall the first frames of everything else.
-    const QUEUE = 8
-    let cursor = 0
-    const worker = async (): Promise<void> => {
-      while (cursor < index.chunks.length) {
-        const chunk = index.chunks[cursor++]
-        if (this.engine.isDisposed) return
-        const buffer = await fetch(assetUrl(`${DATA}/l2/${chunk.pix}.bin`))
-          .then((r) => (r.ok ? r.arrayBuffer() : null))
-          .catch(() => null)
-        if (!buffer || this.engine.isDisposed) continue
+    for (const chunk of index.chunks) {
+      const n = chunk.count
+      // Each block's int16 fields are read in place, which is why the packer starts every
+      // block on a 2-byte boundary: records are 9 bytes, so 95 of the 192 chunks are an
+      // odd number of bytes long and a tightly packed file would hand `Int16Array` an odd
+      // byteOffset for half of them, which throws. Total padding is 95 bytes.
+      const base = chunk.byteOffset
+      if (base % 2 !== 0 || base + 9 * n > whole.byteLength) {
+        console.warn(`[omniatlas] stars: L2 chunk ${chunk.pix} has a bad offset; skipped`)
+        continue
+      }
+      const x = new Int16Array(whole, base, n)
+      const y = new Int16Array(whole, base + 2 * n, n)
+      const z = new Int16Array(whole, base + 4 * n, n)
+      const magu = new Uint8Array(whole, base + 6 * n, n)
+      const ciu = new Uint8Array(whole, base + 7 * n, n)
 
-        const n = chunk.count
-        const x = new Int16Array(buffer, 0, n)
-        const y = new Int16Array(buffer, 2 * n, n)
-        const z = new Int16Array(buffer, 4 * n, n)
-        const magu = new Uint8Array(buffer, 6 * n, n)
-        const ciu = new Uint8Array(buffer, 7 * n, n)
+      for (const [shell, start, count] of chunk.shells) {
+        // scale_k = 2^shell / 32767, per the chunk index's own quantization rule.
+        const scale = 2 ** shell / 32767
+        for (let i = start; i < start + count; i++) {
+          scratch.x = x[i] * scale
+          scratch.y = y[i] * scale
+          scratch.z = z[i] * scale
+          const distancePc = Math.max(Math.hypot(scratch.x, scratch.y, scratch.z), 1e-3)
 
-        for (const [shell, start, count] of chunk.shells) {
-          // scale_k = 2^shell / 32767, per the chunk index's own quantization rule.
-          const scale = 2 ** shell / 32767
-          for (let i = start; i < start + count; i++) {
-            scratch.x = x[i] * scale
-            scratch.y = y[i] * scale
-            scratch.z = z[i] * scale
-            const distancePc = Math.max(Math.hypot(scratch.x, scratch.y, scratch.z), 1e-3)
+          worldToSceneBasis(scratch, scratch)
+          const o = written * 3
+          positions[o] = scratch.x
+          positions[o + 1] = scratch.y
+          positions[o + 2] = scratch.z
 
-            worldToSceneBasis(scratch, scratch)
-            const o = written * 3
-            positions[o] = scratch.x
-            positions[o + 1] = scratch.y
-            positions[o + 2] = scratch.z
+          const apparent = magu[i] / 16 - 2
+          absMag[written] = apparent - 5 * (Math.log10(distancePc) - 1)
 
-            const apparent = magu[i] / 16 - 2
-            absMag[written] = apparent - 5 * (Math.log10(distancePc) - 1)
-
-            let rgb = colourCache.get(ciu[i])
-            if (!rgb) {
-              rgb = kelvinToLinearRgb(colourIndexToKelvin(tychoToJohnsonBv(ciu[i] / 40 - 0.5)))
-              colourCache.set(ciu[i], rgb)
-            }
-            colors[o] = rgb[0]
-            colors[o + 1] = rgb[1]
-            colors[o + 2] = rgb[2]
-            written++
+          let rgb = colourCache.get(ciu[i])
+          if (!rgb) {
+            rgb = kelvinToLinearRgb(colourIndexToKelvin(tychoToJohnsonBv(ciu[i] / 40 - 0.5)))
+            colourCache.set(ciu[i], rgb)
           }
+          colors[o] = rgb[0]
+          colors[o + 1] = rgb[1]
+          colors[o + 2] = rgb[2]
+          written++
         }
       }
     }
 
-    await Promise.all(Array.from({ length: QUEUE }, worker))
     if (this.engine.isDisposed || written === 0) return
 
     const geometry = new THREE.InstancedBufferGeometry()
