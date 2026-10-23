@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { assetUrl } from '../../data/assetUrl'
-import type { AtlasModule, Engine, FrameContext, SceneNodeHandle } from '../../core/Engine'
+import { layerApproaching, type AtlasModule, type Engine, type FrameContext, type SceneNodeHandle } from '../../core/Engine'
 import { KPC_M, MPC_M, type FrameId, type Vec3d, sphericalToCartesian, vec3d } from '../../core/world'
 import type { DistanceKind } from '../../format/units'
 import type { Provenance } from '../../data/scaleLadder'
@@ -631,9 +631,9 @@ export class CosmosModule implements AtlasModule {
 
     this.buildDeepField(layer)
 
-    void this.load2Mrs(layer).catch((error) => {
-      console.warn('[omniatlas] cosmos: 2MRS field unavailable', error)
-    })
+    // The 2MRS point binary is NOT fetched here. It registers nothing and resolves
+    // into nothing at any view narrower than the cosmic web, so it waits until the
+    // camera is within a decade of the span that draws it. See `preRender`.
   }
 
   // -------------------------------------------------------------------------
@@ -1049,9 +1049,21 @@ export class CosmosModule implements AtlasModule {
   // -------------------------------------------------------------------------
 
   private async load2Mrs(layer: ReturnType<Engine['layer']>): Promise<void> {
-    const loaded = await fetchBinary<TwoMrsManifest>(`${DATA}/2mrs`)
-    if (!loaded || this.engine.isDisposed || this.disposed) return
-    const { manifest, buffer } = loaded
+    // The manifest usually comes from `loadZoneOfAvoidance`, which read it during init
+    // and kept it. Only when that failed is it fetched again here, which is also why
+    // this still handles a null: a missing manifest is a skipped field, not a throw.
+    const manifest = this.twoMrsManifest ?? (await fetchJson<TwoMrsManifest>(`${DATA}/2mrs.json`))
+    if (!manifest || this.engine.isDisposed || this.disposed) return
+    const buffer = await fetch(assetUrl(`${DATA}/2mrs.bin`))
+      .then((r) => (r.ok ? r.arrayBuffer() : null))
+      .catch(() => null)
+    if (!buffer || this.engine.isDisposed || this.disposed) return
+    if (manifest.totalBytes && buffer.byteLength !== manifest.totalBytes) {
+      console.warn(
+        `[omniatlas] cosmos: 2mrs.bin is ${buffer.byteLength} bytes, manifest says ${manifest.totalBytes}`,
+      )
+      return
+    }
 
     const count = manifest.recordCount
     const cz = readInt32(manifest, buffer, 'cz', count)
@@ -1200,6 +1212,10 @@ export class CosmosModule implements AtlasModule {
   private async loadZoneOfAvoidance(layer: ReturnType<Engine['layer']>): Promise<void> {
     const manifest = await fetchJson<TwoMrsManifest>(`${DATA}/2mrs.json`)
     if (!manifest || this.engine.isDisposed || this.disposed) return
+    // Held for `load2Mrs`, which needs the same manifest to decode the binary and used
+    // to fetch its own copy. Two requests for one 13 KB file, one of them already in
+    // hand, and now that the binary is deferred the second would arrive much later.
+    this.twoMrsManifest = manifest
 
     const bins = manifest.zoneOfAvoidance?.measured?.perLongitudeBin
     if (!Array.isArray(bins) || bins.length === 0) {
@@ -1516,7 +1532,21 @@ export class CosmosModule implements AtlasModule {
   // Per-frame
   // -------------------------------------------------------------------------
 
+  /** 2mrs.json, read once during init and reused by the deferred binary load. */
+  private twoMrsManifest: TwoMrsManifest | null = null
+  /** Set once the 2MRS field has been asked for, so `preRender` asks exactly once. */
+  private twoMrsRequested = false
+
   preRender(ctx: FrameContext): void {
+    // Above the active guard, deliberately: the fetch has to start while this layer is
+    // still off, so the field is resident by the time it is not.
+    if (!this.twoMrsRequested && layerApproaching(this.engine, LAYER, ctx.viewSpanMetres)) {
+      this.twoMrsRequested = true
+      void this.load2Mrs(this.engine.layer(LAYER)).catch((error) => {
+        console.warn('[omniatlas] cosmos: 2MRS field unavailable', error)
+      })
+    }
+
     const layer = this.engine.layers.get(LAYER)
     if (!layer || !layer.active) return
 

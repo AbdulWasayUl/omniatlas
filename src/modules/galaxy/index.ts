@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { assetUrl } from '../../data/assetUrl'
-import type { AtlasModule, Engine, FrameContext, SceneNodeHandle } from '../../core/Engine'
+import { layerApproaching, type AtlasModule, type Engine, type FrameContext, type SceneNodeHandle } from '../../core/Engine'
 import { KPC_M, type Vec3d, vec3d } from '../../core/world'
 import {
   type ArmFit,
@@ -307,6 +307,9 @@ export class GalaxyModule implements AtlasModule {
   private readonly localPosition = new THREE.Vector3()
   private readonly provenance: ProvenanceEntry[] = []
 
+  /** Set once the disc field has been asked for, so `preRender` asks exactly once. */
+  private fieldRequested = false
+
   async init(engine: Engine): Promise<void> {
     this.engine = engine
     const layer = engine.layer(LAYER)
@@ -345,11 +348,9 @@ export class GalaxyModule implements AtlasModule {
     if (localGroupFile) this.buildLocalGroup(localGroupFile)
     else console.warn('[omniatlas] galaxy: localgroup.json unavailable — no Local Group objects')
 
-    // The 3.9 MB point cloud streams in behind the first frame. Nothing registered
-    // depends on it, so a slow or failed fetch costs structure, not the layer.
-    void this.loadField().catch((error) => {
-      console.warn('[omniatlas] galaxy: disc field unavailable', error)
-    })
+    // The 3.9 MB point cloud is NOT fetched here. It registers nothing and means
+    // nothing at any view narrower than a galaxy, so it waits until the camera is
+    // within a decade of the span that draws it. See `preRender`.
   }
 
   // -------------------------------------------------------------------------
@@ -940,6 +941,15 @@ export class GalaxyModule implements AtlasModule {
   // -------------------------------------------------------------------------
 
   preRender(ctx: FrameContext): void {
+    // Above the active guard, deliberately: the whole point is to start the fetch
+    // while this layer is still off, so the points are resident by the time it is not.
+    if (!this.fieldRequested && layerApproaching(this.engine, LAYER, ctx.viewSpanMetres)) {
+      this.fieldRequested = true
+      void this.loadField().catch((error) => {
+        console.warn('[omniatlas] galaxy: disc field unavailable', error)
+      })
+    }
+
     const layer = this.engine.layer(LAYER)
     if (!layer.active) return
 

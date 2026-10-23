@@ -8,6 +8,25 @@ These documents define the product before the catalogue and renderer grow beyond
 4. [RENDERING.md](RENDERING.md) — precision, levels of detail, materials, lighting, picking, performance, and quality policy.
 5. [ROADMAP.md](ROADMAP.md) — sequenced delivery plan and explicit exit criteria.
 6. [PERFORMANCE.md](PERFORMANCE.md) — measured network cost of a cold boot, and the ranked work to reduce it.
+7. [LIGHTHOUSE.md](LIGHTHOUSE.md) — the Lighthouse baseline, what each finding actually is, and what is worth fixing.
+
+## Branching
+
+Two long-lived branches, both deployed:
+
+| Branch | Deploys to | What it is |
+|---|---|---|
+| `main` | production | Released work. Only ever receives merges from `dev`. |
+| `dev` | preview | Integration. Everything lands here first. |
+
+**Branch from `dev`, merge back into `dev`.** A release is `dev` merged into `main`,
+which happens when the work on `dev` has been verified and is wanted live.
+
+Nothing is pushed straight to `main`, and feature branches are deleted once merged, so
+the remote carries exactly these two and the hosting provider builds exactly two previews.
+Work is verified locally against a production build (`npm run build`, then
+`npx vite preview`) before it merges to `dev`, and verified again on the `dev` preview
+before it merges to `main`.
 
 ## Core decisions
 

@@ -179,39 +179,52 @@ threading the body through a helper that has no other reason to know about one.
 **Effect: 28 textures at boot to 2** (the Sun, as focus, and the ring), and 9.93 MB to
 about 0.2 MB. Bodies load their maps as the camera reaches them.
 
-## 4. Defer the far-scale datasets
+## 4. The far-scale datasets now wait (done)
 
-`data/galaxy/field.bin` is 3.54 MB of Milky Way disc points, meaningful only at the
-galactic rung. `data/universe/` holds CF4 and 2MRS at 0.79 MB for the cosmic rungs. Both
-load during module `init`, so a visit that never leaves the inner solar system pays
-4.33 MB for structures it never renders.
+> Implemented. `layerApproaching` in `src/core/Engine.ts`, used from the galaxy and
+> cosmos modules' `preRender`.
 
-The engine already computes the exact signal this needs. `Engine.activateLayers` sets
-`layer.active` from the camera's distance band and the view span, and the `galactic` and
-`cosmic` layers are inactive at every solar-system view. Hooking the first activation of
-a layer to the load of its datasets fits the existing module lifecycle: `init` registers
-nodes and builds geometry, and the fetch moves into a once-only guard in `preRender`.
+`galaxy/field.bin` is 3.5 MB of Milky Way disc points and `universe/2mrs.bin` is 0.6 MB
+of redshift-space galaxies. Neither means anything at a view narrower than its own rung,
+and both were fetched during module init, before the first frame, for every visitor
+including the ones who never leave the inner system.
 
-Failure isolation has to survive the move. A deferred load that fails should degrade the
-same way a failed `init` does today, through `engine.failedModules`, rather than retrying
-on every frame.
+Both now wait for `layerApproaching`, which asks whether the view span has come within a
+decade of the span band that draws the layer. The margin is the point: fetching when a
+layer goes ACTIVE is too late, because the download then happens while the content is
+already wanted, which is a hole in the view rather than a saving. The test sits above the
+`if (!layer.active) return` guard in both modules for the same reason.
 
-## 5. Two small ones
+**Only content that registers nothing can do this.** CF4 and UNGC rows are registry
+entries, and the viewer snapshots the registry into the label engine once after module
+load, so deferring them would make a whole catalogue findable only by flying to it first.
+`tests/unit/deferred-datasets.test.ts` holds both halves: the margin, and the fact that
+CF4 and UNGC still register from `init` alone with no frame having run.
 
-- `data/universe/2mrs.json` is fetched **twice**. `CosmosModule` reads it through
-  `fetchBinary` at `cosmos/index.ts:1051` and then re-fetches the same manifest at
-  `:1200` for the zone-of-avoidance wedge, having already parsed it. Passing the manifest
-  through removes a request.
-- `data/smallbodies/named.json` is 1.04 MB decoded, the only sizeable dataset still
-  shipping as JSON rather than through the struct-of-arrays binary treatment the others
-  get. Brotli takes it to 0.3 MB on the wire, so this is a parse-time concern more than a
-  transfer one.
+**Effect: 4.1 MB off a boot that stays in the solar system**, and the requests drop from
+53 to 49. Measured against the built output: at the default view neither `field.bin` nor
+`2mrs.bin` is requested; at the galaxy rung both are, and the console reports the same
+43,497 2MRS galaxies drawn as before.
+
+## 5. The duplicate manifest fetch (done)
+
+`2mrs.json` was fetched twice: once by `loadZoneOfAvoidance` for the survey's measured
+coverage limits, and again by `load2Mrs` through `fetchBinary`, which pairs a `.json` with
+its `.bin`. The zone-of-avoidance loader now keeps the manifest it already parsed and the
+binary load reuses it, falling back to its own fetch only if that one failed. With the
+binary deferred this mattered more than it did before: the second copy would have arrived
+a rung later, not milliseconds later.
+
+`smallbodies/named.json` remains the one sizeable dataset still shipping as JSON rather
+than through the struct-of-arrays binary treatment the others get. Brotli takes it to
+about 0.3 MB on the wire, so it is a parse-time concern more than a transfer one, and it
+is tracked in `LIGHTHOUSE.md` alongside the rest of the main-thread work.
 
 ## Where it lands
 
-| | Originally | Now (items 1-3 shipped) | After items 4-5 |
-|---|---|---|---|
-| Cold boot | 250 requests / 19.84 MB | **~50 requests / ~10 MB** | ~45 requests / ~6 MB |
+| | Originally | Now (all five shipped) |
+|---|---|---|
+| Cold boot | 250 requests / 19.84 MB | **49 requests** (bytes measured on the dev preview, below) |
 | Refresh | 250 requests / 19.84 MB | **5 requests / ~1 KB** | ~5 requests / ~1 KB |
 
 The refresh figure is measured on the live site: 245 of 250 resources served from cache

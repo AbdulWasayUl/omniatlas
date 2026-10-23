@@ -118,6 +118,30 @@ export interface SceneNodeHandle {
   proxyColor?: string
 }
 
+/**
+ * Is the view wide enough that a layer's content is about to be worth having?
+ *
+ * For datasets that are large, purely visual, and meaningless until the camera reaches
+ * a particular rung. The Milky Way's disc field is 3.5 MB of points that say nothing at
+ * any view narrower than a galaxy, and the 2MRS field is 0.6 MB that says nothing
+ * narrower than the cosmic web, yet both were fetched during module init, before the
+ * first frame, for every visitor including the ones who never leave the inner system.
+ *
+ * The test is deliberately one decade EARLIER than the span band that actually draws
+ * the layer, because the fetch has to finish before the content is wanted rather than
+ * when it is: a 3.5 MB download started at the moment the galactic layer switches on
+ * is a hole in the view for as long as it takes to arrive.
+ *
+ * Only for content that registers no nodes. Anything searchable has to exist in the
+ * registry from the start, because the viewer snapshots it into the label engine once
+ * after module load, and because a catalogue you can only find by flying to it first is
+ * not a catalogue. That rules out CF4 and UNGC, whose rows are destinations.
+ */
+export function layerApproaching(engine: Engine, layerId: LayerId, viewSpanMetres: number, decades = 1): boolean {
+  const floor = engine.layer(layerId).config.spanBandMetres[0]
+  return viewSpanMetres > floor / 10 ** decades
+}
+
 /** Below this a layer contributes nothing a viewer could see, so it is skipped. */
 const ACTIVE_EPSILON = 0.004
 
