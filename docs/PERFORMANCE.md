@@ -201,10 +201,12 @@ load, so deferring them would make a whole catalogue findable only by flying to 
 `tests/unit/deferred-datasets.test.ts` holds both halves: the margin, and the fact that
 CF4 and UNGC still register from `init` alone with no frame having run.
 
-**Effect: 4.1 MB off a boot that stays in the solar system**, and the requests drop from
-53 to 49. Measured against the built output: at the default view neither `field.bin` nor
-`2mrs.bin` is requested; at the galaxy rung both are, and the console reports the same
-43,497 2MRS galaxies drawn as before.
+**Effect: 3.84 MB off a boot that stays in the solar system**, and the requests drop
+from 53 to 49. Those are brotli bytes off the wire, measured by fetching the three files
+from production with `Accept-Encoding: br`: `field.bin` 3,670,825, `2mrs.bin` 350,922,
+`field.json` 4,192. Behaviour checked against the built output: at the default view
+neither binary is requested; at the galaxy rung both are, and the console reports the
+same 43,497 2MRS galaxies drawn as before.
 
 ## 5. The duplicate manifest fetch (done)
 
@@ -224,8 +226,15 @@ is tracked in `LIGHTHOUSE.md` alongside the rest of the main-thread work.
 
 | | Originally | Now (all five shipped) |
 |---|---|---|
-| Cold boot | 250 requests / 19.84 MB | **49 requests** (bytes measured on the dev preview, below) |
-| Refresh | 250 requests / 19.84 MB | **5 requests / ~1 KB** | ~5 requests / ~1 KB |
+| Cold boot | 250 requests / 19.84 MB | **49 requests / 3.70 MB** |
+| Refresh | 250 requests / 19.84 MB | **5 requests / ~1 KB** |
+| Returning after a deploy | 250 requests / 19.84 MB | only what changed |
+
+That is a **5.1x drop in requests and a 5.4x drop in bytes** on a first visit, and a
+refresh that costs essentially nothing. The remaining 3.70 MB is the belt binary, the
+star tiers, `named.json` and CF4 — all of them wanted at the rungs most sessions start
+at, so what is left is not deferral work but the parse-time and encoding work tracked in
+`LIGHTHOUSE.md`.
 
 The refresh figure is measured on the live site: 245 of 250 resources served from cache
 with zero bytes, the five that touched the network being the manifest plus four ~0.3 KB
