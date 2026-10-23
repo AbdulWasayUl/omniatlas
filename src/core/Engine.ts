@@ -142,6 +142,31 @@ export function layerApproaching(engine: Engine, layerId: LayerId, viewSpanMetre
   return viewSpanMetres > floor / 10 ** decades
 }
 
+const now = (): number => (typeof performance === 'undefined' ? Date.now() : performance.now())
+
+/** Which module's `init` is currently running, so `timeDecode` knows who to bill. */
+let currentModule: string | null = null
+const decodeMs = new Map<string, number>()
+
+/**
+ * Time a synchronous decode and bill it to the module currently initialising.
+ *
+ * Wrap the loop that turns a downloaded buffer into typed arrays, not the fetch around
+ * it: the question this answers is how much CPU the main thread spends before the first
+ * frame, and an await is not CPU. Outside module init it is a plain call with a timer,
+ * which costs two `performance.now()` reads.
+ */
+export function timeDecode<T>(label: string, run: () => T): T {
+  const started = now()
+  try {
+    return run()
+  } finally {
+    const spent = now() - started
+    if (currentModule) decodeMs.set(currentModule, (decodeMs.get(currentModule) ?? 0) + spent)
+    if (spent > 50) console.info(`[omniatlas] decode "${label}" took ${spent.toFixed(0)} ms on the main thread`)
+  }
+}
+
 /** Below this a layer contributes nothing a viewer could see, so it is skipped. */
 const ACTIVE_EPSILON = 0.004
 
@@ -181,6 +206,21 @@ export class Engine {
 
   readonly modules: AtlasModule[] = []
   readonly failedModules: { id: string; error: unknown }[] = []
+
+  /**
+   * Wall-clock milliseconds each module spent in `init`, in completion order.
+   *
+   * Boot cost had no attribution at all before this: Lighthouse reported 4.4 s of
+   * main-thread work and fifteen long tasks, and nothing in the project could say which
+   * of eight modules they belonged to. Guessing from record counts is how you end up
+   * optimising the second most expensive thing.
+   *
+   * Modules load concurrently, so these overlap and include time spent awaiting fetches
+   * as well as decoding. That makes the figure an upper bound per module rather than CPU
+   * time, which is the right shape for deciding WHAT to look at and the wrong one for
+   * claiming how much was saved. `decodeMs` is the CPU half.
+   */
+  readonly moduleTimings: { id: string; initMs: number; decodeMs: number }[] = []
 
   /**
    * Set by `dispose`. Module loading is asynchronous and React StrictMode mounts,
@@ -306,7 +346,12 @@ export class Engine {
         const module = await load()
         // The dynamic import above yields; re-check before touching the scene graph.
         if (this.disposed) return null
+        const started = now()
+        decodeMs.set(id, 0)
+        currentModule = id
         await module.init(this)
+        currentModule = null
+        this.moduleTimings.push({ id, initMs: now() - started, decodeMs: decodeMs.get(id) ?? 0 })
         return { id, module }
       }),
     )
@@ -592,8 +637,16 @@ export class Engine {
   }
 
   /** Snapshot for the stats overlay. */
-  stats(): { activeLayers: string[]; registered: number; failed: number; drawCalls: number; triangles: number } {
+  stats(): {
+    moduleTimings: readonly { id: string; initMs: number; decodeMs: number }[]
+    activeLayers: string[]
+    registered: number
+    failed: number
+    drawCalls: number
+    triangles: number
+  } {
     return {
+      moduleTimings: this.moduleTimings,
       activeLayers: this.layersByOrder.filter((l) => l.active).map((l) => l.id),
       registered: this.registry.size,
       failed: this.failedModules.length,

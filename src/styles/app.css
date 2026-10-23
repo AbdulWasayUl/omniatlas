@@ -256,7 +256,7 @@ button {
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.04em;
-  color: var(--text-4);
+  color: var(--text-3);
   border: 1px solid var(--line-strong);
   border-radius: 2px;
   padding: 2px 5px;
@@ -339,7 +339,7 @@ button {
 }
 
 .address-sep {
-  color: var(--text-4);
+  color: var(--text-3);
   font-size: 11px;
   text-shadow: 0 1px 3px rgb(0 0 0 / 90%);
 }
@@ -389,11 +389,22 @@ button {
 /* No min-width: the rule's length IS the measurement printed under it, so padding it
    out on a narrow viewport would lie in the same way the old 240px cap lied on a wide
    one. The length is chosen from a pixel budget in Hud, which keeps it 80-200px. */
+/*
+ * No transition on `width`.
+ *
+ * It had one, and `width` is not compositable: the rule's length changes with the camera,
+ * so flying anywhere repainted this on the main thread every frame. `transform: scaleX`
+ * would be the usual answer and is wrong here — the rule is drawn with end ticks (a
+ * border with no top), and scaling the box horizontally scales those 1px ticks with it.
+ *
+ * The value updates from a 10 Hz snapshot, so a 180 ms transition was mostly interpolating
+ * between samples that had already moved on. The number printed underneath is the honest
+ * readout either way.
+ */
 .scale-bar-rule {
   height: 6px;
   border: 1px solid var(--text-3);
   border-top: none;
-  transition: width var(--d-standard) var(--ease-standard);
 }
 
 /* --- the scale ladder rail ---------------------------------------------------- */
@@ -430,21 +441,24 @@ button {
   justify-content: center;
 }
 
+/* Drawn at its widest and scaled down, so the tick's length animates on `transform`
+   rather than `width`. Same geometry, composited. */
 .ladder-rung::before {
   content: '';
-  width: 10px;
+  width: 20px;
   height: 1px;
   background: var(--text-4);
-  transition: background var(--d-micro) var(--ease-micro), width var(--d-micro) var(--ease-micro);
+  transform: scaleX(0.5);
+  transition: background var(--d-micro) var(--ease-micro), transform var(--d-micro) var(--ease-micro);
 }
 
 .ladder-rung:hover::before {
-  width: 18px;
+  transform: scaleX(0.9);
   background: var(--text-2);
 }
 
 .ladder-rung[data-active='true']::before {
-  width: 20px;
+  transform: scaleX(1);
   height: 2px;
   background: var(--accent);
 }
@@ -595,7 +609,7 @@ button {
   display: grid;
   place-items: center;
   border-radius: var(--r-control);
-  color: var(--text-4);
+  color: var(--text-3);
   transition: background var(--d-micro) var(--ease-micro), color var(--d-micro) var(--ease-micro);
 }
 
@@ -717,7 +731,7 @@ button {
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-4);
+  color: var(--text-3);
   margin: 22px 0 10px;
 }
 
@@ -862,13 +876,28 @@ button.chip:hover {
   border-radius: 50%;
   background: var(--live);
   flex: none;
-  box-shadow: 0 0 0 3px rgb(94 219 129 / 14%);
+}
+
+/*
+ * The halo is a separate element so the pulse can run on `transform` and `opacity`,
+ * which the compositor animates on its own thread. It was a `box-shadow` keyframe, which
+ * it cannot: that repaints on the main thread every frame, forever, because this
+ * animation never stops while the clock is live. It was one of the three Lighthouse
+ * listed under "avoid non-composited animations" and the only one that runs unprompted.
+ */
+.live-dot::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: rgb(94 219 129 / 16%);
   animation: live-pulse 2.4s var(--ease-standard) infinite;
 }
 
 @keyframes live-pulse {
   50% {
-    box-shadow: 0 0 0 5px rgb(94 219 129 / 6%);
+    transform: scale(1.45);
+    opacity: 0.35;
   }
 }
 
@@ -1029,7 +1058,7 @@ button.chip:hover {
 }
 
 .palette input::placeholder {
-  color: var(--text-4);
+  color: var(--text-3);
 }
 
 /*
@@ -1075,7 +1104,7 @@ button.chip:hover {
 
 .scope-count {
   font-size: 10px;
-  color: var(--text-4);
+  color: var(--text-3);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1096,7 +1125,7 @@ button.chip:hover {
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-4);
+  color: var(--text-3);
   padding: 12px 10px 5px;
 }
 
@@ -1136,7 +1165,7 @@ button.chip:hover {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-4);
+  color: var(--text-3);
   white-space: nowrap;
 }
 
@@ -1172,7 +1201,7 @@ button.chip:hover {
   border-top: 1px solid var(--line);
   background: var(--surface-1);
   font-size: 11px;
-  color: var(--text-4);
+  color: var(--text-3);
 }
 
 .palette-keys {

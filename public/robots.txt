@@ -1,0 +1,7 @@
+# OmniAtlas. One page, no private areas, nothing to keep out of an index.
+# This file exists mainly so a request for it returns a valid robots.txt rather than
+# the SPA's index.html, which a crawler reads as a syntax error on every line.
+User-agent: *
+Allow: /
+
+Sitemap: https://omniatlas.wasay.dev/sitemap.xml

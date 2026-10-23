@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type { AtlasModule, Engine, FrameContext } from '../../core/Engine'
 import { PC_M, vec3d, worldToSceneBasis } from '../../core/world'
 import { assetUrl } from '../../data/assetUrl'
+import { forEachSlice } from '../../core/scheduling'
 
 /**
  * The stellar layer: 329,860 real stars from AT-HYG v4.0.
@@ -537,7 +538,17 @@ export class StarsModule implements AtlasModule {
     const scratch = vec3d()
     let written = 0
 
-    for (const chunk of index.chunks) {
+    // Sliced, not because the work is large but because it was INDIVISIBLE: one 54 ms
+    // task on this desktop, and a phone CPU is four to six times slower, which puts the
+    // same loop near 300 ms of blocked input and paint. Sixteen HEALPix chunks is about
+    // 23,000 records a slice, comfortably under the 50 ms long-task threshold even there.
+    let sliceCpuMs = 0
+    let worstSliceMs = 0
+    const completed = await forEachSlice(
+      index.chunks,
+      16,
+      (chunk) => {
+      const sliceStart = performance.now()
       const n = chunk.count
       // Each block's int16 fields are read in place, which is why the packer starts every
       // block on a 2-byte boundary: records are 9 bytes, so 95 of the 192 chunks are an
@@ -546,7 +557,7 @@ export class StarsModule implements AtlasModule {
       const base = chunk.byteOffset
       if (base % 2 !== 0 || base + 9 * n > whole.byteLength) {
         console.warn(`[omniatlas] stars: L2 chunk ${chunk.pix} has a bad offset; skipped`)
-        continue
+        return
       }
       const x = new Int16Array(whole, base, n)
       const y = new Int16Array(whole, base + 2 * n, n)
@@ -583,9 +594,17 @@ export class StarsModule implements AtlasModule {
           written++
         }
       }
-    }
+      const spent = performance.now() - sliceStart
+      sliceCpuMs += spent
+      if (spent > worstSliceMs) worstSliceMs = spent
+      },
+      () => this.engine.isDisposed,
+    )
 
-    if (this.engine.isDisposed || written === 0) return
+    // A decode that yields can outlive what started it: StrictMode remounts every effect
+    // in development, and a visitor can leave mid-boot. `forEachSlice` reports whether it
+    // ran to the end, and a partial buffer must not be handed to the GPU.
+    if (!completed || written === 0) return
 
     const geometry = new THREE.InstancedBufferGeometry()
     geometry.index = this.quad.index
@@ -605,7 +624,11 @@ export class StarsModule implements AtlasModule {
     mesh.name = 'stars:l2'
     this.tiers.push({ mesh, count: written })
     this.engine.layer(LAYER).scene.add(mesh)
-    console.info(`[omniatlas] stars: deep tier resident, ${written.toLocaleString('en-GB')} additional stars`)
+    console.info(
+      `[omniatlas] stars: deep tier resident, ${written.toLocaleString('en-GB')} additional stars ` +
+        `(decoded in ${Math.ceil(index.chunks.length / 16)} slices, ${sliceCpuMs.toFixed(0)} ms of CPU, ` +
+        `worst slice ${worstSliceMs.toFixed(1)} ms)`,
+    )
   }
 
   /**

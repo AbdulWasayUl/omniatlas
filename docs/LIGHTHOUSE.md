@@ -21,6 +21,21 @@ Moto G Power, Slow 4G, single page session:
 Everything below was checked against this repository rather than taken from the report.
 Where the report and the code disagree, that is called out.
 
+## A preview deployment scores differently, and SEO 60 is the tell
+
+Measure production. Vercel sends `x-robots-tag: noindex` on every preview deployment, by
+design, so previews stay out of search. Lighthouse's `is-crawlable` audit carries roughly
+forty per cent of the SEO category, so a preview scores about **60 on SEO no matter what
+the code does**, and production scores 100 on the same commit. Verified both ways:
+
+```
+preview:    x-robots-tag: noindex      SEO ~60
+production: (absent)                   SEO 100
+```
+
+If an SEO number drops to about 60, check which URL was measured before changing
+anything.
+
 ## Read the conditions before the score
 
 This is a WebGL atlas that streams a star catalogue, measured on a low-end phone over
@@ -78,7 +93,7 @@ truth cannot show invented trivia on its own splash screen.
 Shortening time-to-ready, which items 2 and 3 cover, is still worth doing. It just is no
 longer what LCP measures.
 
-## 2. TBT 430 ms, 4.4 s of main-thread work, 15 long tasks
+## 2. TBT: the biggest single task is sliced (done)
 
 Every catalogue binary is decoded on the main thread during module init: 282,103 stars,
 80,598 belt instances, 43,497 2MRS galaxies, 38,051 CF4 groups, 13,371 NGC objects. The
@@ -90,9 +105,20 @@ run before the first frame.
 never built. The decoders are pure functions over an `ArrayBuffer` that produce typed
 arrays, which is exactly the shape that transfers to a worker with no copy.
 
-Short of that, the same loops yield between chunks: a decode that fills 4 MB of
-`Float32Array` in 20 slices of a few hundred microseconds produces the same buffer and no
-long task. That is a smaller change than a worker pool and recovers most of the TBT.
+Short of that, the same loops yield between chunks. **Done for the largest of them.**
+`src/core/scheduling.ts` slices work and yields between slices, preferring
+`scheduler.yield()` over a `setTimeout` whose 4 ms clamp would otherwise dominate; the
+L2 star decode uses it, sliced by HEALPix chunk because that structure was already there.
+
+Measured on the production build: one **54 ms** task became **12 slices, 37 ms of CPU,
+worst slice 4.2 ms**, for the same 282,103 stars. A phone CPU is four to six times slower,
+which puts the worst slice near 25 ms — under the 50 ms threshold, so it contributes
+nothing to TBT rather than most of it.
+
+The remaining decodes were measured before touching them, which is why only this one was
+sliced: per-module `init` is now timed and reported through `Engine.moduleTimings`, and
+nothing else came close. Worth re-checking on a real phone trace rather than extrapolating
+from a desktop, because a desktop understates all of this by the same four to six times.
 
 ## 3. Payload: 10,395 KiB reported, and most of the easy wins are already taken
 
@@ -136,7 +162,7 @@ Confirm by running the chunk through a second minifier and comparing. If it come
 same size, the audit is wrong about this file and the right response is to ignore it, not
 to mangle the prose.
 
-## 6. Three non-composited animations
+## 6. Three non-composited animations (done)
 
 Named, so nobody has to hunt for them:
 
@@ -149,7 +175,7 @@ Named, so nobody has to hunt for them:
 All three are mine, from the chrome rework. `live-pulse` runs continuously on every frame
 the clock is live, so it is the one that matters; the other two fire only on interaction.
 
-## 6b. The webfont swap shifts the top bar
+## 6b. The webfont swap shifts the top bar (open)
 
 Found while measuring the above, not in the report. The only layout shift on a cold load
 is a single 0.0138 entry at 0.68 s whose sources are the top bar's own elements,
@@ -166,7 +192,7 @@ of the report's render-blocking findings.
 The fact card itself is not among the shift sources. Its `min-height` was set for exactly
 this reason.
 
-## 7. Accessibility 95: `--text-4` fails AA, and the gate that was meant to catch it does not exist
+## 7. `--text-4` failed AA, and the gate meant to catch it did not exist (done)
 
 Measured contrast ratios against the surfaces the token is used on:
 
@@ -181,12 +207,21 @@ and the token is used in sixteen places, several of which are real labels rather
 decoration: section heads, palette group headings, the palette's class column and its
 footer.
 
-Two things, in order: raise `--text-4` to clear 4.5 on `surface-2` (the worst case) or
-stop using it for anything a user has to read, and then write the script the token file
-claims to be enforced by. A comment asserting a gate that is not there is worse than no
-comment.
+Both done, in that order. Nine usages that were real labels — section heads, the
+palette's group headings, its class column, its footer, the breadcrumb separator, the
+keycap, the placeholder, the close control — moved to `--text-3`. `--text-4` itself went
+from `#616a71` to `#666f77` so it clears 3.0 against every surface text sits on, which
+is the floor for the non-text and `:disabled` cases it is now reserved for.
 
-## 8. Best Practices is 100, with six advisories
+`scripts/check-contrast.mjs` exists and runs as part of `npm run lint`. Writing it
+immediately caught two things worth recording. It first reported a pass while measuring
+the **`prefers-contrast: more` overrides**, because a regex over the whole token file
+keeps the last declaration of a duplicated name; it now reads the default `:root` block
+only. And it excludes `--surface-4`, which is the scrollbar thumb and the ladder's
+unshipped tick and never a text background — a floor that flags pairings the product
+never renders is a floor people learn to ignore.
+
+## 8. Best Practices advisories (done)
 
 All are headers, and `vercel.json` is already where the project sets headers:
 
@@ -200,18 +235,32 @@ All are headers, and `vercel.json` is already where the project sets headers:
 - **Source maps** for first-party JS: the build emits none. `build.sourcemap: true` costs
   nothing at runtime and makes production stack traces readable.
 
-A CSP on a page that loads only same-origin assets and no inline scripts is close to free
-here. Worth doing before the app grows anything that complicates it.
+All done in `vercel.json` and `vite.config.ts`: CSP, HSTS, XFO, COOP, a
+`Permissions-Policy`, and `build.sourcemap: true`.
+
+The CSP was tested before shipping rather than after, because `vite preview` ignores
+`vercel.json` and a broken CSP is invisible until production. A small static server in the
+scratchpad applied the real headers to `dist/`, and the atlas booted under them with no
+violations. `style-src` keeps `'unsafe-inline'`: the catalogue's class colours and the
+inspector's accent are written as inline `style` attributes, which CSP counts.
+
+Trusted Types is still open. It needs a policy for every DOM sink, and three.js is not
+audited for it.
 
 ## Order of work
 
-1. ~~Loading screen fact card~~ — **done**, LCP now fires at FCP.
-2. Chunked or worker-based catalogue decode — TBT and time-to-ready. Now the top item.
-3. `--text-4` contrast, plus the missing `check-contrast.mjs`.
-4. The three non-composited animations.
-5. Headers: CSP, HSTS, XFO, source maps.
-6. `named.json` to binary; named three.js imports — measure first.
-7. Ignore the minify audit unless a second minifier disagrees with the single-line file.
+Done: the loading screen fact card (LCP), slicing the L2 decode (TBT), the `--text-4`
+contrast and its gate, the three non-composited animations, the headers and source maps,
+and `robots.txt`.
+
+Open, in order:
+
+1. The rest of the catalogue decode, driven by a real phone trace rather than desktop
+   numbers. A worker is the documented destination; slicing may be enough.
+2. The webfont swap's layout shift, and preloading the woff2 past the `@import` waterfall.
+3. `named.json` to binary; named three.js imports — measure first.
+4. Trusted Types.
+5. Ignore the minify audit unless a second minifier disagrees with the single-line file.
 
 ## Re-measuring
 

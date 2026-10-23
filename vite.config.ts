@@ -17,5 +17,10 @@ export default defineConfig({
   },
   build: {
     target: 'esnext',
+    // Lighthouse flags their absence under Best Practices, and the real reason to want
+    // them is that a production stack trace from a minified 589 KB bundle names nothing.
+    // They are a separate download that only a devtools session asks for, so they cost
+    // visitors nothing.
+    sourcemap: true,
   },
 })

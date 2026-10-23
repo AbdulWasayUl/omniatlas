@@ -28,7 +28,17 @@
   --text-1: #f2f6f9; /* 17.3:1 */
   --text-2: #bdc5cb; /* 10.7:1 */
   --text-3: #8a949b; /*  6.1:1 — the floor for body text */
-  --text-4: #616a71; /*  3.4:1 — disabled / decorative only */
+  /*
+   * 3.4:1 on surface-1 and 3.1:1 on surface-2, under the 4.5 WCAG AA wants for text. So
+   * it is ONLY for what AA exempts or does not cover: controls that are genuinely
+   * `:disabled`, and icon strokes, which are non-text and need 3:1.
+   *
+   * It had drifted onto real labels — section heads, the palette's group headings, its
+   * class column, its footer — which is what cost the Accessibility score a point.
+   * `npm run check:contrast` now fails on any text token that cannot clear AA, which is
+   * what this comment always claimed happened while the script did not exist.
+   */
+  --text-4: #666f77;
 
   /* --- accent --------------------------------------------------------------- */
   --accent: #60c2ff;
