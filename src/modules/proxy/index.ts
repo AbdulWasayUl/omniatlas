@@ -220,6 +220,14 @@ function proxyLayerFor(node: SceneNodeHandle): LayerId {
 }
 
 /**
+ * Every layer `proxyLayerFor` can return.
+ *
+ * `forceActive` is recomputed over this list each frame rather than toggled as proxies
+ * come and go, so a layer is on exactly while something in it is live.
+ */
+const PROXY_LAYERS: readonly LayerId[] = ['helio', 'system']
+
+/**
  * The catalogue's morphology class for a galaxy, which `SceneNodeHandle` does not
  * carry yet. Read through this so the proxy already does the right thing the moment
  * the galaxy and cosmos modules start setting it; until then every galaxy falls
@@ -972,7 +980,22 @@ export function photosphereColours(proxyColor: string | undefined): {
 export class ProxyModule implements AtlasModule {
   readonly id = 'proxy'
   private engine!: Engine
-  private proxy: Proxy | null = null
+  /**
+   * The live stand-ins, by node id. At most two, and two only while a flight is in
+   * the air: the body being left and the one being approached.
+   *
+   * It used to be one, and `update` handed it the DEPARTURE body for the whole flight
+   * so that leaving a black hole did not tear down the thing filling the screen. The
+   * cost of that was the other end: the destination had no stand-in until `inTransit`
+   * cleared, so an object with no mesh of its own was absent for the entire approach
+   * and then appeared whole, at arrival size, in one frame. Flying to Andromeda showed
+   * empty sky for three seconds and then a galaxy across the viewport.
+   *
+   * Holding both ends fixes it without a special case, because `preRender` already
+   * fades each proxy on its own honest apparent size: the departure body shrinks out
+   * as the destination grows in, and neither knows the other exists.
+   */
+  private readonly proxies = new Map<string, Proxy>()
   private readonly scratch = new THREE.Vector3()
   /** World-metre scratch, for the in-transit distance in `preRender`. */
   private readonly scratchWorld: Vec3d = vec3d()
@@ -996,7 +1019,7 @@ export class ProxyModule implements AtlasModule {
 
   /** True when the anchored object is being drawn as an illustration, not an observation. */
   isProxy(nodeId: string | null): boolean {
-    return this.proxy !== null && this.proxy.nodeId === nodeId
+    return nodeId !== null && this.proxies.has(nodeId)
   }
 
   /**
@@ -1010,23 +1033,49 @@ export class ProxyModule implements AtlasModule {
    */
   update(ctx: FrameContext): void {
     this.phase += Math.min(ctx.delta, 0.05)
-    // Whose stand-in to hold during a flight: the one you can still see.
+
+    // Both ends of a flight, so the approach is a cross-fade rather than a pop.
     //
     // `anchorId` is identity and moves to the destination the moment a flight is
-    // ordered, which is right for the label and the URL and wrong for the geometry —
-    // building the destination's proxy on frame 0 tore down the black hole filling
-    // the screen and left empty sky for the whole flight. The departure body keeps
-    // its stand-in until the camera arrives; `transitFromId` is null when not flying.
-    const subjectId = ctx.inTransit ? (ctx.transitFromId ?? ctx.anchorId) : ctx.anchorId
-    const node = this.engine.node(subjectId)
-    const wanted = node && !node.object3D && drawnRadiusMetres(node) > 0 ? node : null
-    if (this.proxy && (!wanted || this.proxy.nodeId !== wanted.id)) this.clear()
-    if (wanted && !this.proxy) this.proxy = this.build(wanted)
+    // ordered, which is right for the label and the URL. `transitFromId` is the body
+    // being left, and is null when not flying. Holding only one of them loses the
+    // other end: the departure body alone meant the destination appeared whole on
+    // arrival, and the destination alone tore down the black hole filling the screen
+    // on frame 0. There is no third option that keeps both, so it keeps both.
+    const wanted = new Set<string>()
+    for (const id of [ctx.anchorId, ctx.inTransit ? ctx.transitFromId : null]) {
+      if (!id) continue
+      const node = this.engine.node(id)
+      if (node && !node.object3D && drawnRadiusMetres(node) > 0) wanted.add(id)
+    }
+
+    for (const id of [...this.proxies.keys()]) {
+      if (!wanted.has(id)) this.clearOne(id)
+    }
+    for (const id of wanted) {
+      if (this.proxies.has(id)) continue
+      const node = this.engine.node(id)
+      const built = node && this.build(node)
+      if (built) this.proxies.set(id, built)
+    }
+
+    // One flag per layer, recomputed from what is actually live. Set on build and
+    // unset on teardown, it would be cleared by whichever proxy happened to be torn
+    // down second while the other was still in that layer and needing it.
+    for (const layerId of PROXY_LAYERS) {
+      let needed = false
+      for (const proxy of this.proxies.values()) {
+        if (proxy.layerId === layerId) needed = true
+      }
+      this.engine.layer(layerId).forceActive = needed
+    }
   }
 
   preRender(ctx: FrameContext): void {
-    const proxy = this.proxy
-    if (!proxy) return
+    for (const proxy of this.proxies.values()) this.updateProxy(ctx, proxy)
+  }
+
+  private updateProxy(ctx: FrameContext, proxy: Proxy): void {
     const node = this.engine.node(proxy.nodeId)
     if (!node) return
 
@@ -1041,13 +1090,17 @@ export class ProxyModule implements AtlasModule {
     // Fade on apparent size, so the proxy takes over from the catalogue point exactly
     // where the point stops being able to represent the object.
     //
-    // In transit `ctx.anchorDistanceMetres` is the distance to the interpolated orbit
-    // point, not to this node: on frame 0 of Earth -> TON 618 it reads 3.6e7 m against
-    // a 1.95e14 m radius, which saturates the fade and submits the group at ~1e20
-    // layer units in a camera whose far plane is 1e6. Measure it honestly instead.
-    const distanceMetres = ctx.inTransit
-      ? distance3d(convertFrame(this.scratchWorld, node.worldPosition, node.frame, ctx.cameraFrame), ctx.cameraWorld)
-      : ctx.anchorDistanceMetres
+    // Measured to THIS node every time, never from `ctx.anchorDistanceMetres`. That
+    // number is the distance to the anchor, which is one of these two at best and the
+    // interpolated orbit point while a flight is in the air: on frame 0 of
+    // Earth -> TON 618 it reads 3.6e7 m against a 1.95e14 m radius, which saturates
+    // the fade and submits the group at ~1e20 layer units into a camera whose far
+    // plane is 1e6. Outside a flight it equals this computation exactly, so there is
+    // nothing to branch on and one fewer way to be wrong.
+    const distanceMetres = distance3d(
+      convertFrame(this.scratchWorld, node.worldPosition, node.frame, ctx.cameraFrame),
+      ctx.cameraWorld,
+    )
     const halfFov = Math.tan((ctx.fovDegrees * Math.PI) / 360)
     const radiusPx = (radiusMetres / Math.max(distanceMetres, 1) / halfFov) * (ctx.height / 2)
     const fade = THREE.MathUtils.clamp((radiusPx - FADE_IN_PX) / (FADE_FULL_PX - FADE_IN_PX), 0, 1)
@@ -1065,16 +1118,23 @@ export class ProxyModule implements AtlasModule {
   }
 
   dispose(): void {
-    this.clear()
+    this.clearAll()
   }
 
-  private clear(): void {
-    if (!this.proxy) return
-    const layer = this.engine.layer(this.proxy.layerId)
-    layer.scene.remove(this.proxy.group)
-    layer.forceActive = false
-    this.proxy.dispose()
-    this.proxy = null
+  private clearOne(id: string): void {
+    const proxy = this.proxies.get(id)
+    if (!proxy) return
+    // `forceActive` is NOT cleared here: `update` recomputes it for every proxy layer
+    // once the whole set has settled. Clearing it per teardown turned the layer off
+    // while the other end of a flight was still being drawn into it.
+    this.engine.layer(proxy.layerId).scene.remove(proxy.group)
+    proxy.dispose()
+    this.proxies.delete(id)
+  }
+
+  private clearAll(): void {
+    for (const id of [...this.proxies.keys()]) this.clearOne(id)
+    for (const layerId of PROXY_LAYERS) this.engine.layer(layerId).forceActive = false
   }
 
   private build(node: SceneNodeHandle): Proxy | null {
@@ -1129,7 +1189,7 @@ export class ProxyModule implements AtlasModule {
     layer.scene.add(group)
     // The system layer sits outside every distance band when the anchor is a quasar,
     // so it has to be told to draw anyway.
-    layer.forceActive = layerId === 'system'
+    // `forceActive` is owned by `update`, which sets it from the live set every frame.
     return {
       nodeId: node.id,
       layerId,
