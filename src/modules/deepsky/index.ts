@@ -906,6 +906,11 @@ export class DeepSkyModule implements AtlasModule {
     const types = fieldView(buffer, manifest, 'type') as Uint8Array
     const distanceKind = fieldView(buffer, manifest, 'distanceKind') as Uint8Array
     const redshiftValues = fieldView(buffer, manifest, 'redshift') as Float32Array
+    // Copied, not aliased: a view would pin the whole 438 KB binary for the life of the
+    // module to keep 70 KB of it. `loadNamed` runs after this, sequentially, inside the
+    // same init — which is the only reason it can read these at all.
+    this.rowDistanceKind = distanceKind.slice()
+    this.rowRedshift = redshiftValues.slice()
 
     const dirs = new Float32Array(count * 3)
     const dists = new Float32Array(count)
@@ -1050,6 +1055,18 @@ export class DeepSkyModule implements AtlasModule {
   // 2. The named objects, in the registry
   // -------------------------------------------------------------------------
 
+  /**
+   * `distanceKind` and `redshift` per catalogue row, kept from `ngc.bin`.
+   *
+   * `ngc-names.json` carries neither: it has no redshift at all, and spells
+   * `distanceKind` as a string where the gate wants the binary's uint8. The named
+   * loader therefore could not apply `hasTrustworthyDistance` even though the field
+   * loader does, which is how 26 named objects came to be registered at Hubble-flow
+   * distances that the very same module refuses to draw.
+   */
+  private rowDistanceKind: Uint8Array | null = null
+  private rowRedshift: Float32Array | null = null
+
   private async loadNamed(): Promise<void> {
     const payload = await fetchJson<{ objects?: NamedObject[] }>(`${DATA}/ngc-names.json`)
     if (this.engine.isDisposed) return
@@ -1067,7 +1084,29 @@ export class DeepSkyModule implements AtlasModule {
         continue
       }
       const category = TYPE_CATEGORY[object.type] ?? 'other'
-      const catalogued = typeof object.distancePc === 'number' && object.distancePc > 0
+      // The SAME gate the field uses, which this loader skipped.
+      //
+      // It checked only `distancePc > 0`, so a Hubble-flow distance derived from a
+      // redshift below the peculiar-velocity floor was accepted here and rejected three
+      // hundred lines up. The Large Magellanic Cloud was registered at 12.6 Mly — 77x
+      // its true distance — stamped `provenance: 'measured'`, and because
+      // `oneLabelPerObject` hands the marker to whichever row claims the larger radius,
+      // and that radius is derived from the bogus distance, this row WON the label from
+      // the correct 163 kly one. Double-clicking "Large Magellanic Cloud" flew the
+      // camera clean out of the galaxy.
+      //
+      // Rejected rows fall through to the literature table and then to the direction-only
+      // shell, exactly as an uncatalogued object does: a distance the module will not
+      // draw is not a distance it should fly to either.
+      const rowIndex = typeof object.i === 'number' ? object.i : -1
+      const kinds = this.rowDistanceKind
+      const redshifts = this.rowRedshift
+      const catalogued =
+        typeof object.distancePc === 'number' &&
+        object.distancePc > 0 &&
+        (kinds === null || redshifts === null || rowIndex < 0 || rowIndex >= kinds.length
+          ? true
+          : hasTrustworthyDistance(kinds[rowIndex], object.distancePc, redshifts[rowIndex]))
       // Fall back to a published distance before falling back to the shell. Without
       // this the Orion Nebula is 100 kpc away and 8,000 light years across.
       const literaturePc = catalogued
