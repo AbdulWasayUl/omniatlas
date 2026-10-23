@@ -252,7 +252,7 @@ export class AtlasViewer {
   private readonly scratchWorld: Vec3d = vec3d()
   private readonly resizeObserver: ResizeObserver
   private readonly onSelect?: (id: string | null) => void
-  private hits: { id: string; x: number; y: number; r: number }[] = []
+  private hits: { id: string; x: number; y: number; r: number; touch: boolean }[] = []
   private pointerDownAt = { x: 0, y: 0, time: 0 }
 
   constructor(options: AtlasViewerOptions) {
@@ -762,8 +762,11 @@ export class AtlasViewer {
     let bestDistance = Infinity
     for (const hit of this.hits) {
       const d = Math.hypot(hit.x - x, hit.y - y)
-      // A generous floor keeps tiny markers tappable on touch.
-      if (d <= Math.max(hit.r, 14) && d < bestDistance) {
+      // A generous floor keeps tiny MARKERS tappable on touch. It is not extended to
+      // the unmarked hits: those have no ring on screen, and a 14 px grab radius on an
+      // object the user cannot see turns a click on empty sky into a selection.
+      const reach = hit.touch ? Math.max(hit.r, 14) : hit.r
+      if (d <= reach && d < bestDistance) {
         bestDistance = d
         best = hit.id
       }

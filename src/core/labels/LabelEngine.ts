@@ -222,12 +222,12 @@ export class LabelEngine {
    * as the priority order is stable, which matters more than optimality — a label that
    * flickers in and out is worse than a label that is missing.
    */
-  render(engine: Engine, viewSpanMetres: number): { hits: { id: string; x: number; y: number; r: number }[] } {
+  render(engine: Engine, viewSpanMetres: number): { hits: { id: string; x: number; y: number; r: number; touch: boolean }[] } {
     const ctx = this.ctx
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0)
     ctx.clearRect(0, 0, this.width, this.height)
     this.placed.length = 0
-    const hits: { id: string; x: number; y: number; r: number }[] = []
+    const hits: { id: string; x: number; y: number; r: number; touch: boolean }[] = []
 
     const halfHeight = this.height / 2
     const logSpan = Math.log10(Math.max(viewSpanMetres, 1))
@@ -303,7 +303,25 @@ export class LabelEngine {
     // moment the user clicks something.
     const best = candidates.find((c) => Number.isFinite(c.score))?.score ?? 0
     const floor = Math.max(best - SCORE_FLOOR_BELOW_BEST, ABSOLUTE_SCORE_FLOOR)
-    const marked = candidates.filter((c) => c.selected || c.score >= floor).slice(0, MAX_MARKED)
+
+    // Two sets, and the difference between them is the point.
+    //
+    // `worthShowing` is everything that cleared the score floor: the objects this view
+    // is about. `marked` is the first MAX_MARKED of those, and that cap is an INK
+    // budget — 34 rings and names is what a frame can carry before the sky is a list.
+    //
+    // The hit test used to run off `marked`, so the ink budget silently decided what was
+    // clickable. With 788 UNGC galaxies drawn as points in the cosmic layer, that left
+    // hundreds of visible dots that no click could reach, and which 34 were reachable
+    // changed as the camera moved — a thing is clickable, you zoom, it is not. That is
+    // the "artifacts that weren't clickable at all" half of the report.
+    //
+    // Clicking is not drawing and does not have to be rationed: `AtlasViewer.pick` is a
+    // linear scan over this array, run once per pointer-up, and a few hundred entries
+    // costs nothing. The score floor still applies, so this does not make the empty sky
+    // clickable — only the things the view already considers worth showing.
+    const worthShowing = candidates.filter((c) => c.selected || c.score >= floor)
+    const marked = worthShowing.slice(0, MAX_MARKED)
 
     // Pass 2a: markers, LOWEST score first.
     //
@@ -320,9 +338,20 @@ export class LabelEngine {
       }
     }
 
+    // Hit targets for everything worth showing, including what the ink budget dropped.
+    // A smaller radius for the unmarked ones: an object with no ring on screen should
+    // not win a click from a neighbour that has one, so it gets the apparent size it
+    // actually occupies rather than the marker's generous floor.
+    for (let i = MAX_MARKED; i < worthShowing.length; i++) {
+      const { item, x, y, apparentPixels } = worthShowing[i]
+      // `touch: false` — see `AtlasViewer.pick`. These have no ring on screen, so they
+      // do not get the generous finger-sized grab radius a drawn marker does.
+      hits.push({ id: item.node.id, x, y, r: Math.max(apparentPixels, 4), touch: false })
+    }
+
     // Pass 2b: hits and labels, highest score first so declutter favours them.
     for (const { item, x, y, apparentPixels, selected } of marked) {
-      hits.push({ id: item.node.id, x, y, r: Math.max(MARKER_RADIUS + 4, apparentPixels) })
+      hits.push({ id: item.node.id, x, y, r: Math.max(MARKER_RADIUS + 4, apparentPixels), touch: true })
 
       // Labels appear once the object is worth naming: either it has a marker, or it
       // is large enough on screen to be looked at.

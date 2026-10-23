@@ -716,8 +716,35 @@ export class CosmosModule implements AtlasModule {
   // UNGC — the Local Volume, where galaxies still have identities
   // -------------------------------------------------------------------------
 
+  /**
+   * The Local Group cutoff, read from the file that declares it.
+   *
+   * Not a constant here on purpose. `localgroup.json` carries `cutoffMpc` and is built
+   * from the same UNGC table this module reads, so a rebuild that moves the boundary
+   * must move both sides of it at once. A second copy of `1.5` in this file would be a
+   * second thing to forget.
+   *
+   * Returns null when the value cannot be read, and the caller then draws every row —
+   * the behaviour this gate replaced. That degrades toward a visible duplicate rather
+   * than toward 81 galaxies silently vanishing from the atlas, which is the right way
+   * round for a failure nobody is watching for. It says so in the console either way.
+   */
+  private async localGroupCutoffMpc(): Promise<number | null> {
+    const file = await fetchJson<{ cutoffMpc?: unknown }>('/data/galaxy/localgroup.json')
+    const cutoff = file?.cutoffMpc
+    if (typeof cutoff === 'number' && cutoff > 0) return cutoff
+    console.warn(
+      '[omniatlas] cosmos: localgroup.json carries no cutoffMpc; drawing the whole UNGC table, ' +
+        'which double-draws every Local Group dwarf the galaxy module also draws',
+    )
+    return null
+  }
+
   private async loadUngc(layer: ReturnType<Engine['layer']>): Promise<void> {
-    const file = await fetchJson<UngcFile>(`${DATA}/ungc.json`)
+    const [file, cutoffMpc] = await Promise.all([
+      fetchJson<UngcFile>(`${DATA}/ungc.json`),
+      this.localGroupCutoffMpc(),
+    ])
     if (!file || this.engine.isDisposed || this.disposed) return
     const galaxies = Array.isArray(file.galaxies) ? file.galaxies : null
     if (!galaxies || galaxies.length === 0) {
@@ -734,6 +761,7 @@ export class CosmosModule implements AtlasModule {
     let missingMagnitude = 0
     let unknownKind = 0
     let skippedNoSize = 0
+    let skippedLocalGroup = 0
     const kindCounts = new Map<DistanceKind, number>()
 
     for (const galaxy of galaxies) {
@@ -748,6 +776,31 @@ export class CosmosModule implements AtlasModule {
       const { ra, dec, distMpc } = galaxy
       if (!Number.isFinite(ra) || !Number.isFinite(dec) || !(distMpc > 0)) {
         skippedNoDistance++
+        continue
+      }
+
+      // Inside the Local Group cutoff this row belongs to the GALACTIC layer, and the
+      // galaxy module already draws it from `localgroup.json`. Drawing it here too put
+      // 74 dwarf galaxies on screen twice, in two layers, at two different distances:
+      // the two files agree on RA and Dec to the bit, but `distMpc` here is rounded to
+      // two decimals, which is 10 kpc of granularity, so the second copy sits up to
+      // 4.9 kpc further along the line of sight. That offset is invisible from the Sun
+      // and opens up with camera parallax, so the pair separates as you move and slides
+      // back together as you zoom out and the galactic layer fades — which is exactly
+      // the "stray artifact that merges into another object" this was reported as.
+      //
+      // Worse, only one of the two could ever be clicked. `oneLabelPerObject` hands the
+      // marker to a single node per object and `AtlasViewer.pick` tests nothing else, so
+      // 61 of the 74 had a drawn galactic glow and no hit target anywhere in the atlas
+      // below ~35 kpc of camera distance, where the cosmic layer is not even active.
+      //
+      // The partition is not a judgement call: `localgroup.json` declares `cutoffMpc`
+      // and its own note says the rows beyond it "belong to the cosmic layer, not the
+      // galactic layer". Verified against the shipped data: ungc.json has exactly 81
+      // rows inside 1.5 Mpc and they are precisely the 81 localgroup rows, with nothing
+      // on either side of the match.
+      if (cutoffMpc !== null && (distMpc as number) <= cutoffMpc) {
+        skippedLocalGroup++
         continue
       }
 
@@ -833,6 +886,11 @@ export class CosmosModule implements AtlasModule {
       omitted.push({ count: skippedMilkyWay, reason: 'the Milky Way itself, drawn by the galaxy module, not here' })
     if (skippedNoDistance > 0)
       omitted.push({ count: skippedNoDistance, reason: 'no usable position or distance in the catalogue row' })
+    if (skippedLocalGroup > 0)
+      omitted.push({
+        count: skippedLocalGroup,
+        reason: 'inside the Local Group cutoff, so drawn by the galaxy module in the galactic layer rather than twice',
+      })
     // Counted since the size filter landed but never reported, so the one row it drops
     // was invisible in the very table that exists to record what was dropped.
     if (skippedNoSize > 0)
