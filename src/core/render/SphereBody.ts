@@ -100,6 +100,37 @@ function unitSphere(segments: number): THREE.SphereGeometry {
 const textureLoader = new THREE.TextureLoader()
 const textureCache = new Map<string, THREE.Texture>()
 
+/**
+ * A one-pixel stand-in, held in a material's map slot until the real map is wanted.
+ *
+ * This exists so that deferring a texture changes WHEN a request is made and nothing
+ * else. The map slot is occupied from the first frame, so three.js compiles the material
+ * once, with `USE_MAP` defined, and the surface shaders that sample `map` — the unimaged
+ * fill and the map gain — are valid immediately. Leaving the slot null instead and
+ * assigning a texture later flips a shader define, which recompiles the program on the
+ * frame a body happens to come into range: a hitch, at exactly the moment the camera is
+ * moving toward something.
+ *
+ * Swapping one texture for another needs no recompile, only a new uniform value, so the
+ * real map replaces this in place.
+ */
+function placeholderTexture(color: string, colorSpace: THREE.ColorSpace, wrapS: THREE.Wrapping): THREE.Texture {
+  const c = new THREE.Color(color)
+  if (colorSpace === THREE.SRGBColorSpace) c.convertLinearToSRGB()
+  const data = new Uint8Array([
+    Math.round(c.r * 255),
+    Math.round(c.g * 255),
+    Math.round(c.b * 255),
+    255,
+  ])
+  const texture = new THREE.DataTexture(data, 1, 1, THREE.RGBAFormat)
+  texture.colorSpace = colorSpace
+  texture.wrapS = wrapS
+  texture.wrapT = THREE.ClampToEdgeWrapping
+  texture.needsUpdate = true
+  return texture
+}
+
 function loadTexture(
   url: string,
   colorSpace: THREE.ColorSpace = THREE.SRGBColorSpace,
@@ -293,7 +324,7 @@ function installSurfaceShader(material: THREE.MeshStandardMaterial, parts: Surfa
 /**
  * Reciprocal of the shipped sun map's mean linear luminance.
  *
- * `/textures/planets/sun.jpg` is a false-colour SDO rendition: measured over the whole
+ * `/textures/planets/sun.webp` is a false-colour SDO rendition: measured over the whole
  * map its mean linear RGB is (0.896, 0.296, 0.050) — sRGB ~(247, 150, 63), a pumpkin.
  * Its CHROMA is an artist's choice and carries no information; its LUMINANCE is real
  * granulation and spot structure. Dividing that luminance by its own mean turns the
@@ -696,29 +727,64 @@ export class SphereBody {
   /** Equatorial radius in layer units; `spec.radius` is the mean. */
   private equatorialRadius: number
 
+  /**
+   * Texture fetches not yet made. Drained by `requestTextures`, then discarded.
+   *
+   * Every body's maps used to be fetched the moment it was constructed, which happens
+   * for all of them during module init. That is 9.9 MB of imagery before the first
+   * frame, most of it for bodies that are under a pixel: from the default view at the
+   * Sun, about twenty of the twenty-eight maps belong to objects the renderer is
+   * drawing as a marker glyph rather than a sphere. The catalogue colour is what those
+   * show anyway.
+   */
+  private deferred: (() => void)[] = []
+  private requested = false
+
   constructor(spec: SphereBodySpec) {
     this.spec = spec
     const segments = spec.segments ?? 64
     this.polarRatio = spec.polarRatio ?? 1
     this.equatorialRadius = spec.radius / Math.cbrt(this.polarRatio)
 
-    const material = spec.emissive
-      ? new THREE.MeshBasicMaterial({
-          color: spec.color ? new THREE.Color(spec.color) : new THREE.Color(1, 1, 1),
-          map: spec.textureUrl ? loadTexture(spec.textureUrl) : null,
-        })
-      : new THREE.MeshStandardMaterial({
-          color: spec.textureUrl ? 0xffffff : new THREE.Color(spec.color ?? '#9aa3ab'),
-          map: spec.textureUrl ? loadTexture(spec.textureUrl) : null,
-          // Relief shading is the one thing that changes how a body reads at the
-          // terminator, and the Moon is the body in this atlas where it changes it
-          // most. The map is greyscale height, not colour: it must bypass the sRGB
-          // decode or the transfer curve distorts the slopes.
-          bumpMap: spec.bumpMapUrl ? loadTexture(spec.bumpMapUrl, THREE.NoColorSpace) : null,
-          bumpScale: spec.bumpScale ?? 1,
-          roughness: 0.92,
-          metalness: 0,
-        })
+    // The body's own colour stands in for its map until the map is asked for. For a
+    // body with no map at all this is simply what it has always shown.
+    const base = spec.color ?? '#9aa3ab'
+
+    // Built branch by branch rather than as one ternary, so each slot's setter closure
+    // sees a concretely typed material: `bumpMap` exists on the standard material and
+    // not on the basic one, and a union of the two has neither.
+    let material: THREE.MeshBasicMaterial | THREE.MeshStandardMaterial
+    if (spec.emissive) {
+      const basic = new THREE.MeshBasicMaterial({
+        color: spec.color ? new THREE.Color(spec.color) : new THREE.Color(1, 1, 1),
+      })
+      if (spec.textureUrl) basic.map = this.defer(spec.textureUrl, base, (t) => (basic.map = t))
+      material = basic
+    } else {
+      const standard = new THREE.MeshStandardMaterial({
+        color: spec.textureUrl ? 0xffffff : new THREE.Color(base),
+        bumpScale: spec.bumpScale ?? 1,
+        roughness: 0.92,
+        metalness: 0,
+      })
+      if (spec.textureUrl) standard.map = this.defer(spec.textureUrl, base, (t) => (standard.map = t))
+      // Relief shading is the one thing that changes how a body reads at the
+      // terminator, and the Moon is the body in this atlas where it changes it
+      // most. The map is greyscale height, not colour: it must bypass the sRGB
+      // decode or the transfer curve distorts the slopes.
+      //
+      // Its placeholder is mid-grey: a constant height field has no gradient, so
+      // the relief is flat until the real map lands rather than wrong.
+      if (spec.bumpMapUrl) {
+        standard.bumpMap = this.defer(
+          spec.bumpMapUrl,
+          '#808080',
+          (t) => (standard.bumpMap = t),
+          THREE.NoColorSpace,
+        )
+      }
+      material = standard
+    }
 
     if (spec.emissive && spec.limbDarkened) {
       applyLimbDarkening(material as THREE.MeshBasicMaterial)
@@ -754,7 +820,14 @@ export class SphereBody {
       // need its own chunk), and the sRGB decode kept off it.
       const cloudMaterial = new THREE.MeshStandardMaterial({
         color: 0xffffff,
-        alphaMap: loadTexture(spec.cloudTextureUrl, THREE.NoColorSpace),
+        // Black placeholder, so the deck is fully transparent until its map arrives.
+        // A planet with no clouds yet is right; a planet under a flat grey shell is not.
+        alphaMap: this.defer(
+          spec.cloudTextureUrl,
+          '#000000',
+          (t) => (cloudMaterial.alphaMap = t),
+          THREE.NoColorSpace,
+        ),
         transparent: true,
         depthWrite: false,
         roughness: 1,
@@ -902,6 +975,48 @@ export class SphereBody {
     if (this.clouds) this.applyShape(this.clouds, 1.003)
     if (this.atmosphere) this.applyShape(this.atmosphere, this.spec.atmosphereScale ?? 1.06)
     if (this.corona) this.applyShape(this.corona, this.spec.coronaScale ?? 1)
+  }
+
+  /**
+   * Hold a slot with a flat stand-in, and remember how to fill it for real.
+   *
+   * Returns the placeholder, so the caller can assign it where the real texture will
+   * eventually go. `assign` is what puts the real one in the same slot later; it is a
+   * closure rather than a property name because the three slots this serves live on two
+   * different materials.
+   */
+  private defer(
+    url: string,
+    placeholderColor: string,
+    assign: (texture: THREE.Texture) => void,
+    colorSpace: THREE.ColorSpace = THREE.SRGBColorSpace,
+    wrapS: THREE.Wrapping = THREE.RepeatWrapping,
+  ): THREE.Texture {
+    const placeholder = placeholderTexture(placeholderColor, colorSpace, wrapS)
+    this.deferred.push(() => assign(loadTexture(url, colorSpace, wrapS)))
+    return placeholder
+  }
+
+  /**
+   * Fetch this body's maps, if they have not been fetched already.
+   *
+   * Called by the owning module once the body is worth looking at. Idempotent and cheap
+   * to call every frame, which is how it is called: the alternative is for callers to
+   * track whether they have asked, and they would all track it the same way.
+   *
+   * The placeholders are left in place rather than disposed. They are one pixel each,
+   * and a texture still bound to a material that is mid-frame is not a thing to free.
+   */
+  requestTextures(): void {
+    if (this.requested) return
+    this.requested = true
+    for (const load of this.deferred) load()
+    this.deferred = []
+  }
+
+  /** True once the real maps have been asked for. For tests and the stats overlay. */
+  get texturesRequested(): boolean {
+    return this.requested
   }
 
   setVisible(visible: boolean): void {

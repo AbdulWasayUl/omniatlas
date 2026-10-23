@@ -135,33 +135,49 @@ If per-tile streaming is ever wanted, it should be driven by the camera and cut 
 distance shell rather than reinstated wholesale. At 2.4 MB for the entire tier it is not
 obvious that it would pay for its own complexity.
 
-## 3. Textures are half the bytes, and all of them load at boot
+## 3. Textures were half the bytes (done)
 
-Two independent levers.
+> Implemented. Encoding recorded in `DATA_AND_COORDINATES.md`, deferral in
+> `SphereBody.requestTextures` and `SolarModule.preRender`.
 
-**Re-encode.** Measured across the whole set at WebP quality 82:
+Textures were 9.93 MB of the 19.84 MB, and being JPEG they were the one group brotli
+could not touch. Two independent levers, both taken.
 
-| | JPEG | WebP q82 |
-|---|---:|---:|
-| Whole set on disk | 10.89 MB | 4.93 MB (**−55%**) |
+**Re-encoded to WebP.** 10.90 MB to 4.81 MB across the set, 56 per cent. The saving
+tracks the imagery rather than the file size — Neptune 93 per cent, Uranus 89, Saturn 84,
+all smooth low-detail maps that JPEG's 8x8 blocks handle badly — and two files, Callisto
+and Enceladus, came out *larger* and are still JPEG. The rule is per file, not per format.
 
-The range is wide and worth respecting per file: Neptune is 93 per cent smaller, Uranus 89,
-Saturn 84 — these are smooth, low-detail maps that JPEG's 8×8 blocks handle badly. But
-Callisto and Enceladus come out *larger* in WebP, both being small greyscale maps.
-The build step should keep whichever encoding is smaller per file rather than converting
-blindly, and emit `<name>.webp` beside the JPEG with a `<picture>`-style fallback or a
-capability check at load.
+**Deferred until a body is worth looking at.** Every `SphereBody` was constructed during
+`SolarModule.init` and `loadTexture` fired from the constructor, so all 28 maps were
+fetched before the first frame regardless of where the camera was. At the default view,
+about twenty of those bodies are under a pixel and the renderer is drawing them as marker
+glyphs; the catalogue colour is all they show anyway.
 
-**Load on approach.** Every `SphereBody` is constructed during `SolarModule.init`, and
-`loadTexture` fires the moment the material is built, so all 28 maps are fetched before
-the first frame regardless of where the camera is. At the default view — the Sun at
-3.34 AU — roughly twenty of those bodies are under a pixel, and several are drawn as
-marker glyphs rather than meshes at all. The renderer already crossfades mesh against
-glyph on apparent angular size; the same threshold should gate the fetch, with the flat
-`baseColor` the catalogue already carries standing in until the map arrives.
+The map slot is now held from the first frame by a one-pixel `DataTexture` in the body's
+own colour, and the real map replaces it in place. That detail is load-bearing: leaving
+the slot `null` and assigning later would flip the `USE_MAP` shader define and recompile
+the program on the frame a body comes into range, which is exactly when the camera is
+moving toward it. It would also break the surface shaders that sample `map` — the
+unimaged fill and the map gain — which must be valid from the first compile.
 
-**Effect: boot textures from 9.93 MB to under 1 MB.** Combined, these two are the largest
-byte reduction available.
+`SolarModule.preRender` already computed each body's apparent radius in pixels for the
+mesh-versus-glyph cull, so the fetch rides on that number. It fires at 3 px, which is far
+below legibility on purpose: the threshold is a lead-time budget against the network, not
+a legibility one. A body that only crossed it when a map became *useful* would pop.
+
+A size test alone is not enough, because a flight can begin with its destination
+invisible. The anchor and the body being left behind are therefore always requested, which
+covers the case the size test cannot. Measured on a Sun to Neptune flight: `neptune.webp`
+was requested 2.2 s after the Sun's, at the instant the flight started and long before
+arrival.
+
+The ring maps are deliberately still eager. `saturn-ring.webp` is 5 KB and is loaded from
+`surfaceShader`, a pure function with no access to the instance; deferring it would mean
+threading the body through a helper that has no other reason to know about one.
+
+**Effect: 28 textures at boot to 2** (the Sun, as focus, and the ring), and 9.93 MB to
+about 0.2 MB. Bodies load their maps as the camera reaches them.
 
 ## 4. Defer the far-scale datasets
 
@@ -193,9 +209,9 @@ on every frame.
 
 ## Where it lands
 
-| | Originally | Now (items 1-2 shipped) | After items 3-5 |
+| | Originally | Now (items 1-3 shipped) | After items 4-5 |
 |---|---|---|---|
-| Cold boot | 250 requests / 19.84 MB | **74 requests** / 19.84 MB | ~45 requests / ~5 MB |
+| Cold boot | 250 requests / 19.84 MB | **~50 requests / ~10 MB** | ~45 requests / ~6 MB |
 | Refresh | 250 requests / 19.84 MB | **5 requests / ~1 KB** | ~5 requests / ~1 KB |
 
 The refresh figure is measured on the live site: 245 of 250 resources served from cache

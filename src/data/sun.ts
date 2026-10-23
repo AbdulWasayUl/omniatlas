@@ -8,7 +8,7 @@ export const SUN: AtlasEntity = {
   bodyId: 'sun',
   engineBody: 'Sun',
   radiusKm: 696_340,
-  textureUrl: '/textures/planets/sun.jpg',
+  textureUrl: '/textures/planets/sun.webp',
   description:
     'The G-type main-sequence star at the center of the Solar System. Its direction, rotation, and illumination in this view are calculated for the displayed UTC time.',
   facts: [

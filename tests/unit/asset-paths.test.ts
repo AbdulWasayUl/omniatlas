@@ -64,7 +64,7 @@ describe('asset paths', () => {
     // Guards the regex itself: if it silently stopped matching, every assertion below
     // would pass over an empty set and the test would be theatre.
     expect(paths.size).toBeGreaterThan(20)
-    expect([...paths.keys()]).toContain('/textures/moons/triton.jpg')
+    expect([...paths.keys()]).toContain('/textures/moons/triton.webp')
   })
 
   it('names only files that exist in public/', () => {

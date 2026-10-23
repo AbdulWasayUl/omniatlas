@@ -2,13 +2,13 @@
  * Resolve a logical asset path to the content-addressed URL actually deployed.
  *
  * Every dataset and texture in the atlas is referenced by a stable, readable path
- * (`/textures/moons/triton.jpg`, `/data/stars/l2/0.bin`). The build rewrites those files
- * to carry a hash of their own contents (`/textures/moons/triton.4f2a91c3.jpg`) and emits
+ * (`/textures/moons/triton.webp`, `/data/stars/l2/0.bin`). The build rewrites those files
+ * to carry a hash of their own contents (`/textures/moons/triton.4f2a91c3.webp`) and emits
  * a manifest mapping one to the other; this module is the single place that applies it.
  *
  * WHY, because the alternative looks simpler and is wrong. The goal is a long browser and
  * CDN cache that still never serves a stale file. Those two cannot both be had from cache
- * headers on a stable filename: a one-year `immutable` on `/textures/moons/triton.jpg`
+ * headers on a stable filename: a one-year `immutable` on `/textures/moons/triton.webp`
  * means every browser and every edge keeps the old bytes for a year unless something
  * purges them, and Vercel's own documentation says so for exactly this case, noting that a
  * CDN in front "may hold the asset with its original one-year immutable cache header until

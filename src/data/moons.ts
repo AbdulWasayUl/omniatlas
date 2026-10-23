@@ -10,7 +10,7 @@ export const EARTH_MOON: AtlasEntity = {
   bodyId: 'moon',
   engineBody: 'Moon',
   radiusKm: 1_737.5,
-  textureUrl: '/textures/moon/lroc-color-4k.jpg',
+  textureUrl: '/textures/moon/lroc-color-4k.webp',
   description:
     'Earth’s only natural satellite. Its heavily cratered surface preserves evidence from the early Solar System. Color and relief are derived from LRO WAC and LOLA products, with full-precision current-time position and rotation.',
   facts: [
@@ -95,7 +95,7 @@ const MOON_SEEDS: MoonSeed[] = [
       ['Orbital period', '0.319 days'],
       ['Origin', 'Likely captured asteroid'],
     ],
-    textureUrl: '/textures/moons/phobos.jpg',
+    textureUrl: '/textures/moons/phobos.webp',
     color: '#9c8a78',
     source: 'keplerian',
     elements: elements(9_375, 0.015, 1.1, 0.3187, 169.2, 216.3, 189.7),
@@ -115,7 +115,7 @@ const MOON_SEEDS: MoonSeed[] = [
       ['Orbital period', '1.263 days'],
       ['Origin', 'Likely captured asteroid'],
     ],
-    textureUrl: '/textures/moons/deimos.jpg',
+    textureUrl: '/textures/moons/deimos.webp',
     color: '#a89686',
     source: 'keplerian',
     elements: elements(23_457, 0.0002, 1.8, 1.2625, 54.3, 0, 205),
@@ -136,7 +136,7 @@ const MOON_SEEDS: MoonSeed[] = [
       ['Orbital period', '1.769 days'],
       ['Notable feature', 'Active sulfur volcanism'],
     ],
-    textureUrl: '/textures/moons/io.jpg',
+    textureUrl: '/textures/moons/io.webp',
     color: '#e7d27a',
     source: 'jupiter-moons',
   },
@@ -155,7 +155,7 @@ const MOON_SEEDS: MoonSeed[] = [
       ['Orbital period', '3.551 days'],
       ['Notable feature', 'Suspected subsurface ocean'],
     ],
-    textureUrl: '/textures/moons/europa.jpg',
+    textureUrl: '/textures/moons/europa.webp',
     color: '#d8c9ad',
     source: 'jupiter-moons',
   },
@@ -174,7 +174,7 @@ const MOON_SEEDS: MoonSeed[] = [
       ['Orbital period', '7.155 days'],
       ['Notable feature', 'Has its own magnetosphere'],
     ],
-    textureUrl: '/textures/moons/ganymede.jpg',
+    textureUrl: '/textures/moons/ganymede.webp',
     color: '#8f8578',
     source: 'jupiter-moons',
   },
@@ -304,7 +304,7 @@ const MOON_SEEDS: MoonSeed[] = [
       ['Orbital period', '15.945 days'],
       ['Notable feature', 'Dense nitrogen-methane atmosphere'],
     ],
-    textureUrl: '/textures/moons/titan.jpg',
+    textureUrl: '/textures/moons/titan.webp',
     color: '#d9a24a',
     source: 'keplerian',
     elements: elements(1_221_900, 0.029, 0.3, 15.945448, 78.6, 78.3, 11.7),
@@ -394,7 +394,7 @@ const MOON_SEEDS: MoonSeed[] = [
       ['Semi-major axis', '436,298 km'],
       ['Orbital period', '8.706 days'],
     ],
-    textureUrl: '/textures/moons/titania.jpg',
+    textureUrl: '/textures/moons/titania.webp',
     // Voyager 2 flew past during Uranian southern summer: the northern hemisphere was
     // in polar night and is blank in the USGS mosaic.
     unimagedFill: '#c2c5c8',
@@ -435,7 +435,7 @@ const MOON_SEEDS: MoonSeed[] = [
       ['Orbital period', '5.877 days (retrograde)'],
       ['Origin', 'Likely a captured Kuiper Belt object'],
     ],
-    textureUrl: '/textures/moons/triton.jpg',
+    textureUrl: '/textures/moons/triton.webp',
     // No `unimagedFill` here, unlike Titania. The file this used to point at was not a
     // map at all: it was an oblique three-quarter VIEW of the globe pasted into a
     // 1440x720 frame, so sampling it as equirectangular smeared one crescent of real

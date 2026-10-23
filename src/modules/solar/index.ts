@@ -106,6 +106,17 @@ const FLATTENING: Record<string, number> = {
  * matched up to the fill rather than the fill down to the map: the fill is the body's
  * measured colour and the mosaic's absolute level is arbitrary.
  */
+/**
+ * Apparent radius, in pixels, past which a body's surface maps are fetched.
+ *
+ * Three pixels is far below the size at which a map is legible, and that is the point:
+ * the threshold is a lead-time budget, not a legibility one. It is high enough to leave
+ * the twenty-odd sub-pixel bodies at the default view unfetched, and low enough that
+ * anything growing toward the camera asks for its map well before the sphere is big
+ * enough to show one.
+ */
+const TEXTURE_PIXELS = 3
+
 const MAP_GAIN: Record<string, number> = {
   // Triton is absent on purpose: its map is a processed, albedo-matched product rather
   // than a raw mosaic, so the 2.6 stops that used to sit here clipped the nitrogen
@@ -201,7 +212,7 @@ export class SolarModule implements AtlasModule {
       emissive: true,
       emissiveIntensity: 7.5,
       limbDarkened: true,
-      textureUrl: '/textures/planets/sun.jpg',
+      textureUrl: '/textures/planets/sun.webp',
       // The aureole. 2.6 radii and a fifth-power profile puts almost all of it inside
       // the first half-radius above the limb, where the chromosphere and inner corona
       // actually are; the bloom spreads it the rest of the way. These two numbers are
@@ -229,7 +240,7 @@ export class SolarModule implements AtlasModule {
         // to `surfaceTextureUrl`), after which it reverts to plain `planet.textureUrl`
         // — as written, the field's name says the opposite of what it now selects.
         textureUrl: planet.atmosphereTextureUrl ?? planet.textureUrl,
-        cloudTextureUrl: planet.id === 'earth' ? '/textures/earth/clouds.jpg' : undefined,
+        cloudTextureUrl: planet.id === 'earth' ? '/textures/earth/clouds.webp' : undefined,
         ringTextureUrl: planet.ringTextureUrl,
         polarRatio: FLATTENING[planet.id],
         objectClass: planet.kind === 'dwarf-planet' ? 'dwarf-planet' : 'planet',
@@ -252,7 +263,7 @@ export class SolarModule implements AtlasModule {
         hazeMix: moon.id === 'titan' ? 0.12 : undefined,
         // The Moon is the one body here where relief shading at the terminator
         // changes what you can read off the globe, and LOLA's map already ships.
-        bumpMapUrl: moon.id === 'moon' ? '/textures/moon/lola-elevation-4ppd.jpg' : undefined,
+        bumpMapUrl: moon.id === 'moon' ? '/textures/moon/lola-elevation-4ppd.webp' : undefined,
         // 0.5, not the 1.5 this shipped at: LOLA's full range is about 20 km on a
         // 1,737 km body, i.e. 1.2%, and driving the derivative past that made the
         // terminator limb read as golf-ball dimpling rather than as topography.
@@ -563,6 +574,24 @@ export class SolarModule implements AtlasModule {
       const apparentPixels = (radiusUnits / Math.max(distance, 1e-12)) * (ctx.height / (2 * Math.tan((ctx.fovDegrees * Math.PI) / 360)))
       const visible = apparentPixels > 0.35
       entry.body.setVisible(visible)
+
+      // Fetch this body's maps once it is worth looking at, or once the camera has
+      // committed to going there.
+      //
+      // The size test is deliberately far below the size at which a map is legible.
+      // What it has to beat is not the eye but the network: a body crossing the
+      // threshold while the camera flies toward it has to have its texture before the
+      // sphere is large enough to show one, and the two events can be under a second
+      // apart. TEXTURE_PIXELS buys that lead time; the focus test covers the case the
+      // size test cannot, which is a flight that starts with the destination invisible.
+      if (
+        apparentPixels > TEXTURE_PIXELS ||
+        entry.node.id === ctx.anchorId ||
+        entry.node.id === ctx.transitFromId
+      ) {
+        entry.body.requestTextures()
+      }
+
       // Only a body large enough to be drawn can be seen to strobe, so only those
       // raise the flag -- otherwise every rung above a month per second would warn
       // about Mercury's spin from the Kuiper belt.

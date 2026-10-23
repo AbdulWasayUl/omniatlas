@@ -76,12 +76,32 @@ Use quadtree imagery/terrain tiles with a body-specific tiling profile. Earth su
 
 | Local asset | Source | Purpose |
 |---|---|---|
-| `public/textures/earth/blue-marble-december.jpg` | [NASA Blue Marble: Next Generation](https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-topography-bathymetry/) | 5400×2700 global visual surface with topography/bathymetry shading. |
-| `public/textures/earth/clouds.jpg` | [NASA Visible Earth Blue Marble clouds](https://www.visibleearth.nasa.gov/images/57747/blue-marble-clouds) | 2048 global cloud alpha/detail layer. |
-| `public/textures/moon/lroc-color-4k.jpg` | [NASA SVS CGI Moon Kit](https://svs.gsfc.nasa.gov/4720/) | Converted from the 4096×2048 LRO WAC color TIFF for browser delivery. |
-| `public/textures/moon/lola-elevation-4ppd.jpg` | [NASA SVS CGI Moon Kit](https://svs.gsfc.nasa.gov/4720/) | Converted from the 4-pixel/degree unsigned LOLA elevation TIFF for bump shading. |
-| `public/textures/moons/triton.jpg` | Triton global map by Askaniy Anpilogov from NASA/JPL-Caltech/ASI/USGS Voyager 2 imagery, [CelestiaContent](https://github.com/CelestiaProject/CelestiaContent) `textures/hires/triton.jpg`, CC BY 3.0 | 2048×1024 equirectangular, downsampled from 4096×2048. Replaces a file that was not a map projection at all but an oblique rendered view of the globe, which sampled as equirectangular smeared one crescent of terrain over the whole sphere. Unimaged longitudes carry a neutral fill baked into the source, so the shader's `unimagedFill` substitution is switched off for this body. |
+| `public/textures/earth/blue-marble-december.webp` | [NASA Blue Marble: Next Generation](https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-topography-bathymetry/) | 5400×2700 global visual surface with topography/bathymetry shading. |
+| `public/textures/earth/clouds.webp` | [NASA Visible Earth Blue Marble clouds](https://www.visibleearth.nasa.gov/images/57747/blue-marble-clouds) | 2048 global cloud alpha/detail layer. |
+| `public/textures/moon/lroc-color-4k.webp` | [NASA SVS CGI Moon Kit](https://svs.gsfc.nasa.gov/4720/) | Converted from the 4096×2048 LRO WAC color TIFF for browser delivery. |
+| `public/textures/moon/lola-elevation-4ppd.webp` | [NASA SVS CGI Moon Kit](https://svs.gsfc.nasa.gov/4720/) | Converted from the 4-pixel/degree unsigned LOLA elevation TIFF for bump shading. |
+| `public/textures/moons/triton.webp` | Triton global map by Askaniy Anpilogov from NASA/JPL-Caltech/ASI/USGS Voyager 2 imagery, [CelestiaContent](https://github.com/CelestiaProject/CelestiaContent) `textures/hires/triton.jpg`, CC BY 3.0 | 2048×1024 equirectangular, downsampled from 4096×2048. Replaces a file that was not a map projection at all but an oblique rendered view of the globe, which sampled as equirectangular smeared one crescent of terrain over the whole sphere. Unimaged longitudes carry a neutral fill baked into the source, so the shader's `unimagedFill` substitution is switched off for this body. |
 | `public/data/earth/coastline-50m.bin` | [Natural Earth 1:50m coastlines](https://www.naturalearthdata.com/downloads/50m-physical-vectors/50m-coastline/) | 58,987 preprojected line segments in one transferable binary buffer. Public domain. |
+
+### Texture encoding
+
+Body maps ship as WebP at quality 82, which measured 56 per cent smaller than the JPEGs
+they replaced across the set (10.90 MB to 4.81 MB). The saving is very uneven and follows
+the imagery rather than the file size: Neptune is 93 per cent smaller and Uranus 89,
+being smooth low-detail maps that JPEG's 8x8 blocks handle badly, while Callisto and
+Enceladus came out *larger* in WebP and are therefore still JPEG. The rule is per file,
+not per format: keep whichever encoding is smaller, and record which.
+
+No fallback path is shipped. Every browser that can run this atlas supports WebP by a
+wide margin: the app needs WebGL2, `build.target: 'esnext'` and top-level await, which
+together require Safari 15+, Chrome 89+ or Firefox 89+, while WebP has been in Safari
+since 14, Chrome since 32 and Firefox since 65.
+
+Re-encoding is a one-off on the committed asset, the same as the Triton replacement
+above, because these are third-party downloads that were already hand-processed into the
+repository rather than products of a script in `scripts/`. The recipe is Pillow's WebP
+encoder at `quality=82, method=6`, writing the result only where it is smaller than the
+original.
 
 NASA SVS describes the Moon color product as an aesthetic map and directs scientific applications to the source LRO/PDS data. This milestone therefore labels it a global visual base, not an analysis-grade measurement layer.
 

@@ -38,7 +38,7 @@ const PLANET_SEEDS: PlanetSeed[] = [
       ['Semi-major axis', '0.387 AU'],
       ['Known moons', '0'],
     ],
-    textureUrl: '/textures/planets/mercury.jpg',
+    textureUrl: '/textures/planets/mercury.webp',
   },
   {
     id: 'venus',
@@ -58,8 +58,8 @@ const PLANET_SEEDS: PlanetSeed[] = [
       ['Semi-major axis', '0.723 AU'],
       ['Known moons', '0'],
     ],
-    textureUrl: '/textures/planets/venus-surface.jpg',
-    atmosphereTextureUrl: '/textures/planets/venus-atmosphere.jpg',
+    textureUrl: '/textures/planets/venus-surface.webp',
+    atmosphereTextureUrl: '/textures/planets/venus-atmosphere.webp',
   },
   {
     id: 'earth',
@@ -79,7 +79,7 @@ const PLANET_SEEDS: PlanetSeed[] = [
       ['Semi-major axis', '1 AU'],
       ['Known moons', '1 (the Moon)'],
     ],
-    textureUrl: '/textures/earth/blue-marble-december.jpg',
+    textureUrl: '/textures/earth/blue-marble-december.webp',
   },
   {
     id: 'mars',
@@ -99,7 +99,7 @@ const PLANET_SEEDS: PlanetSeed[] = [
       ['Semi-major axis', '1.524 AU'],
       ['Known moons', '2 (Phobos, Deimos shown)'],
     ],
-    textureUrl: '/textures/planets/mars.jpg',
+    textureUrl: '/textures/planets/mars.webp',
   },
   {
     id: 'jupiter',
@@ -119,7 +119,7 @@ const PLANET_SEEDS: PlanetSeed[] = [
       ['Semi-major axis', '5.204 AU'],
       ['Known moons', '95 (4 Galilean shown)'],
     ],
-    textureUrl: '/textures/planets/jupiter.jpg',
+    textureUrl: '/textures/planets/jupiter.webp',
   },
   {
     id: 'saturn',
@@ -139,8 +139,8 @@ const PLANET_SEEDS: PlanetSeed[] = [
       ['Semi-major axis', '9.582 AU'],
       ['Known moons', '146 (5 shown)'],
     ],
-    textureUrl: '/textures/planets/saturn.jpg',
-    ringTextureUrl: '/textures/planets/saturn-ring.png',
+    textureUrl: '/textures/planets/saturn.webp',
+    ringTextureUrl: '/textures/planets/saturn-ring.webp',
   },
   {
     id: 'uranus',
@@ -160,7 +160,7 @@ const PLANET_SEEDS: PlanetSeed[] = [
       ['Semi-major axis', '19.201 AU'],
       ['Known moons', '28 (3 shown)'],
     ],
-    textureUrl: '/textures/planets/uranus.jpg',
+    textureUrl: '/textures/planets/uranus.webp',
   },
   {
     id: 'neptune',
@@ -180,7 +180,7 @@ const PLANET_SEEDS: PlanetSeed[] = [
       ['Semi-major axis', '30.047 AU'],
       ['Known moons', '16 (Triton shown)'],
     ],
-    textureUrl: '/textures/planets/neptune.jpg',
+    textureUrl: '/textures/planets/neptune.webp',
   },
 ]
 
