@@ -1,3 +1,4 @@
+import { displayName } from '../../core/names'
 import * as THREE from 'three'
 import { assetUrl } from '../../data/assetUrl'
 import { layerApproaching, type AtlasModule, type Engine, type FrameContext, type SceneNodeHandle } from '../../core/Engine'
@@ -156,6 +157,22 @@ interface LocalGroupFile {
  * the sprite-width fix took out of the field; see the note on the star field's uGain.
  */
 const FIELD_GAIN = 525
+
+/**
+ * The disc field's density ladder: view spans, in kiloparsecs, where the instance count
+ * steps, and the fraction of the field drawn on each rung.
+ *
+ * `FIELD_LOD_MARGIN` is the dead band around every step, as a fraction of the threshold.
+ * Brightness compensation keeps the field's total luminance about constant across a step,
+ * but not its GRAIN — half as many splats at twice the gain is visibly coarser — so a
+ * view span resting on a bare threshold swapped the texture of the Galaxy back and forth
+ * every frame. Orbit controls idle with exactly that kind of sub-percent drift. The band
+ * is wide enough that no ordinary drift crosses it and narrow enough that a deliberate
+ * zoom still steps about where the measurements said it should.
+ */
+const FIELD_LOD_SPANS_KPC = [8, 25, 60] as const
+const FIELD_LOD_FRACTIONS = [1, 0.62, 0.3, 0.22] as const
+const FIELD_LOD_MARGIN = 0.15
 /**
  * Above this, a point is spread over a larger quad instead of getting brighter, up to
  * `uMaxRadiusPx`. Past that cap the spreading stops and the sample is simply dimmed:
@@ -940,6 +957,20 @@ export class GalaxyModule implements AtlasModule {
   // Per-frame
   // -------------------------------------------------------------------------
 
+  /**
+   * Which rung of the density ladder this view span sits on, with hysteresis.
+   *
+   * The loops settle rather than stepping once, so a teleport that crosses three
+   * thresholds in one frame lands on the right rung instead of crawling there.
+   */
+  private fieldFraction(spanKpc: number): number {
+    let rung = this.fieldLodRung
+    while (rung < FIELD_LOD_SPANS_KPC.length && spanKpc > FIELD_LOD_SPANS_KPC[rung] * (1 + FIELD_LOD_MARGIN)) rung++
+    while (rung > 0 && spanKpc < FIELD_LOD_SPANS_KPC[rung - 1] * (1 - FIELD_LOD_MARGIN)) rung--
+    this.fieldLodRung = rung
+    return FIELD_LOD_FRACTIONS[rung]
+  }
+
   preRender(ctx: FrameContext): void {
     // Above the active guard, deliberately: the whole point is to start the fetch
     // while this layer is still off, so the points are resident by the time it is not.
@@ -1000,7 +1031,7 @@ export class GalaxyModule implements AtlasModule {
         // fps against 300,000 at 18.2 / 20.4 / 23.6 / 23.2 — a mean of 23.9 against
         // 21.4. Worth keeping, and a good deal smaller than the win from detaching
         // the cosmic layer's children (Layer.ts), which is a different change.
-        const fraction = asBackdrop ? 0.1 : spanKpc > 60 ? 0.22 : spanKpc > 25 ? 0.3 : spanKpc > 8 ? 0.62 : 1
+        const fraction = asBackdrop ? 0.1 : this.fieldFraction(spanKpc)
         const drawn = Math.max(1, Math.round(total * fraction))
         geometry.instanceCount = drawn
         this.fieldMaterial.uniforms.uGain.value = FIELD_GAIN * (total / drawn) * layerFade
@@ -1084,6 +1115,8 @@ export class GalaxyModule implements AtlasModule {
   }
 
   /** Full instance count of the disc field, before any density LOD. */
+  /** Current rung of the density ladder, held across frames so the step can have a dead band. */
+  private fieldLodRung = 0
   private fieldTotalInstances = 0
 
   setDiscFieldVisible(visible: boolean): void {
@@ -1475,21 +1508,6 @@ function morphologyTint(morphology: string | null): THREE.Color {
   return new THREE.Color(0xf5b8e0)
 }
 
-/**
- * Catalogue identifiers to something a person reads. Only mechanical reformatting —
- * no name is invented, and anything unrecognised is passed through untouched.
- */
-function displayName(name: string): string {
-  const messier = /^MESSIER0*(\d+)$/i.exec(name)
-  if (messier) return `M${Number(messier[1])}`
-  const ngc = /^NGC0*(\d+)$/i.exec(name)
-  if (ngc) return `NGC ${Number(ngc[1])}`
-  const ic = /^IC0*(\d+)$/i.exec(name)
-  if (ic) return `IC ${Number(ic[1])}`
-  const ugc = /^UGC0*(\d+)$/i.exec(name)
-  if (ugc) return `UGC ${Number(ugc[1])}`
-  return name
-}
 
 function hostId(host: string): string | null {
   if (host === 'MW') return 'milky-way'

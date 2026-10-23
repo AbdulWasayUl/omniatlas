@@ -216,6 +216,57 @@ describe('layer activation', () => {
     expect(galactic.spanOpacity).toBe(0)
   })
 
+  it('hands the backdrop over without a step, in either direction', () => {
+    // The rescue used to be the `else` to "this layer is active", so it could only fire
+    // on a layer already faded under ACTIVE_EPSILON: the sky fell to 0.004, jumped to
+    // 0.35 on the next frame, and jumped back the moment the span band lifted it past
+    // the epsilon again. A camera dollying near that point flashed the whole backdrop
+    // on and off. Treating the backdrop opacity as a FLOOR the layer meets on the way
+    // down makes both crossings continuous.
+    const engine = starEngine()
+    const galactic = engine.layer('galactic')
+
+    // View span is proportional to the camera's distance from the anchor, so one draw
+    // at a known offset calibrates the sweep in metres of camera travel.
+    const reference = 1.5e12
+    const spanPerMetre = engine.ctx.viewSpanMetres / reference
+    const floorOffset = engine.layer('galactic').config.spanBandMetres[0] / spanPerMetre
+
+    const opacities: number[] = []
+    const flags: boolean[] = []
+    // Six decades: the rescue only has work to do once every nearer layer is out of
+    // reach as well, which at 8.4 kpc from the Sun means a view span far under the floor.
+    const decades = 6
+    const steps = 900
+    const anchorX = 8.4 * KPC_M
+    for (let i = 0; i < steps; i++) {
+      const t = i / (steps - 1)
+      // Down past the floor, then back up the same way.
+      const offset = t < 0.5 ? -decades * t * 2 : -decades * (1 - t) * 2
+      convertFrame(engine.cameraWorld, vec3d(anchorX, 0, 0), 'icrf', engine.cameraFrame)
+      engine.cameraWorld.x += floorOffset * 10 ** offset
+      engine.draw()
+      opacities.push(engine.layer('galactic').renderOpacity)
+      flags.push(engine.layer('galactic').isBackdrop)
+    }
+
+    // The rescue has to actually happen, or this test proves nothing.
+    expect(flags.some((f) => f)).toBe(true)
+
+    let worst = 0
+    for (let i = 1; i < opacities.length; i++) {
+      worst = Math.max(worst, Math.abs(opacities[i] - opacities[i - 1]))
+    }
+    // The span band feathers over 0.45 decades and the sweep steps 0.013 of a decade,
+    // so a continuous curve moves about 0.03 per step. The old step was 0.35.
+    expect(worst).toBeLessThan(0.1)
+
+    // And the flag that drives the field's instance-count LOD settles rather than
+    // chattering: once down, once back up, not once per frame near the threshold.
+    const flips = flags.reduce((n, f, i) => (i > 0 && f !== flags[i - 1] ? n + 1 : n), 0)
+    expect(flips).toBeLessThanOrEqual(2)
+  })
+
   it('does not revive the stellar layer, which is out of reach on purpose', () => {
     // 300k sprites projecting to a sub-pixel clump is not a star field.
     expect(starEngine().layer('stellar').active).toBe(false)

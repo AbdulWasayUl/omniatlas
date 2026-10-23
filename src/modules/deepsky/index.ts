@@ -1,3 +1,4 @@
+import { displayName } from '../../core/names'
 import * as THREE from 'three'
 import { assetUrl } from '../../data/assetUrl'
 import type { AtlasModule, Engine, FrameContext, SceneNodeHandle } from '../../core/Engine'
@@ -80,6 +81,7 @@ const LAYER_SPECS = [
 
 /** The layer that owns the registry nodes and the outline shapes. */
 const LAYER = 'stellar' as const
+const FAR_LAYER = 'galactic' as const
 
 /** Camera distances (pc from the Sun) over which the stellar copy hands over. */
 const HANDOVER_PC: [number, number] = [80, 700]
@@ -372,6 +374,65 @@ function fieldView(buffer: ArrayBuffer, manifest: BinaryManifest, name: string):
   }
 }
 
+/**
+ * Named rows whose label has to carry its designation to stay a different label.
+ *
+ * `oneLabelPerObject` collapses rows that share a name AND a direction, which is what
+ * keeps the nearby dwarfs from being written twice where two catalogues both list them.
+ * Inside OpenNGC that same rule over-reached: the Antennae are two galaxies, NGC 4038
+ * and NGC 4039, both named "Antennae Galaxies" and ninety arcseconds apart, so one of
+ * them lost its label and — markers being the only pick targets — could not be clicked
+ * at all. The Eyes, NGC 4435 and NGC 4438, lost one the same way.
+ *
+ * It cannot be fixed by refusing to collapse rows of one catalogue, because OpenNGC
+ * also lists the Eagle Nebula twice on purpose, as IC 4703 and NGC 6611, and THAT pair
+ * should keep one label between them. What separates the two cases is in the rows: the
+ * Eagle's agree on every measurement they carry (1767 pc, V 6.0, B 6.58) because they
+ * cross-identify one object, while the Antennae's disagree on distance, magnitude and
+ * PGC number because they describe two.
+ *
+ * So: rows that disagree are different objects and get distinguishable names. A row
+ * carrying no distance at all cannot disagree with anything — that is the M101 / M102
+ * pair, a nineteenth-century re-observation the table resolves to one galaxy — so the
+ * comparison is over the rows that actually state a distance. Four groups collide in
+ * the shipped table and the test splits them 3 to 1.
+ */
+function collidingNames(objects: readonly NamedObject[]): Set<string> {
+  const groups = new Map<string, NamedObject[]>()
+  for (const object of objects) {
+    const label = object.names?.length
+      ? object.names[0]
+      : object.messier
+        ? `Messier ${object.messier}`
+        : object.designation
+    const ra = (object.raDeg * Math.PI) / 180
+    const dec = (object.decDeg * Math.PI) / 180
+    // The same ~0.6 degree quantisation oneLabelPerObject uses, so this answers the
+    // question that function will actually ask rather than a neighbouring one.
+    const key = [
+      label.trim().toLowerCase(),
+      Math.round((Math.cos(dec) * Math.cos(ra)) / 0.01),
+      Math.round((Math.cos(dec) * Math.sin(ra)) / 0.01),
+      Math.round(Math.sin(dec) / 0.01),
+    ].join('|')
+    const held = groups.get(key)
+    if (held) held.push(object)
+    else groups.set(key, [object])
+  }
+
+  const ambiguous = new Set<string>()
+  for (const members of groups.values()) {
+    if (members.length < 2) continue
+    const stated = members.filter((m) => typeof m.distancePc === 'number' && m.distancePc > 0)
+    const agrees =
+      stated.length < 2 ||
+      (new Set(stated.map((m) => m.distancePc)).size === 1 &&
+        new Set(stated.map((m) => m.vmag ?? null)).size === 1)
+    if (!agrees) for (const member of members) ambiguous.add(member.designation)
+  }
+  return ambiguous
+}
+
 async function fetchJson<T>(url: string): Promise<T | null> {
   try {
     const response = await fetch(assetUrl(url))
@@ -491,6 +552,7 @@ const POINT_VERTEX = /* glsl */ `
   uniform float uMinPx;
   uniform float uMaxPx;
   uniform float uOutlineTakeoverPx;
+  uniform float uProxyTakeoverPx;
   uniform float uSolFade;      // how much of the traced-outline overlay is still drawn
   uniform float uUnitPc;       // parsecs per layer unit
   uniform float uLayerFade;    // crossfade between the stellar and galactic copies
@@ -544,6 +606,18 @@ const POINT_VERTEX = /* glsl */ `
     // 92% in favour of a contour that was no longer being drawn.
     float outlinePx = (dsOutline * DEG2RAD) / uTanHalfFov * uPixelHeight * 0.5;
     alpha *= 1.0 - 0.92 * uSolFade * smoothstep(uOutlineTakeoverPx, uOutlineTakeoverPx * 2.4, outlinePx);
+
+    // ...and the same for the close-range stand-in, which is the other thing that can
+    // be drawing this object. Every deep-sky node is meshless, so anchoring on one has
+    // the proxy module build an illustration of it; the sprite went on being drawn over
+    // that illustration, clamped at uMaxPx and parked in the middle of it as a
+    // 190-pixel blob that never went away however close the camera got.
+    //
+    // Keyed on the object's own screen extent rather than on the camera distance or on
+    // any flag from another module, which is what makes it honest: dsRadius is 0 for
+    // a direction-only object, so one of those subtends nothing, fades for nothing, and
+    // keeps the ring glyph that is the only mark it has.
+    alpha *= 1.0 - smoothstep(uProxyTakeoverPx, uProxyTakeoverPx * 3.0, extentPx);
 
     // Flux, spread over the sprite: an extended object is not a bright point, it is a
     // faint smear with the same total light.
@@ -599,6 +673,7 @@ const GLOBULAR_VERTEX = /* glsl */ `
   uniform float uMaxPx;
   uniform float uUnitPc;
   uniform float uLayerFade;
+  uniform float uProxyTakeoverPx;
 
   varying vec3 vColor;
   varying float vIntensity;
@@ -624,7 +699,11 @@ const GLOBULAR_VERTEX = /* glsl */ `
     float radiusPx = clamp(max(uMinPx + 0.5 * max(headroom, 0.0), extentPx * 2.2), uMinPx, uMaxPx);
     float flux = pow(2.512, clamp(headroom, -2.0, 8.0));
     float spread = max(1.0, radiusPx / uMinPx);
-    vIntensity = uGain * uLayerFade * flux / pow(spread, 1.45);
+    // Hands the cluster over to its close-range stand-in, as the NGC sprite does. These
+    // carry a half-light radius from Harris rather than a catalogued major axis, so the
+    // handover starts at a smaller extent: radiusPx already draws them at 2.2 times it.
+    float takeover = 1.0 - smoothstep(uProxyTakeoverPx, uProxyTakeoverPx * 3.0, extentPx);
+    vIntensity = uGain * uLayerFade * flux * takeover / pow(spread, 1.45);
     vColor = gcColor;
 
     vec4 clip = projectionMatrix * viewPosition;
@@ -806,6 +885,9 @@ export class DeepSkyModule implements AtlasModule {
   private outlineFill: THREE.Mesh | null = null
   private outlineLines: THREE.LineSegments | null = null
   private readonly objects: THREE.Object3D[] = []
+  /** The same meshes split by layer, so each is hidden by the layer it actually draws in. */
+  private readonly nearObjects: THREE.Object3D[] = []
+  private readonly farObjects: THREE.Object3D[] = []
   private readonly materials: THREE.ShaderMaterial[] = []
   /** Materials in the near (stellar) copy and the far (galactic) copy, for the crossfade. */
   private readonly nearMaterials: THREE.ShaderMaterial[] = []
@@ -1027,6 +1109,9 @@ export class DeepSkyModule implements AtlasModule {
           uMinPx: { value: 1.1 },
           uMaxPx: { value: 190 },
           uOutlineTakeoverPx: { value: 26 },
+          // Half-gone at an object two hundred pixels across, gone at six hundred: by
+          // then it is the subject of the frame, not a mark on a chart.
+          uProxyTakeoverPx: { value: 100 },
           uSolFade: { value: 1 },
           uUnitPc: { value: spec.unitPc },
           uLayerFade: { value: spec.near ? 1 : 0 },
@@ -1046,6 +1131,7 @@ export class DeepSkyModule implements AtlasModule {
       mesh.renderOrder = -8
       mesh.name = `deepsky:ngc:${spec.layer}`
       this.objects.push(mesh)
+      ;(spec.near ? this.nearObjects : this.farObjects).push(mesh)
       this.engine.layer(spec.layer).scene.add(mesh)
     }
     this.manifest.datasets['ngc.bin'] = 'loaded'
@@ -1077,6 +1163,8 @@ export class DeepSkyModule implements AtlasModule {
     }
 
     const stats = this.manifest.named
+    const ambiguous = collidingNames(payload.objects)
+
     for (const object of payload.objects) {
       if (!Number.isFinite(object.raDeg) || !Number.isFinite(object.decDeg)) continue
       if (NON_OBJECT_TYPES.has(object.type) || (STELLAR_TYPES.has(object.type) && object.messier == null)) {
@@ -1141,7 +1229,9 @@ export class DeepSkyModule implements AtlasModule {
       const separationOnly = SEPARATION_NOT_EXTENT_TYPES.has(object.type)
       const node = this.makeNode({
         id: `ngc:${object.designation}`,
-        name: this.displayName(object),
+        name: ambiguous.has(object.designation)
+          ? `${this.displayName(object)} (${displayName(object.designation)})`
+          : this.displayName(object),
         designation: object.designation,
         catalogue: 'OpenNGC',
         objectClass: CATEGORY_OBJECT_CLASS[category],
@@ -1364,6 +1454,7 @@ export class DeepSkyModule implements AtlasModule {
           // Up 1.25 with the sprite-width fix; see the note on the star field's uGain.
           uGain: { value: 0.088 },
           uMinPx: { value: 1.6 },
+          uProxyTakeoverPx: { value: 45 },
           uMaxPx: { value: 150 },
           uUnitPc: { value: spec.unitPc },
           uLayerFade: { value: spec.near ? 1 : 0 },
@@ -1383,6 +1474,7 @@ export class DeepSkyModule implements AtlasModule {
       mesh.renderOrder = -7
       mesh.name = `deepsky:globulars:${spec.layer}`
       this.objects.push(mesh)
+      ;(spec.near ? this.nearObjects : this.farObjects).push(mesh)
       this.engine.layer(spec.layer).scene.add(mesh)
     }
 
@@ -1612,6 +1704,7 @@ export class DeepSkyModule implements AtlasModule {
 
   preRender(ctx: FrameContext): void {
     const layer = this.engine.layer(LAYER)
+    const farLayer = this.engine.layer(FAR_LAYER)
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
     const pixelWidth = ctx.width * dpr
     const pixelHeight = ctx.height * dpr
@@ -1639,14 +1732,25 @@ export class DeepSkyModule implements AtlasModule {
     // is the wrong question; how wide the view is, is the right one. A deep-sky object
     // only means anything once the view is wider than the solar system itself.
     //
-    // `renderOpacity` rides on the same gate: it is the engine's verdict on how much
-    // of this layer belongs in this frame, and it drops to a backdrop value when the
-    // stellar layer is only on screen because nothing nearer is drawing a sky. Drawn
-    // at full strength in that role the catalogue stops being a backdrop and becomes
-    // the subject again. `spanOpacity` is deliberately not used here: it is the raw
-    // band measure and knows nothing about the layer's role.
     const logSpan = Math.log10(Math.max(ctx.viewSpanMetres, 1))
-    const scaleGate = smoothstep(Math.log10(2e14), Math.log10(2e16), logSpan) * layer.renderOpacity
+    const spanGate = smoothstep(Math.log10(2e14), Math.log10(2e16), logSpan)
+
+    // renderOpacity rides on the same gate: it is the engine's verdict on how much of
+    // a layer belongs in this frame, and it drops to a backdrop value when that layer is
+    // only on screen because nothing nearer is drawing a sky. Drawn at full strength in
+    // that role the catalogue stops being a backdrop and becomes the subject again.
+    // spanOpacity is deliberately not used here: it is the raw band measure and knows
+    // nothing about the layer's role.
+    //
+    // There are TWO verdicts, because there are two copies of the catalogue in two
+    // different layers, and the handover between them happens exactly where the near
+    // one is going out. Gating both on the stellar layer's verdict — which this did —
+    // meant the galactic copy was dimmed by the fade of the layer it was taking over
+    // FROM: leaving the solar system, the near copy handed the sky to a far copy that
+    // the same multiplication was driving to zero, and the catalogue blinked out in the
+    // middle of a crossfade designed to hold its brightness constant.
+    const nearGate = spanGate * layer.renderOpacity
+    const farGate = spanGate * farLayer.renderOpacity
 
     for (const material of this.materials) {
       const u = material.uniforms
@@ -1657,21 +1761,28 @@ export class DeepSkyModule implements AtlasModule {
       if (u.uShellFade) u.uShellFade.value = shellFade
       if (u.uSolFade) u.uSolFade.value = outlineFade
     }
-    for (const material of this.nearMaterials) material.uniforms.uLayerFade.value = (1 - handover) * scaleGate
-    for (const material of this.farMaterials) material.uniforms.uLayerFade.value = handover * scaleGate
+    const nearFade = (1 - handover) * nearGate
+    const farFade = handover * farGate
+    for (const material of this.nearMaterials) material.uniforms.uLayerFade.value = nearFade
+    for (const material of this.farMaterials) material.uniforms.uLayerFade.value = farFade
 
-    // Skip the draw entirely once the gate is shut, rather than paying for 13,371
-    // instances that resolve to zero alpha.
-    const drawable = scaleGate > 0.004
-    for (const object of this.objects) object.visible = drawable
+    // Skip the draw entirely once a copy's gate is shut, rather than paying for 13,371
+    // instances that resolve to zero alpha. Per copy, for the same reason the fades are.
+    const nearDrawable = nearFade > 0.004
+    const farDrawable = farFade > 0.004
+    for (const object of this.nearObjects) object.visible = nearDrawable
+    for (const object of this.farObjects) object.visible = farDrawable
 
-    if (this.outlineFill) this.outlineFill.visible = drawable && outlineFade > 0.01
-    if (this.outlineLines) this.outlineLines.visible = drawable && outlineFade > 0.01
+    // The outlines live in the stellar layer only, so they follow the near copy.
+    if (this.outlineFill) this.outlineFill.visible = nearDrawable && outlineFade > 0.01
+    if (this.outlineLines) this.outlineLines.visible = nearDrawable && outlineFade > 0.01
   }
 
   dispose(): void {
     for (const object of this.objects) object.removeFromParent()
     this.objects.length = 0
+    this.nearObjects.length = 0
+    this.farObjects.length = 0
     this.outlineFill = null
     this.outlineLines = null
 

@@ -28,6 +28,21 @@ import type { LayerId } from './Layer'
 const MILKY_WAY_REACH_M = 1.54e21
 
 /**
+ * A catalogue designation carried by a node id, normalised so two spellings of one
+ * designation compare equal; null when the id carries none.
+ *
+ * `ungc:ngc5128` and `ngc:NGC5128` are one galaxy listed in two tables, and the tables
+ * disagree about what to call it — "NGC 5128" against "Centaurus A". Leading zeros,
+ * case and separators differ too, so the comparison is over the catalogue prefix and
+ * the number alone.
+ */
+function designationKey(id: string): string | null {
+  const body = id.slice(id.indexOf(':') + 1)
+  const match = /^(NGC|IC|UGCA|UGC|PGC|DDO|ESO|MESSIER)[\s_-]*0*(\d+[A-Za-z]*(?:-\d+)?)$/i.exec(body)
+  return match ? `${match[1].toUpperCase()}${match[2].toUpperCase()}` : null
+}
+
+/**
  * One label per object, which is not the same as one per registry entry.
  *
  * The nearby dwarf galaxies are in both the Local Group table and the Updated Nearby
@@ -36,33 +51,89 @@ const MILKY_WAY_REACH_M = 1.54e21
  * Both rows are real catalogue rows and both stay in the registry — search and the
  * inspector should still find either — but the sky gets one name per thing.
  *
- * Matched on name AND direction, so two genuinely different objects that share a name
- * are untouched, and compared in ONE frame: the two modules state their positions in
- * different ones, so comparing raw components compares a galactic direction with an
- * equatorial one and never matches. The survivor is the row with the catalogued size,
- * which is the one that can be drawn rather than merely marked; the tie-break is the
- * id, so the choice does not depend on which module finished loading first.
+ * Matched on direction AND on either the name or the catalogue designation. The name
+ * alone was not enough: the Local Volume table and OpenNGC share 23 galaxies and
+ * disagree about every one of their names, so NGC 5128 and "Centaurus A" were drawn as
+ * two markers five per cent apart in range — close together from here, sliding apart
+ * under parallax as the camera moved, and merging again as one of the two layers faded.
+ * The designation is the identity the two tables DO agree on, and it is already in the
+ * ids.
+ *
+ * The designation does not replace the name, it joins it, because the two catch
+ * different things and neither catches both. OpenNGC lists the Eagle Nebula twice on
+ * purpose, as IC 4703 and NGC 6611 — two designations, one name, one object. The
+ * Antennae are the mirror image: one name over two designations and two galaxies, which
+ * the deep-sky module separates by giving them distinguishable names before they ever
+ * reach this function.
+ *
+ * Directions are compared in ONE frame: the modules state their positions in different
+ * ones, so comparing raw components compares a galactic direction with an equatorial
+ * one and never matches. The survivor is the row with the catalogued size, which is the
+ * one that can be drawn rather than merely marked; the tie-break is the id, so the
+ * choice does not depend on which module finished loading first.
  */
 export function oneLabelPerObject(nodes: Iterable<SceneNodeHandle>): SceneNodeHandle[] {
-  const best = new Map<string, SceneNodeHandle>()
+  // Direction first, then identity within the direction, because two keys that may each
+  // merge a pair cannot both be a Map key at once.
+  const buckets = new Map<string, SceneNodeHandle[]>()
   const scratch = vec3d()
   for (const node of nodes) {
     convertFrame(scratch, node.worldPosition, node.frame, 'icrf')
     const r = Math.hypot(scratch.x, scratch.y, scratch.z) || 1
     // ~0.6 degrees of sky, quantised: close enough that two labels would collide.
-    const key = `${node.name.trim().toLowerCase()}|${Math.round(scratch.x / r / 0.01)}|${Math.round(
-      scratch.y / r / 0.01,
-    )}|${Math.round(scratch.z / r / 0.01)}`
-    const held = best.get(key)
-    if (
-      !held ||
-      node.radiusMetres > held.radiusMetres ||
-      (node.radiusMetres === held.radiusMetres && node.id < held.id)
-    ) {
-      best.set(key, node)
-    }
+    const key = `${Math.round(scratch.x / r / 0.01)}|${Math.round(scratch.y / r / 0.01)}|${Math.round(
+      scratch.z / r / 0.01,
+    )}`
+    const held = buckets.get(key)
+    if (held) held.push(node)
+    else buckets.set(key, [node])
   }
-  return [...best.values()]
+
+  const out: SceneNodeHandle[] = []
+  for (const members of buckets.values()) {
+    if (members.length === 1) {
+      out.push(members[0])
+      continue
+    }
+    // Union-find over the bucket: a node joins a group if it shares EITHER key with
+    // something already in it, so name and designation can chain through one another.
+    const parent = members.map((_, i) => i)
+    const find = (i: number): number => {
+      while (parent[i] !== i) i = parent[i] = parent[parent[i]]
+      return i
+    }
+    const union = (a: number, b: number) => {
+      const ra = find(a)
+      const rb = find(b)
+      if (ra !== rb) parent[rb] = ra
+    }
+    const first = new Map<string, number>()
+    for (let i = 0; i < members.length; i++) {
+      const designation = designationKey(members[i].id)
+      for (const key of [`n:${members[i].name.trim().toLowerCase()}`, designation && `d:${designation}`]) {
+        if (!key) continue
+        const seen = first.get(key)
+        if (seen === undefined) first.set(key, i)
+        else union(seen, i)
+      }
+    }
+
+    const best = new Map<number, SceneNodeHandle>()
+    for (let i = 0; i < members.length; i++) {
+      const root = find(i)
+      const held = best.get(root)
+      const node = members[i]
+      if (
+        !held ||
+        node.radiusMetres > held.radiusMetres ||
+        (node.radiusMetres === held.radiusMetres && node.id < held.id)
+      ) {
+        best.set(root, node)
+      }
+    }
+    out.push(...best.values())
+  }
+  return out
 }
 
 /** Solar-system layers; everything a node in one of these draws orbits the Sun. */

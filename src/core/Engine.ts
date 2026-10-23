@@ -178,6 +178,18 @@ const ACTIVE_EPSILON = 0.004
  */
 const BACKDROP_OPACITY = 0.35
 
+/**
+ * Span opacity at which a layer stops being the backdrop, once it has become one.
+ *
+ * Only the ROLE is hysteretic; the opacity is not, because `BACKDROP_OPACITY` is a floor
+ * rather than a fixed value and the floor simply stops binding once the span band rises
+ * above it. The flag needs the dead band for its own reason: the galaxy module reads it
+ * to drop the disc field from 300,000 instances to 30,000, and a flag that flipped on an
+ * exact threshold would swap the instance count back and forth on a camera that merely
+ * sat near it.
+ */
+const BACKDROP_RELEASE = BACKDROP_OPACITY * 1.3
+
 export interface EngineOptions {
   renderer: THREE.WebGLRenderer
   /** Overridden in tests. */
@@ -581,25 +593,52 @@ export class Engine {
       let active = opacity > ACTIVE_EPSILON
       let backdrop = false
 
-      if (active) {
-        covered = covered || !anchorLocal
-      } else if (!covered && !anchorLocal && band > ACTIVE_EPSILON && viewSpanMetres < layer.config.spanBandMetres[0]) {
-        // Only a layer blanked by its span FLOOR is rescued — "this content is too big
-        // for the view" is the case where the content is nevertheless the only sky
-        // there is. A layer faded out by its span CEILING is too SMALL to matter, and
-        // reviving it draws the solar system's orbits as a backdrop behind a star.
-        opacity = Math.max(layer.spanOpacity, BACKDROP_OPACITY)
+      // The rescue engages while the layer is still FADING, not after it has gone out.
+      //
+      // It used to be the `else` to `active`, so it could only fire on a layer already
+      // under `ACTIVE_EPSILON` — which meant the sky fell to 0.004, then jumped to 0.35
+      // on the next frame, and jumped back down again the moment the span band lifted it
+      // past the epsilon. A camera dollying near that point flashed the whole backdrop on
+      // and off. Treating `BACKDROP_OPACITY` as a FLOOR the layer meets on its way down
+      // makes both crossings continuous: at the threshold the floor and the span band are
+      // the same number, and above it the floor stops binding on its own.
+      //
+      // The role is still exclusive and still earned the same way. Only a layer blanked by
+      // its span FLOOR is rescued — "this content is too big for the view" is the case
+      // where the content is nevertheless the only sky there is. A layer faded out by its
+      // span CEILING is too SMALL to matter, and reviving it draws the solar system's
+      // orbits as a backdrop behind a star.
+      const release = layer.isBackdrop ? BACKDROP_RELEASE : BACKDROP_OPACITY
+      if (
+        !covered &&
+        !anchorLocal &&
+        band > ACTIVE_EPSILON &&
+        viewSpanMetres < layer.config.spanBandMetres[0] &&
+        opacity < release
+      ) {
+        opacity = Math.max(opacity, BACKDROP_OPACITY)
         active = true
         backdrop = true
-        covered = true
       }
+
+      if (active) covered = covered || !anchorLocal
 
       // The one remaining unconditional escape hatch, for the subject that is out of
       // every band the atlas has: a 1,300 AU black hole. The proxy module sets it on
       // whichever layer it drew the stand-in into.
       if (layer.forceActive) {
         active = true
-        opacity = 1
+        // Waives the DISTANCE band and only that, on the same terms as `anchored`: the
+        // camera is out of reach of this layer's origin, which is exactly the condition
+        // a stand-in exists to survive, while "is this content the right size for this
+        // view" remains a real question about everything else in the layer.
+        //
+        // This used to read `opacity = 1`, which cost nothing it was meant to buy. The
+        // proxy module does not fade its materials by `renderOpacity` at all — it only
+        // needs `active`, since `composite` skips on that alone — but `smallbodies` DOES,
+        // so anchoring on a comet snapped the entire asteroid cloud to full brightness
+        // and dropped it again the moment the proxy went away.
+        opacity = Math.max(opacity, layer.spanOpacity)
         backdrop = false
         // And it counts as covering the sky, on the same terms as any other layer:
         // today the only forced layer is `system`, which is anchor-local and could

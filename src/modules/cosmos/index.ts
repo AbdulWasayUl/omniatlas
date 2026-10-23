@@ -1,3 +1,4 @@
+import { displayName } from '../../core/names'
 import * as THREE from 'three'
 import { assetUrl } from '../../data/assetUrl'
 import { layerApproaching, type AtlasModule, type Engine, type FrameContext, type SceneNodeHandle } from '../../core/Engine'
@@ -1813,14 +1814,6 @@ function slug(name: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
-/** Catalogue spellings into something a label can show. Formatting only. */
-function displayName(name: string): string {
-  const messier = /^MESSIER0*(\d+)$/.exec(name)
-  if (messier) return `M${messier[1]}`
-  const designation = /^(NGC|IC|UGC|UGCA|PGC|DDO|ESO)0*(\d+.*)$/.exec(name)
-  if (designation) return `${designation[1]} ${designation[2]}`
-  return name
-}
 
 function indexOfValue(array: Uint32Array, value: number): number {
   for (let i = 0; i < array.length; i++) if (array[i] === value) return i
