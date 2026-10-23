@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { assetUrl } from './assetUrl'
 
 const jsonCache = new Map<string, unknown>()
 const jsonInflight = new Map<string, Promise<unknown>>()
@@ -13,7 +14,7 @@ export function useRemoteJson<T>(url: string | null, active = true): T | null {
     if (!jsonInflight.has(url)) {
       jsonInflight.set(
         url,
-        fetch(url)
+        fetch(assetUrl(url))
           .then((response) => {
             if (!response.ok) throw new Error(`Request failed: ${response.status}`)
             return response.json()
@@ -57,7 +58,7 @@ export function useRemoteBinary(url: string | null, active = true): Float32Array
     if (!binaryInflight.has(url)) {
       binaryInflight.set(
         url,
-        fetch(url)
+        fetch(assetUrl(url))
           .then((response) => {
             if (!response.ok) throw new Error(`Request failed: ${response.status}`)
             return response.arrayBuffer()

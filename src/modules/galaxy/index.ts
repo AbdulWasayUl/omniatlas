@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { assetUrl } from '../../data/assetUrl'
 import type { AtlasModule, Engine, FrameContext, SceneNodeHandle } from '../../core/Engine'
 import { KPC_M, type Vec3d, vec3d } from '../../core/world'
 import {
@@ -836,7 +837,7 @@ export class GalaxyModule implements AtlasModule {
   private async loadField(): Promise<void> {
     const [manifest, buffer] = await Promise.all([
       fetchJson<FieldManifest>(`${DATA}/field.json`),
-      fetch(`${DATA}/field.bin`).then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null),
+      fetch(assetUrl(`${DATA}/field.bin`)).then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null),
     ])
     if (this.engine.isDisposed) return
     if (!manifest || !buffer) {
@@ -1364,7 +1365,7 @@ const GALAXY_FRAGMENT = /* glsl */ `
 
 async function fetchJson<T>(url: string): Promise<T | null> {
   try {
-    const response = await fetch(url)
+    const response = await fetch(assetUrl(url))
     if (!response.ok) return null
     return (await response.json()) as T
   } catch {

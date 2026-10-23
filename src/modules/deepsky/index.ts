@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { assetUrl } from '../../data/assetUrl'
 import type { AtlasModule, Engine, FrameContext, SceneNodeHandle } from '../../core/Engine'
 import { OBJECT_CLASSES } from '../../data/objectClasses'
 import { literatureDistancePc } from '../../data/deepSkyDistances'
@@ -373,7 +374,7 @@ function fieldView(buffer: ArrayBuffer, manifest: BinaryManifest, name: string):
 
 async function fetchJson<T>(url: string): Promise<T | null> {
   try {
-    const response = await fetch(url)
+    const response = await fetch(assetUrl(url))
     if (!response.ok) return null
     return (await response.json()) as T
   } catch {
@@ -383,7 +384,7 @@ async function fetchJson<T>(url: string): Promise<T | null> {
 
 async function fetchBinary(url: string): Promise<ArrayBuffer | null> {
   try {
-    const response = await fetch(url)
+    const response = await fetch(assetUrl(url))
     if (!response.ok) return null
     return await response.arrayBuffer()
   } catch {

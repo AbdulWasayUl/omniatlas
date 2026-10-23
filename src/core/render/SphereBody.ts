@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { assetUrl } from '../../data/assetUrl'
 
 /**
  * A rendered celestial body.
@@ -111,7 +112,8 @@ function loadTexture(
   const key = `${url}|${wrapS}|${colorSpace}`
   const hit = textureCache.get(key)
   if (hit) return hit
-  const texture = textureLoader.load(url)
+  // The one place a texture path becomes a request, so the one place that resolves it.
+  const texture = textureLoader.load(assetUrl(url))
   texture.colorSpace = colorSpace
   texture.anisotropy = 8
   // u runs 0 -> 1 exactly once round an equirectangular map, so its first and last

@@ -3,6 +3,7 @@ import type { AtlasModule, Engine, FrameContext, SceneNodeHandle } from '../../c
 import { AU_M, type Vec3d, vec3d } from '../../core/world'
 import { type KeplerianElements, keplerianPosition, sampleOrbit } from '../../astronomy/orbit'
 import { spanVisibility } from '../../core/render/spanFade'
+import { assetUrl } from '../../data/assetUrl'
 
 /**
  * Small bodies: the main belt, and the named asteroids and comets.
@@ -821,7 +822,7 @@ export class SmallBodiesModule implements AtlasModule {
 
 async function fetchJson<T>(url: string): Promise<T | null> {
   try {
-    const response = await fetch(url)
+    const response = await fetch(assetUrl(url))
     if (!response.ok) return null
     return (await response.json()) as T
   } catch {
@@ -831,7 +832,7 @@ async function fetchJson<T>(url: string): Promise<T | null> {
 
 async function fetchBuffer(url: string): Promise<ArrayBuffer | null> {
   try {
-    const response = await fetch(url)
+    const response = await fetch(assetUrl(url))
     if (!response.ok) return null
     return await response.arrayBuffer()
   } catch {

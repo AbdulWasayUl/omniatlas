@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { assetUrl } from '../../data/assetUrl'
 import type { AtlasModule, Engine, FrameContext, SceneNodeHandle } from '../../core/Engine'
 import { KPC_M, MPC_M, type FrameId, type Vec3d, sphericalToCartesian, vec3d } from '../../core/world'
 import type { DistanceKind } from '../../format/units'
@@ -1740,7 +1741,7 @@ function indexOfValue(array: Uint32Array, value: number): number {
 
 async function fetchJson<T>(url: string): Promise<T | null> {
   try {
-    const response = await fetch(url)
+    const response = await fetch(assetUrl(url))
     if (!response.ok) {
       console.warn(`[omniatlas] cosmos: ${url} returned ${response.status}`)
       return null
@@ -1766,7 +1767,7 @@ async function fetchBinary<T extends BinaryManifest = BinaryManifest>(
   try {
     const [manifest, buffer] = await Promise.all([
       fetchJson<T>(`${base}.json`),
-      fetch(`${base}.bin`).then((r) => (r.ok ? r.arrayBuffer() : null)),
+      fetch(assetUrl(`${base}.bin`)).then((r) => (r.ok ? r.arrayBuffer() : null)),
     ])
     if (!manifest || !buffer) return null
     if (!Array.isArray(manifest.fields) || !(manifest.recordCount > 0)) {

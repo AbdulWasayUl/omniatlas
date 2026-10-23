@@ -33,50 +33,69 @@ Two things stand out. **Textures are 9.93 MB, half the payload**, and being JPEG
 the one group brotli cannot help. **The application itself is 0.41 MB**, two per cent of
 the transfer: nothing here is a bundling problem.
 
-## 1. Nothing is cacheable — fix the headers
+## 1. Caching (done)
 
-There is no `vercel.json`, so every response takes the platform default:
+> Implemented. Content hashing in `scripts/hash-assets.mjs`, resolution in
+> `src/data/assetUrl.ts`, headers in `vercel.json`.
 
-```
-cache-control: public, max-age=0, must-revalidate
-```
+The original diagnosis was that there was no `vercel.json`, so every response took the
+platform default — Vercel documents it as `public, max-age=0, must-revalidate`, which
+matches what the site served — including `assets/index-*.js`, a content-hashed filename
+whose bytes can never change. A refresh therefore re-issued all 250 requests.
 
-That header is on all 250 responses, including `assets/index-DK0MaEpI.js` — a
-**content-hashed** filename whose bytes can never change. `max-age=0` with
-`must-revalidate` forbids the browser from reusing anything without asking first, so a
-refresh re-issues every request. With a warm CDN the bytes mostly come back as 304s, but
-250 conditional round trips is still the whole cost the user perceives, and any cache
-eviction or a `Disable cache` tick in devtools turns it back into 19.84 MB.
+The fix that first suggested itself, a long `max-age` on those paths, is wrong, and it is
+worth recording why so nobody reaches for it again. **A long cache and guaranteed
+freshness cannot both be had from headers on a stable filename.** A one-year `immutable`
+on `/textures/moons/triton.jpg` means every browser and every edge keeps the old bytes
+for a year unless something purges them. Vercel's own documentation says so for exactly
+the case of a CDN in front:
 
-Everything the atlas serves is immutable in practice. The build output is hashed, and the
-datasets and textures are versioned by the ETL in `scripts/`, not edited in place.
+> If you serve Vercel through your own CDN, purge it there too. The `410` block covers
+> Vercel's CDN, but your CDN may hold the asset with its original one-year immutable
+> cache header until you purge it.
 
-```json
-{
-  "headers": [
-    {
-      "source": "/assets/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
-    },
-    {
-      "source": "/(data|textures)/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=604800, stale-while-revalidate=86400" }
-      ]
-    }
-  ]
-}
-```
+Purging is a thing a human must remember, per layer, forever, and the failure mode is
+silent and user-visible.
 
-`immutable` is safe on `/assets/` because Vite hashes those names; a content change
-produces a different URL. `/data/` and `/textures/` keep a finite age because their names
-are stable across rebuilds, so a week plus revalidation is the honest ceiling until those
-get hashed too.
+So the filenames became content-addressed instead. `scripts/hash-assets.mjs` runs after
+`vite build`, renames every file under `dist/data` and `dist/textures` to carry an
+8-character SHA-256 prefix of its own contents, and writes `dist/asset-manifest.json`
+mapping the logical path to the deployed one. `src/data/assetUrl.ts` loads that manifest
+with a top-level await and resolves paths at the point they become requests.
 
-**Effect: a refresh drops from 250 requests to about 2.** No code change. This is the
-cheapest item on the list and it addresses the symptom that prompted the investigation.
+Three properties follow, all verified against a real build:
+
+1. **The hash is the content.** All 257 filenames match `sha256(bytes)[:8]`.
+2. **An unchanged file keeps its URL.** Rebuilding with no source change produces a
+   byte-identical manifest, so a deploy invalidates nothing it did not change.
+3. **Changed bytes produce a new URL.** One appended byte moved `triton.jpg` from
+   `019aacfe` to `443f3fd9`.
+
+Together those mean a deploy is a set of URLs nothing has ever requested, and the
+superseded ones are never asked for again. No purge API, no TTL tuning, correct across
+arbitrarily many cache layers — which is the property that makes a second CDN safe to put
+in front rather than a second thing to invalidate.
+
+`vercel.json` then gives `/assets/`, `/data/` and `/textures/` a year of `immutable`, and
+holds `index.html`, `/asset-manifest.json` and `/favicon.svg` at `max-age=0,
+must-revalidate`. Those three are the entry points: they are how a client discovers that
+the hashes have changed, and caching any of them pins a whole deploy.
+
+**Effect: a refresh drops from 250 requests to about 2.** The cold boot is unchanged —
+caching cannot help a first visit, and the items below are what do.
+
+### Why `assetUrl` resolves at the request, not the declaration
+
+The catalogue keeps readable paths (`textureUrl: '/textures/moons/triton.jpg'`) and the
+modules keep their `DATA` constants. Only the handful of places where a path becomes a
+request call `assetUrl()`: each module's `fetchJson`/`fetchBinary` helper, the six direct
+fetches in the stars module, `useRemoteJson`/`useRemoteBinary`, and `loadTexture` in
+`SphereBody`. A missing manifest entry returns the path unchanged and warns once, so the
+failure degrades to the pre-hashing behaviour rather than a guaranteed 404.
+
+`tests/unit/asset-paths.test.ts` guards the indirection: it checks that every literal
+asset path in `src/` names a file that exists in `public/` and is non-empty. That used to
+fail at build time and now would not, because the fallback is forgiving.
 
 ## 2. 186 of the 250 requests are one dataset
 
@@ -163,10 +182,10 @@ on every frame.
 
 ## Where it lands
 
-| | Now | After |
-|---|---|---|
-| Cold boot | 250 requests / 19.84 MB | ~45 requests / ~5 MB |
-| Refresh | 250 requests / 19.84 MB | ~2 requests / ~0 MB |
+| | Measured | After item 1 (shipped) | After items 2-5 |
+|---|---|---|---|
+| Cold boot | 250 requests / 19.84 MB | 250 requests / 19.84 MB | ~45 requests / ~5 MB |
+| Refresh | 250 requests / 19.84 MB | **~2 requests / ~0 MB** | ~2 requests / ~0 MB |
 
 ## How to re-measure
 

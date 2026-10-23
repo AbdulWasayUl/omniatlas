@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { AtlasModule, Engine, FrameContext } from '../../core/Engine'
 import { PC_M, vec3d, worldToSceneBasis } from '../../core/world'
+import { assetUrl } from '../../data/assetUrl'
 
 /**
  * The stellar layer: 329,860 real stars from AT-HYG v4.0.
@@ -365,8 +366,8 @@ export class StarsModule implements AtlasModule {
 
   private async loadTier(name: 'l0' | 'l1'): Promise<StarTier | null> {
     const [manifest, buffer] = await Promise.all([
-      fetch(`${DATA}/${name}.json`).then((r) => (r.ok ? (r.json() as Promise<TierManifest>) : null)),
-      fetch(`${DATA}/${name}.bin`).then((r) => (r.ok ? r.arrayBuffer() : null)),
+      fetch(assetUrl(`${DATA}/${name}.json`)).then((r) => (r.ok ? (r.json() as Promise<TierManifest>) : null)),
+      fetch(assetUrl(`${DATA}/${name}.bin`)).then((r) => (r.ok ? r.arrayBuffer() : null)),
     ])
     if (!manifest || !buffer) {
       console.warn(`[omniatlas] star tier ${name} unavailable`)
@@ -501,7 +502,7 @@ export class StarsModule implements AtlasModule {
    * point of the instanced-quad approach.
    */
   private async loadDeepTier(): Promise<void> {
-    const index = await fetch(`${DATA}/l2/index.json`)
+    const index = await fetch(assetUrl(`${DATA}/l2/index.json`))
       .then((r) => (r.ok ? (r.json() as Promise<L2Index>) : null))
       .catch(() => null)
     if (!index || this.engine.isDisposed) return
@@ -522,7 +523,7 @@ export class StarsModule implements AtlasModule {
       while (cursor < index.chunks.length) {
         const chunk = index.chunks[cursor++]
         if (this.engine.isDisposed) return
-        const buffer = await fetch(`${DATA}/l2/${chunk.pix}.bin`)
+        const buffer = await fetch(assetUrl(`${DATA}/l2/${chunk.pix}.bin`))
           .then((r) => (r.ok ? r.arrayBuffer() : null))
           .catch(() => null)
         if (!buffer || this.engine.isDisposed) continue
@@ -613,7 +614,7 @@ export class StarsModule implements AtlasModule {
   private async loadNamedStars(): Promise<void> {
     const icrfPc = this.globalIcrfPc
     if (!icrfPc) return
-    const payload = await fetch(`${DATA}/names.json`)
+    const payload = await fetch(assetUrl(`${DATA}/names.json`))
       .then((r) => (r.ok ? (r.json() as Promise<NamesPayload>) : null))
       .catch(() => null)
     if (!payload?.stars?.length || this.engine.isDisposed) return
@@ -661,7 +662,7 @@ export class StarsModule implements AtlasModule {
 
   private async loadConstellations(): Promise<void> {
     if (!this.globalPositions) return
-    const buffer = await fetch(`${DATA}/constellations.bin`)
+    const buffer = await fetch(assetUrl(`${DATA}/constellations.bin`))
       .then((r) => (r.ok ? r.arrayBuffer() : null))
       .catch(() => null)
     if (!buffer || this.engine.isDisposed) return
