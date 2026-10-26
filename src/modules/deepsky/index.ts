@@ -1,4 +1,5 @@
 import { displayName } from '../../core/names'
+import { discBasis } from '../../core/skyOrientation'
 import * as THREE from 'three'
 import { assetUrl } from '../../data/assetUrl'
 import type { AtlasModule, Engine, FrameContext, SceneNodeHandle } from '../../core/Engine'
@@ -80,6 +81,17 @@ const LAYER_SPECS = [
 ]
 
 /** The layer that owns the registry nodes and the outline shapes. */
+/**
+ * Screen extent, in pixels, over which a measured silhouette replaces the round glyph.
+ *
+ * Below the first number the object is a few pixels across and has no readable shape, so
+ * a point is the honest mark for it. Above the second it is plainly an ellipse, and
+ * drawing a circle there would be a claim about a thing the catalogue has measured.
+ * The glyph fades out and the disc fades in over exactly this range, so the total light
+ * is continuous across the handover.
+ */
+const DISC_FADE_PX: readonly [number, number] = [2.5, 8]
+
 const LAYER = 'stellar' as const
 const FAR_LAYER = 'galactic' as const
 
@@ -433,6 +445,52 @@ function collidingNames(objects: readonly NamedObject[]): Set<string> {
   return ambiguous
 }
 
+/**
+ * How to split one catalogue between the two layers that draw it.
+ *
+ * The deep-sky catalogue exists twice, once per layer, and `handover` says which copy
+ * should carry the sky: it is keyed on distance from the Sun, because that is what
+ * decides which layer can hold the coordinates without losing precision.
+ *
+ * Gating each copy on its OWN layer's opacity is necessary — that is what stopped the
+ * galactic copy being dimmed by the fade of the stellar layer it was taking over from —
+ * but on its own it opens a hole. The handover and the layer opacities answer different
+ * questions, so there are camera positions where the handover has already given the sky
+ * to the far copy while the far LAYER is not drawing at all. A few hundred parsecs out,
+ * that was a handover of 0.98 against a galactic layer at 0, and the whole catalogue
+ * went to 2 per cent opacity: 13,371 objects reduced to a peak of 3/255. Measured, not
+ * reasoned about.
+ *
+ * So the split is renormalised against what the two layers can actually deliver. Where
+ * both draw this is exactly the old crossfade; where only one does, that one carries the
+ * catalogue at the strength its own layer allows and never beyond it; where neither
+ * does, nothing is drawn.
+ */
+export function crossfadeWeights(
+  handover: number,
+  nearOpacity: number,
+  farOpacity: number,
+): { near: number; far: number } {
+  const DARK = 1e-4
+  const nearLit = nearOpacity > DARK
+  const farLit = farOpacity > DARK
+  // The handover only has a say about layers that are drawing at all. Renormalising a
+  // split that one side cannot take is not enough on its own: at a handover of exactly
+  // zero the far copy's weight is zero whatever its layer is doing, so a dark near layer
+  // there left the catalogue with nowhere to go.
+  if (!nearLit && !farLit) return { near: 0, far: 0 }
+  if (!farLit) return { near: nearOpacity, far: 0 }
+  if (!nearLit) return { near: 0, far: farOpacity }
+
+  const near = (1 - handover) * nearOpacity
+  const far = handover * farOpacity
+  const weighted = near + far
+  if (weighted <= DARK) return { near: nearOpacity, far: 0 }
+  // The best either layer could manage on its own: the ceiling the pair may not exceed.
+  const share = Math.max(nearOpacity, farOpacity) / weighted
+  return { near: near * share, far: far * share }
+}
+
 async function fetchJson<T>(url: string): Promise<T | null> {
   try {
     const response = await fetch(assetUrl(url))
@@ -471,6 +529,8 @@ export interface DeepSkyManifest {
     /** Objects with no distance, projected onto the shell. */
     directionOnly: number
     directionOnlyShellRadiusPc: number
+    /** Objects drawn as an oriented disc rather than a round glyph. */
+    orientedDiscs: number
     /** Objects with neither a V nor a B magnitude, drawn at ASSUMED_MAGNITUDE. */
     assumedMagnitude: number
     byCategory: Record<string, { drawn: number; measured: number; directionOnly: number }>
@@ -541,6 +601,7 @@ const POINT_VERTEX = /* glsl */ `
   attribute float dsMag;       // absolute magnitude (measured) or apparent (direction-only)
   attribute vec3 dsColor;
   attribute float dsOutline;   // angular radius of this object's traced outline, degrees
+  attribute float dsHasDisc;   // 1 where an oriented disc is drawn for this same object
 
   uniform float uPixelWidth;
   uniform float uPixelHeight;
@@ -553,6 +614,8 @@ const POINT_VERTEX = /* glsl */ `
   uniform float uMaxPx;
   uniform float uOutlineTakeoverPx;
   uniform float uProxyTakeoverPx;
+  uniform float uDiscFadeLoPx;
+  uniform float uDiscFadeHiPx;
   uniform float uSolFade;      // how much of the traced-outline overlay is still drawn
   uniform float uUnitPc;       // parsecs per layer unit
   uniform float uLayerFade;    // crossfade between the stellar and galactic copies
@@ -619,6 +682,12 @@ const POINT_VERTEX = /* glsl */ `
     // keeps the ring glyph that is the only mark it has.
     alpha *= 1.0 - smoothstep(uProxyTakeoverPx, uProxyTakeoverPx * 3.0, extentPx);
 
+    // And it steps aside for the object's own measured silhouette, where there is one.
+    // A round glyph is an honest mark for something too small to have a visible shape;
+    // the moment it is large enough to read as a shape, it should be the shape the
+    // catalogue measured. The disc fades in over these same two numbers.
+    alpha *= 1.0 - dsHasDisc * smoothstep(uDiscFadeLoPx, uDiscFadeHiPx, extentPx);
+
     // Flux, spread over the sprite: an extended object is not a bright point, it is a
     // faint smear with the same total light.
     float flux = pow(2.512, clamp(headroom, -1.5, 7.0));
@@ -652,6 +721,132 @@ const POINT_FRAGMENT = /* glsl */ `
     float ring = exp(-pow((r - 0.70) / 0.19, 2.0)) * 0.85;
     float shape = mix(disc, ring, vRing);
     gl_FragColor = vec4(vColor * vIntensity * shape, shape);
+  }
+`
+
+/**
+ * A galaxy drawn as the disc its catalogued ellipse implies.
+ *
+ * The catalogue states a major axis, a minor axis and a position angle; `discBasis`
+ * turns those into two in-plane unit vectors on the CPU, in float64, and this shader
+ * does nothing but sweep the quad across them. So the ellipse on screen is the measured
+ * one by construction rather than by a screen-space approximation of it, and the disc is
+ * a real object in the layer's space — which is what will make it keep its shape when
+ * the camera can finally move far enough for the projection to change.
+ *
+ * The quad is the disc's bounding parallelogram and the fragment carves the circle out
+ * of it, exactly as the point sprite already carves its glyph out of a square.
+ */
+const DISC_VERTEX = /* glsl */ `
+  ${PROJECT_CHUNK}
+
+  attribute vec3 dsDir;        // unit direction in the layer's scene basis
+  attribute float dsDist;      // layer units
+  attribute vec3 dsU;          // major axis, unit, in the sky plane
+  attribute vec3 dsV;          // in-plane, perpendicular to dsU, tilted by the inclination
+  attribute float dsRadius;    // semi-major axis, layer units
+  attribute float dsRatio;     // minor over major, i.e. cos(inclination)
+  attribute float dsMag;       // absolute magnitude
+  attribute vec3 dsColor;
+
+  uniform float uPixelWidth;
+  uniform float uPixelHeight;
+  uniform float uTanHalfFov;
+  uniform float uMagLimit;
+  uniform float uGain;
+  uniform float uUnitPc;
+  uniform float uLayerFade;
+  uniform float uDiscFadeLoPx;
+  uniform float uDiscFadeHiPx;
+  uniform float uProxyTakeoverPx;
+  uniform float uMinPx;
+  uniform float uShell;        // direction-only shell radius, in THIS layer's units
+
+  varying vec3 vColor;
+  varying float vIntensity;
+  varying float vRing;
+  varying vec2 vQuad;
+
+  void main() {
+    vQuad = position.xy;
+    // Same convention as the point glyph: a distance of zero or less means the
+    // catalogue gave a direction and nothing else, so the object is projected onto the
+    // shell at the angular size Earth measures. The SHAPE is measured either way --
+    // that is the whole reason these are worth drawing -- but the depth is not, and the
+    // ring profile below is what says so.
+    float directionOnly = step(dsDist, 0.0);
+    vRing = directionOnly;
+    float distance = mix(dsDist, uShell, directionOnly);
+    vec3 centre = dsDir * distance;
+    vec4 viewCentre = modelViewMatrix * vec4(centre, 1.0);
+    if (viewCentre.z > -1e-6) {
+      gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+      return;
+    }
+
+    float d = max(length(viewCentre.xyz), 1e-6);
+    float dPc = max(d * uUnitPc, 1e-3);
+    // A placed object carries an absolute magnitude and brightens as you approach; a
+    // direction-only one carries what Earth sees and stays what Earth sees.
+    float apparent = mix(dsMag + 5.0 * (log(dPc) * LOG10) - 5.0, dsMag, directionOnly);
+    float headroom = uMagLimit - apparent;
+    float extentPx = (dsRadius / d) / uTanHalfFov * uPixelHeight * 0.5;
+
+    // Fades IN as the object resolves, which is exactly where the point sprite stops
+    // being a mark on a chart and starts pretending to be a shape. The sprite fades out
+    // over the same two numbers, so the two are complementary and the total light is
+    // continuous through the handover.
+    float arrive = smoothstep(uDiscFadeLoPx, uDiscFadeHiPx, extentPx);
+    // ...and out again under the close-range stand-in, on the same terms as the sprite.
+    float leave = 1.0 - smoothstep(uProxyTakeoverPx, uProxyTakeoverPx * 3.0, extentPx);
+    float alpha = uLayerFade * arrive * leave;
+    if (alpha < 0.004 || headroom < -1.5) {
+      gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+      return;
+    }
+
+    // Same total light, spread over the ellipse the disc actually covers, and spread by
+    // the SAME law the glyph uses so that the two agree all the way through the
+    // crossfade rather than only at one size. The glyph divides by its radius in pixels
+    // raised to 1.35; the disc's equivalent radius is the geometric mean of its two
+    // semi-axes, which is where the axis ratio enters — an edge-on galaxy is the same
+    // flux through a narrower silhouette, so it is brighter per pixel.
+    //
+    // Dividing by the true area instead, which this first did, is a different exponent
+    // (2 rather than 1.35) and made a galaxy twenty pixels across roughly fourteen times
+    // too faint to see while a five-pixel one was about right — a crossfade with a cliff
+    // in the middle of it.
+    float flux = pow(2.512, clamp(headroom, -1.5, 7.0));
+    float spread = max(1.0, extentPx * sqrt(max(dsRatio, 0.04)) / uMinPx);
+    vIntensity = uGain * flux * alpha / pow(spread, 1.35);
+    vColor = dsColor;
+
+    vec3 rim = centre + dsRadius * (position.x * dsU + position.y * dsV);
+    vec4 clip = projectionMatrix * modelViewMatrix * vec4(rim, 1.0);
+    clip.z = 0.0; // sky content: never depth-clipped, never depth-tested
+    gl_Position = clip;
+  }
+`
+
+const DISC_FRAGMENT = /* glsl */ `
+  varying vec3 vColor;
+  varying float vIntensity;
+  varying float vRing;
+  varying vec2 vQuad;
+
+  void main() {
+    float r2 = dot(vQuad, vQuad);
+    if (r2 > 1.0) discard;
+    float r = sqrt(r2);
+    // Placed: brightest at the centre and falling off to the rim, because a disc galaxy
+    // is a central concentration and not a flat coin. Softer than the point glyph's
+    // falloff, since this one covers the real silhouette rather than standing in for it.
+    float filled = exp(-2.6 * r2);
+    // Direction-only: a hollow ellipse, the same vocabulary the point glyph uses for the
+    // same fact. The outline is the measured shape; the absence of a fill is the missing
+    // distance, legible at a glance instead of buried in a metadata panel.
+    float ring = exp(-pow((r - 0.76) / 0.15, 2.0)) * 0.85;
+    gl_FragColor = vec4(vColor * vIntensity * mix(filled, ring, vRing), 1.0);
   }
 `
 
@@ -835,6 +1030,7 @@ export class DeepSkyModule implements AtlasModule {
       measuredFromRedshift: 0,
       directionOnly: 0,
       directionOnlyShellRadiusPc: SHELL_PC,
+      orientedDiscs: 0,
       assumedMagnitude: 0,
       byCategory: {},
     },
@@ -866,6 +1062,11 @@ export class DeepSkyModule implements AtlasModule {
         'Physical radii: angular major axis x measured distance',
         'Absolute magnitudes: catalogue V (or B) magnitude reduced by the measured distance',
         'Sprite brightness recomputed from the true camera distance each frame',
+        'Disc orientation: the catalogued major axis, minor axis and position angle are ' +
+          'measured, but the disc built from them assumes the object is a circle seen at ' +
+          'an angle. All four orientations consistent with that ellipse — the two tilts ' +
+          'and the two ends of the major axis — project identically, so the silhouette is ' +
+          'the measurement and the facing is not known',
       ],
       illustration: [
         `Direction-only objects projected onto a ${SHELL_PC / 1000} kpc shell: a projection, not a position`,
@@ -985,6 +1186,8 @@ export class DeepSkyModule implements AtlasModule {
     const vmag = fieldView(buffer, manifest, 'vmag') as Int16Array
     const bmag = fieldView(buffer, manifest, 'bmag') as Int16Array
     const majAx = fieldView(buffer, manifest, 'majAx') as Uint16Array
+    const minAx = fieldView(buffer, manifest, 'minAx') as Uint16Array
+    const posAng = fieldView(buffer, manifest, 'posAng') as Uint16Array
     const types = fieldView(buffer, manifest, 'type') as Uint8Array
     const distanceKind = fieldView(buffer, manifest, 'distanceKind') as Uint8Array
     const redshiftValues = fieldView(buffer, manifest, 'redshift') as Float32Array
@@ -1000,6 +1203,19 @@ export class DeepSkyModule implements AtlasModule {
     const mags = new Float32Array(count)
     const colors = new Float32Array(count * 3)
     const outlineAngles = new Float32Array(count)
+    // Which point-field instances have a disc, so the sprite knows to step aside.
+    const hasDisc = new Float32Array(count)
+    // The disc field is a SUBSET: only rows carrying a trustworthy distance and all
+    // three shape columns can be placed and oriented, so it keeps its own slot counter.
+    const discDirs = new Float32Array(count * 3)
+    const discU = new Float32Array(count * 3)
+    const discV = new Float32Array(count * 3)
+    const discDists = new Float32Array(count)
+    const discRadii = new Float32Array(count)
+    const discRatios = new Float32Array(count)
+    const discMags = new Float32Array(count)
+    const discColors = new Float32Array(count * 3)
+    let discSlot = 0
 
     const stats = this.manifest.ngc
     stats.recordsInFile = count
@@ -1069,10 +1285,42 @@ export class DeepSkyModule implements AtlasModule {
         stats.directionOnly++
       }
 
+      // An oriented disc needs a place to stand and a shape to hold: a distance the
+      // module trusts, and all three of major axis, minor axis and position angle. The
+      // shape columns are measured; the disc built from them is not, because a circle
+      // seen at an angle is an assumption about the object. See `skyOrientation.ts`.
+      const minArcmin = minAx[i] === 65535 ? 0 : minAx[i] * 0.01
+      const posAngDeg = posAng[i] === 65535 ? null : posAng[i] * 0.1
+      if (majArcmin > 0 && minArcmin > 0 && posAngDeg !== null) {
+        const ratio = Math.min(1, minArcmin / majArcmin)
+        const { u, v } = discBasis(raDeg, decDeg, ratio, posAngDeg)
+        discDirs[discSlot * 3] = scratch.x
+        discDirs[discSlot * 3 + 1] = scratch.y
+        discDirs[discSlot * 3 + 2] = scratch.z
+        discU[discSlot * 3] = u.x
+        discU[discSlot * 3 + 1] = u.y
+        discU[discSlot * 3 + 2] = u.z
+        discV[discSlot * 3] = v.x
+        discV[discSlot * 3 + 1] = v.y
+        discV[discSlot * 3 + 2] = v.z
+        // Zero where the catalogue gave no trustworthy distance, which is the signal
+        // the shader reads to put the object on the shell and draw it hollow.
+        discDists[discSlot] = dPc
+        discRadii[discSlot] = radii[slot]
+        discRatios[discSlot] = ratio
+        discMags[discSlot] = mags[slot]
+        discColors[discSlot * 3] = color.r
+        discColors[discSlot * 3 + 1] = color.g
+        discColors[discSlot * 3 + 2] = color.b
+        hasDisc[slot] = 1
+        discSlot++
+      }
+
       this.rowToInstance.set(i, slot)
       slot++
     }
     stats.drawn = slot
+    stats.orientedDiscs = discSlot
 
     const colorAttribute = new THREE.InstancedBufferAttribute(colors.subarray(0, slot * 3), 3)
     const magAttribute = new THREE.InstancedBufferAttribute(mags.subarray(0, slot), 1)
@@ -1093,6 +1341,7 @@ export class DeepSkyModule implements AtlasModule {
       const outlineAttribute = new THREE.InstancedBufferAttribute(outlineAngles.slice(0, slot), 1)
       geometry.setAttribute('dsOutline', outlineAttribute)
       this.outlineAttributes.push(outlineAttribute)
+      geometry.setAttribute('dsHasDisc', new THREE.InstancedBufferAttribute(hasDisc.slice(0, slot), 1))
       geometry.instanceCount = slot
       this.geometries.push(geometry)
 
@@ -1112,6 +1361,12 @@ export class DeepSkyModule implements AtlasModule {
           // Half-gone at an object two hundred pixels across, gone at six hundred: by
           // then it is the subject of the frame, not a mark on a chart.
           uProxyTakeoverPx: { value: 100 },
+          // Where a measured silhouette takes over from the round glyph. Below about
+          // five pixels across there is no shape to see and a point is the honest mark;
+          // by sixteen the ellipse is plainly readable and the glyph is a lie about a
+          // thing we have measured.
+          uDiscFadeLoPx: { value: DISC_FADE_PX[0] },
+          uDiscFadeHiPx: { value: DISC_FADE_PX[1] },
           uSolFade: { value: 1 },
           uUnitPc: { value: spec.unitPc },
           uLayerFade: { value: spec.near ? 1 : 0 },
@@ -1133,6 +1388,63 @@ export class DeepSkyModule implements AtlasModule {
       this.objects.push(mesh)
       ;(spec.near ? this.nearObjects : this.farObjects).push(mesh)
       this.engine.layer(spec.layer).scene.add(mesh)
+
+      if (discSlot > 0) {
+        const discGeometry = new THREE.InstancedBufferGeometry()
+        discGeometry.index = this.quad!.index
+        discGeometry.setAttribute('position', this.quad!.getAttribute('position'))
+        // `u` and `v` are directions, so they rotate into the layer's basis exactly as
+        // the position directions do, and they stay unit length through it.
+        discGeometry.setAttribute('dsDir', new THREE.InstancedBufferAttribute(rotateDirections(discDirs, discSlot, spec.frame), 3))
+        discGeometry.setAttribute('dsU', new THREE.InstancedBufferAttribute(rotateDirections(discU, discSlot, spec.frame), 3))
+        discGeometry.setAttribute('dsV', new THREE.InstancedBufferAttribute(rotateDirections(discV, discSlot, spec.frame), 3))
+        discGeometry.setAttribute('dsDist', new THREE.InstancedBufferAttribute(scaled(discDists, discSlot, k), 1))
+        discGeometry.setAttribute('dsRadius', new THREE.InstancedBufferAttribute(scaled(discRadii, discSlot, k), 1))
+        discGeometry.setAttribute('dsRatio', new THREE.InstancedBufferAttribute(discRatios.slice(0, discSlot), 1))
+        discGeometry.setAttribute('dsMag', new THREE.InstancedBufferAttribute(discMags.slice(0, discSlot), 1))
+        discGeometry.setAttribute('dsColor', new THREE.InstancedBufferAttribute(discColors.slice(0, discSlot * 3), 3))
+        discGeometry.instanceCount = discSlot
+        this.geometries.push(discGeometry)
+
+        const discMaterial = new THREE.ShaderMaterial({
+          uniforms: {
+            uPixelHeight: { value: 1080 },
+            uPixelWidth: { value: 1920 },
+            uTanHalfFov: { value: 0.466 },
+            uMagLimit: { value: 12.8 },
+            // Lower than the point field's: the same light spread over a real silhouette
+            // instead of concentrated into a glyph standing in for one.
+            // The glyph's gain, reduced by the ratio of the two profiles' integrals
+            // (1.52): the disc's falloff is the softer of the two, so the same peak
+            // would put half as much light again on screen.
+            uGain: { value: 0.069 / 1.52 },
+            uMinPx: { value: 1.1 },
+            uUnitPc: { value: spec.unitPc },
+            uLayerFade: { value: spec.near ? 1 : 0 },
+            uDiscFadeLoPx: { value: DISC_FADE_PX[0] },
+            uDiscFadeHiPx: { value: DISC_FADE_PX[1] },
+            uProxyTakeoverPx: { value: 100 },
+            uShell: { value: SHELL_PC * k },
+          },
+          vertexShader: DISC_VERTEX,
+          fragmentShader: DISC_FRAGMENT,
+          transparent: true,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          depthTest: false,
+          side: THREE.DoubleSide,
+        })
+        this.materials.push(discMaterial)
+        ;(spec.near ? this.nearMaterials : this.farMaterials).push(discMaterial)
+
+        const discMesh = new THREE.Mesh(discGeometry, discMaterial)
+        discMesh.frustumCulled = false
+        discMesh.renderOrder = -9
+        discMesh.name = `deepsky:discs:${spec.layer}`
+        this.objects.push(discMesh)
+        ;(spec.near ? this.nearObjects : this.farObjects).push(discMesh)
+        this.engine.layer(spec.layer).scene.add(discMesh)
+      }
     }
     this.manifest.datasets['ngc.bin'] = 'loaded'
   }
@@ -1755,8 +2067,13 @@ export class DeepSkyModule implements AtlasModule {
     // FROM: leaving the solar system, the near copy handed the sky to a far copy that
     // the same multiplication was driving to zero, and the catalogue blinked out in the
     // middle of a crossfade designed to hold its brightness constant.
-    const nearGate = spanGate * layer.renderOpacity
-    const farGate = spanGate * farLayer.renderOpacity
+    const { near: nearWeight, far: farWeight } = crossfadeWeights(
+      handover,
+      layer.renderOpacity,
+      farLayer.renderOpacity,
+    )
+    const nearGate = spanGate
+    const farGate = spanGate
 
     for (const material of this.materials) {
       const u = material.uniforms
@@ -1767,8 +2084,8 @@ export class DeepSkyModule implements AtlasModule {
       if (u.uShellFade) u.uShellFade.value = shellFade
       if (u.uSolFade) u.uSolFade.value = outlineFade
     }
-    const nearFade = (1 - handover) * nearGate
-    const farFade = handover * farGate
+    const nearFade = nearWeight * nearGate
+    const farFade = farWeight * farGate
     for (const material of this.nearMaterials) material.uniforms.uLayerFade.value = nearFade
     for (const material of this.farMaterials) material.uniforms.uLayerFade.value = farFade
 
