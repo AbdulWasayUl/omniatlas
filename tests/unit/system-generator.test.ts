@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   type GeneratedSystem,
+  type WorldKind,
+  WORLD_KINDS,
   frostLineAu,
   generateSystem,
   habitableZoneAu,
@@ -232,6 +234,76 @@ describe('generateSystem', () => {
     expect(withRings).toBeGreaterThan(10)
     expect(withMoons).toBeGreaterThan(50)
     expect(planetTotal / 400).toBeGreaterThan(2)
+  })
+
+  it('produces every kind it declares, at rates that are not absurd', () => {
+    // The failure this pins actually shipped: `terrestrial` and `ocean` were declared,
+    // given palettes, and returned by nothing, so no world in the atlas could be green
+    // or blue and every system came out some shade of brown. A kind that cannot occur
+    // is worse than one that is rare, because nothing points at it.
+    const counts = new Map<WorldKind, number>()
+    let total = 0
+    for (let i = 0; i < 1200; i++) {
+      for (const planet of generateSystem({ id: `star:${i}` }).planets) {
+        for (const world of [planet, ...planet.moons]) {
+          counts.set(world.kind, (counts.get(world.kind) ?? 0) + 1)
+          total++
+        }
+      }
+    }
+    for (const kind of Object.keys(WORLD_KINDS) as WorldKind[]) {
+      expect(counts.get(kind) ?? 0, `${kind} never occurs`).toBeGreaterThan(0)
+    }
+    // No single kind may dominate: tidal heating once made Io's kind 17% of everything,
+    // which is the opposite of what makes Io worth knowing about.
+    for (const [kind, n] of counts) {
+      expect(100 * (n / total), `${kind} is too common`).toBeLessThan(20)
+    }
+    // And the colourful temperate band has to be reachable in practice, not just in
+    // principle.
+    expect((counts.get('ocean') ?? 0) + (counts.get('terrestrial') ?? 0)).toBeGreaterThan(total * 0.01)
+  })
+
+  it('keeps the radius valley the transit surveys measured', () => {
+    // A real deficit between about 1.5 and 2 Earth radii: the planets that were going to
+    // lose their envelopes lost them. Sampling flat across it would erase the one feature
+    // of the population a reader might recognise.
+    const radii: number[] = []
+    for (let i = 0; i < 1200; i++) {
+      for (const planet of generateSystem({ id: `star:${i}` }).planets) radii.push(planet.radiusMetres / EARTH_RADIUS_M)
+    }
+    const band = (lo: number, hi: number) => radii.filter((r) => r >= lo && r < hi).length / radii.length
+    const valley = band(1.5, 2)
+    expect(valley).toBeLessThan(band(1, 1.5) * 0.75)
+    expect(valley).toBeLessThan(band(2, 2.5) * 0.75)
+    // Thin, not empty: the gap is a deficit, not a prohibition.
+    expect(valley).toBeGreaterThan(0.005)
+  })
+
+  it('gives worlds of one kind different colours', () => {
+    // Four fixed colours per kind meant thirty-two distinct worlds across forty thousand.
+    const colours = new Map<WorldKind, Set<string>>()
+    for (let i = 0; i < 600; i++) {
+      for (const planet of generateSystem({ id: `star:${i}` }).planets) {
+        for (const world of [planet, ...planet.moons]) {
+          const set = colours.get(world.kind) ?? new Set<string>()
+          set.add(world.color)
+          colours.set(world.kind, set)
+        }
+      }
+    }
+    for (const [kind, set] of colours) {
+      if (set.size < 12) continue // too rare in this sample to say anything
+      expect(set.size, `${kind} repeats colours`).toBeGreaterThan(10)
+    }
+  })
+
+  it('describes every kind it can produce', () => {
+    for (const [kind, entry] of Object.entries(WORLD_KINDS)) {
+      expect(entry.label, kind).toBeTruthy()
+      expect(entry.description.length, kind).toBeGreaterThan(30)
+      expect(entry.description.endsWith('.'), kind).toBe(true)
+    }
   })
 
   it('names worlds by the conventions the real catalogues use', () => {

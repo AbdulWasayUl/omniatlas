@@ -7,6 +7,7 @@ import {
   type GeneratedMoon,
   type GeneratedPlanet,
   type GeneratedSystem,
+  WORLD_KINDS,
   generateSystem,
   nameSystem,
 } from '../../generators/system'
@@ -75,6 +76,8 @@ const FRAME = 'icrf' as const
 interface ImaginedNode extends SceneNodeHandle {
   provenance: 'illustration'
   provenanceNote: string
+  /** The kind of world, and what makes it that kind. Shown above the provenance note. */
+  caveat: string
 }
 
 interface Body {
@@ -264,12 +267,16 @@ export class ImmersiveModule implements AtlasModule {
       // every consumer of provenance had to learn it; what the chip cannot say, the note
       // underneath it does, in the first four words.
       provenance: 'illustration',
+      // What kind of world this is, said first, because it is the thing a viewer wants
+      // to know on arrival and the thing the colour is only hinting at.
+      caveat: `${WORLD_KINDS[world.kind].label}. ${WORLD_KINDS[world.kind].description}` +
+        `${world.habitable ? ` Habitable: ${world.habitabilityNote}.` : ''}`,
       provenanceNote:
         `Invented, not observed. ${this.hostNode?.name ?? 'This star'}'s measured radius and ` +
-        'temperature set the scale, and everything else — the number of worlds, their sizes, ' +
-        'their orbits and their moons — was generated from the star\'s identifier. The same ' +
-        'star always yields the same system, so a link to this world shows anyone the same ' +
-        `world.${world.habitable ? ` Habitable: ${world.habitabilityNote}.` : ''}`,
+        'temperature set the scale, and everything else — how many worlds there are, how big ' +
+        'they are, what they are made of and what orbits them — was generated from the star\'s ' +
+        'identifier. The same star always yields the same system, so a link to this world ' +
+        'shows anyone the same world.',
     }
     this.engine.register(node)
     this.bodies.set(world.id, {

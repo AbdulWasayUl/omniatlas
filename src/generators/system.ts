@@ -87,7 +87,6 @@ const SOLAR_RADIUS_M = 6.957e8
 const SOLAR_LUMINOSITY_W = 3.828e26
 const EARTH_RADIUS_M = 6.371e6
 const EARTH_MASS_KG = 5.972e24
-const JUPITER_RADIUS_M = 6.9911e7
 const SIGMA_SB = 5.670374419e-8
 const G = 6.6743e-11
 const DAY_S = 86400
@@ -102,15 +101,73 @@ const DAY_S = 86400
  */
 export type WorldKind =
   | 'lava'
+  | 'volcanic'
+  | 'carbon'
+  | 'iron'
+  | 'greenhouse'
   | 'desert'
   | 'rocky'
   | 'terrestrial'
   | 'ocean'
+  | 'hycean'
   | 'ice'
+  | 'snowball'
   | 'superEarth'
+  | 'subNeptune'
   | 'iceGiant'
   | 'gasGiant'
   | 'hotJupiter'
+
+/** What each kind is called, and one sentence on what makes it that kind. */
+export const WORLD_KINDS: Record<WorldKind, { label: string; description: string }> = {
+  lava: { label: 'Lava world', description: 'Close enough to its star that the day side is partly molten rock.' },
+  volcanic: {
+    label: 'Volcanic world',
+    description: 'Kneaded by tides from the world it orbits, and resurfacing itself faster than craters can form.',
+  },
+  carbon: {
+    label: 'Carbon world',
+    description: 'Formed where carbon outweighed oxygen, so its crust is graphite and carbides rather than silicates.',
+  },
+  iron: {
+    label: 'Iron world',
+    description: 'A stripped core: dense, metallic, and far smaller than its mass would suggest.',
+  },
+  greenhouse: {
+    label: 'Greenhouse world',
+    description: 'An atmosphere thick enough to trap its own heat, holding the surface far above the sunlight alone.',
+  },
+  desert: { label: 'Desert world', description: 'Rock and dust, with whatever water it began with long since gone.' },
+  rocky: { label: 'Rocky world', description: 'Bare silicate rock, too small or too dry to have kept much of an atmosphere.' },
+  terrestrial: {
+    label: 'Terrestrial world',
+    description: 'Rock, water and air together: continents, weather, and a surface you could stand on.',
+  },
+  ocean: { label: 'Ocean world', description: 'Water over the whole surface, with no land breaking it anywhere.' },
+  hycean: {
+    label: 'Hycean world',
+    description: 'A deep warm ocean under a thick hydrogen sky, far larger than a rocky world and far lighter.',
+  },
+  ice: { label: 'Ice world', description: 'Water, ammonia and methane frozen hard, beyond the reach of its star.' },
+  snowball: {
+    label: 'Snowball world',
+    description: 'Frozen from pole to pole and bright enough to reflect away most of the little light it gets.',
+  },
+  superEarth: {
+    label: 'Super-Earth',
+    description: 'Several times Earth\u2019s mass and still rock: the commonest kind of planet, and one this system lacks.',
+  },
+  subNeptune: {
+    label: 'Sub-Neptune',
+    description: 'A rocky core under an envelope of hydrogen it never managed to lose. Nothing like it orbits the Sun.',
+  },
+  iceGiant: { label: 'Ice giant', description: 'A deep mantle of water, ammonia and methane around a small core.' },
+  gasGiant: { label: 'Gas giant', description: 'Mostly hydrogen and helium, with no surface anywhere beneath the cloud tops.' },
+  hotJupiter: {
+    label: 'Hot Jupiter',
+    description: 'A giant that migrated inward and now skims its star, puffed up and streaming atmosphere.',
+  },
+}
 
 export interface GeneratedMoon {
   id: string
@@ -176,17 +233,99 @@ export interface StarSeedInput {
   radiusMetres?: number
 }
 
-const WORLD_COLORS: Record<WorldKind, readonly string[]> = {
-  lava: ['#4a1a10', '#5a1f12', '#6b2410', '#7a2b14'],
-  desert: ['#c9a06a', '#d4b483', '#b8895a', '#caa472'],
-  rocky: ['#8d8378', '#9b9188', '#7a7066', '#a09488'],
-  terrestrial: ['#6f8f6a', '#7d9a72', '#5f8468', '#86a07a'],
-  ocean: ['#3b6ea5', '#2f5f93', '#4a7cb0', '#35689c'],
-  ice: ['#cdd9e4', '#dae4ee', '#bccadb', '#e2eaf2'],
-  superEarth: ['#8a7f6f', '#9a8b76', '#7b7264', '#a3917a'],
-  iceGiant: ['#7fb6c9', '#6aa3bb', '#8ec3d4', '#5f9ab4'],
-  gasGiant: ['#c8a67e', '#d8b98f', '#b89270', '#cfae86'],
-  hotJupiter: ['#b06a4a', '#c07a52', '#a05c40', '#cc8a5e'],
+/**
+ * A base colour per kind, varied per world rather than picked from a short list.
+ *
+ * Four fixed colours per kind gave thirty-two distinct worlds across forty thousand, so
+ * every desert in the atlas was one of four identical tans. The hue, saturation and
+ * lightness are jittered from the seed instead, which keeps a kind recognisable at a
+ * glance while making no two worlds the same.
+ */
+const WORLD_BASE_COLOR: Record<WorldKind, string> = {
+  lava: '#6b2410',
+  volcanic: '#c2a24a',
+  carbon: '#2e2c30',
+  iron: '#8a7f7a',
+  greenhouse: '#d8c48a',
+  desert: '#c9a06a',
+  rocky: '#8d8378',
+  terrestrial: '#5f8f5a',
+  ocean: '#2f6aa5',
+  hycean: '#3f8f93',
+  ice: '#cdd9e4',
+  snowball: '#eef4fa',
+  superEarth: '#9a7f66',
+  subNeptune: '#8fb4c9',
+  iceGiant: '#6aa3bb',
+  gasGiant: '#c8a67e',
+  hotJupiter: '#b06a4a',
+}
+
+/** How far each kind's colour may wander: hue degrees, then saturation and lightness. */
+const WORLD_COLOR_SPREAD: Record<WorldKind, readonly [number, number, number]> = {
+  lava: [14, 0.18, 0.1],
+  volcanic: [18, 0.2, 0.12],
+  carbon: [20, 0.1, 0.05],
+  iron: [12, 0.1, 0.1],
+  greenhouse: [12, 0.16, 0.09],
+  desert: [16, 0.18, 0.12],
+  rocky: [20, 0.12, 0.12],
+  terrestrial: [26, 0.2, 0.12],
+  ocean: [20, 0.2, 0.13],
+  hycean: [22, 0.2, 0.12],
+  ice: [26, 0.14, 0.08],
+  snowball: [30, 0.1, 0.05],
+  superEarth: [22, 0.16, 0.12],
+  subNeptune: [24, 0.2, 0.12],
+  iceGiant: [22, 0.2, 0.12],
+  gasGiant: [18, 0.2, 0.12],
+  hotJupiter: [16, 0.2, 0.11],
+}
+
+function hexToHsl(hex: string): [number, number, number] {
+  const r = parseInt(hex.slice(1, 3), 16) / 255
+  const g = parseInt(hex.slice(3, 5), 16) / 255
+  const b = parseInt(hex.slice(5, 7), 16) / 255
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const l = (max + min) / 2
+  if (max === min) return [0, 0, l]
+  const d = max - min
+  const sat = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+  const h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+  return [h * 60, sat, l]
+}
+
+function hslToHex(h: number, sat: number, l: number): string {
+  const hue = ((h % 360) + 360) % 360
+  const c = (1 - Math.abs(2 * l - 1)) * sat
+  const x = c * (1 - Math.abs(((hue / 60) % 2) - 1))
+  const m = l - c / 2
+  const seg = Math.floor(hue / 60) % 6
+  const [r, g, b] = [
+    [c, x, 0],
+    [x, c, 0],
+    [0, c, x],
+    [0, x, c],
+    [x, 0, c],
+    [c, 0, x],
+  ][seg]
+  const to = (v: number) =>
+    Math.round(Math.min(255, Math.max(0, (v + m) * 255)))
+      .toString(16)
+      .padStart(2, '0')
+  return `#${to(r)}${to(g)}${to(b)}`
+}
+
+/** One world's colour: its kind's, moved by an amount the seed decides. */
+function worldColor(kind: WorldKind, rng: Rng): string {
+  const [dh, ds, dl] = WORLD_COLOR_SPREAD[kind]
+  const [h, sat, l] = hexToHsl(WORLD_BASE_COLOR[kind])
+  return hslToHex(
+    h + rng.signed() * dh,
+    Math.min(0.95, Math.max(0.02, sat + rng.signed() * ds)),
+    Math.min(0.95, Math.max(0.05, l + rng.signed() * dl)),
+  )
 }
 
 /** Roman numerals, for moons, which is the convention the solar system's own moons use. */
@@ -303,15 +442,98 @@ function hillRadiusMetres(semiMajorAxisMetres: number, planetMass: number, starM
   return semiMajorAxisMetres * Math.pow(planetMass / (3 * starMassKg), 1 / 3)
 }
 
-/** Which kind of world sits at this distance, given its size and temperature. */
-function classify(radiusMetres: number, equilibriumK: number, distanceAu: number, frostAu: number): WorldKind {
+/**
+ * A planet's radius in Earth radii, drawn from something shaped like the real one.
+ *
+ * Two features of the observed distribution are worth having. Sub-Neptunes -- a rocky
+ * core under hydrogen it never lost -- are the commonest planets the transit surveys
+ * found, and there is nothing remotely like one in the solar system, so a generator
+ * seeded only on this system's intuitions produces a galaxy that looks wrong in a way
+ * that is hard to name. And there is a real DEFICIT between about 1.5 and 2 Earth radii,
+ * the radius valley: the planets that were going to lose their envelopes lost them, and
+ * the ones that kept them kept more than that. Sampling flat across the gap would smear
+ * away the one feature of the population a reader might recognise.
+ *
+ * Beyond the frost line there was ice to accrete, so giants dominate; inside it they are
+ * rare and arrive by migration.
+ */
+function sampleRadiusEarths(rng: Rng, beyondFrost: boolean): number {
+  const u = rng.next()
+  if (beyondFrost) {
+    if (u < 0.4) return rng.range(6, 13)
+    if (u < 0.72) return rng.range(3.5, 6)
+    if (u < 0.9) return rng.range(2, 3.5)
+    return rng.logRange(0.3, 2)
+  }
+  if (u < 0.4) return rng.logRange(0.35, 1.5)
+  // The valley. Narrow on purpose: this band is a fifth as likely per unit radius as
+  // the ones either side of it.
+  if (u < 0.45) return rng.range(1.5, 2)
+  if (u < 0.84) return rng.range(2, 3.5)
+  if (u < 0.96) return rng.range(3.5, 6)
+  return rng.range(6, 12)
+}
+
+/** The seeded rolls that decide composition where size and temperature leave a choice. */
+export interface WorldRolls {
+  /** How much water the world kept, 0 to 1. Decides desert against ocean. */
+  wet: number
+  /** Draws the uncommon compositions, 0 to 1. */
+  rare: number
+  /** True for a moon close enough to its planet to be kneaded by tides. */
+  tidallyHeated: boolean
+}
+
+/**
+ * Which kind of world this is, from its size, its temperature and what it kept.
+ *
+ * Size decides first, because it decides whether there is a surface at all. Below that,
+ * temperature sets the broad band and the seeded rolls settle what the data could never
+ * tell you anyway: two worlds the same size at the same distance can be an ocean and a
+ * desert, and which one you get is a question about its history.
+ */
+function classify(
+  radiusMetres: number,
+  equilibriumK: number,
+  distanceAu: number,
+  frostAu: number,
+  roll: WorldRolls,
+): WorldKind {
   const re = radiusMetres / EARTH_RADIUS_M
+
+  // No surface anywhere: these are decided by size and temperature alone.
+  // 700 K rather than 1000: the giants that migrated in span the hot and warm Jupiters,
+  // and drawing the line at incandescence made the whole class round to zero per cent.
   if (re >= 6) return equilibriumK > 700 ? 'hotJupiter' : 'gasGiant'
   if (re >= 3.5) return 'iceGiant'
-  if (equilibriumK > 800) return 'lava'
-  if (distanceAu > frostAu || equilibriumK < 180) return 'ice'
-  if (re >= 1.6) return 'superEarth'
-  if (equilibriumK > 320) return 'desert'
+  if (re >= 2) return equilibriumK > 350 && equilibriumK < 800 && roll.rare < 0.3 ? 'hycean' : 'subNeptune'
+
+  // Rocky worlds. The uncommon compositions first, since they override everything else
+  // about what the surface is made of.
+  if (roll.rare < 0.04) return 'carbon'
+  if (roll.rare < 0.08 && re < 1.2) return 'iron'
+  // Tidal heating needs the moon to be close AND the resonance to be there. Without the
+  // second condition every giant's two inner moons came out volcanic and Io's kind was
+  // the commonest world in the atlas at seventeen per cent, which is the opposite of
+  // what makes Io worth knowing about.
+  if (roll.tidallyHeated && equilibriumK < 500 && roll.rare < 0.45) return 'volcanic'
+
+  if (equilibriumK > 1100) return 'lava'
+  if (equilibriumK > 600) return roll.wet > 0.55 ? 'greenhouse' : 'desert'
+
+  // Temperate, and inside the frost line, so whatever water it has is liquid. This is
+  // the band that was unreachable before: `terrestrial` and `ocean` were declared,
+  // given palettes, and never returned by anything, so no world in the atlas was ever
+  // green or blue.
+  if (equilibriumK >= 215 && equilibriumK <= 330 && distanceAu <= frostAu) {
+    if (roll.wet > 0.74) return 'ocean'
+    if (roll.wet > 0.26) return 'terrestrial'
+    return 'desert'
+  }
+
+  if (equilibriumK < 150) return roll.wet > 0.5 ? 'ice' : 'snowball'
+  if (distanceAu > frostAu) return 'ice'
+  if (re >= 1.25) return 'superEarth'
   return 'rocky'
 }
 
@@ -332,9 +554,12 @@ function habitability(
   zone: { inner: number; outer: number },
 ): { habitable: boolean; note: string } {
   const re = radiusMetres / EARTH_RADIUS_M
-  if (kind === 'gasGiant' || kind === 'hotJupiter' || kind === 'iceGiant') {
+  if (kind === 'gasGiant' || kind === 'hotJupiter' || kind === 'iceGiant' || kind === 'subNeptune') {
     return { habitable: false, note: 'no surface to stand on' }
   }
+  if (kind === 'hycean') return { habitable: false, note: 'an ocean, but under hydrogen rather than air' }
+  if (kind === 'greenhouse') return { habitable: false, note: 'its own atmosphere holds the surface too hot' }
+  if (kind === 'lava' || kind === 'carbon') return { habitable: false, note: 'no liquid water at this surface' }
   if (distanceAu < zone.inner) return { habitable: false, note: 'inside the inner edge: water boils off' }
   if (distanceAu > zone.outer) return { habitable: false, note: 'beyond the outer edge: water is ice' }
   if (re < 0.4) return { habitable: false, note: 'too small to hold an atmosphere' }
@@ -399,15 +624,10 @@ export function generateSystem(star: StarSeedInput): GeneratedSystem {
     // worlds dominate inside it. Hot Jupiters exist because some giants migrated in, so
     // a few are allowed to, rather than being forbidden by construction.
     const beyondFrost = axisAu > frost
-    const migrated = !beyondFrost && rng.chance(0.06)
-    let radius: number
-    if (beyondFrost || migrated) {
-      radius = rng.chance(0.55) ? JUPITER_RADIUS_M * rng.range(0.55, 1.35) : EARTH_RADIUS_M * rng.range(3.4, 5.6)
-    } else {
-      radius = EARTH_RADIUS_M * rng.logRange(0.32, 2.4)
-    }
+    const radius = EARTH_RADIUS_M * sampleRadiusEarths(rng, beyondFrost)
     const massKg = massFromRadius(radius)
-    const kind = classify(radius, eqK, axisAu, frost)
+    const rolls: WorldRolls = { wet: rng.next(), rare: rng.next(), tidallyHeated: false }
+    const kind = classify(radius, eqK, axisAu, frost, rolls)
     const { habitable, note } = habitability(kind, radius, axisAu, zone)
 
     const axisMetres = axisAu * AU_M
@@ -417,7 +637,7 @@ export function generateSystem(star: StarSeedInput): GeneratedSystem {
       kind,
       radiusMetres: radius,
       massKg,
-      color: rng.pick(WORLD_COLORS[kind]),
+      color: worldColor(kind, rng),
       semiMajorAxisMetres: axisMetres,
       // Inner worlds circularise; outer ones keep more of what they formed with.
       eccentricity: Math.min(0.35, Math.abs(rng.signed()) * (beyondFrost ? 0.18 : 0.08)),
@@ -479,14 +699,17 @@ function generateMoons(
     // temperature and therefore its place relative to the habitable zone.
     const radius = EARTH_RADIUS_M * rng.logRange(0.02, re >= 6 ? 0.42 : 0.25)
     const eqK = planet.equilibriumK
-    const kind = classify(radius, eqK, planetAxisAu, Infinity)
+    // The inner moons of a giant are kneaded by tides the way Io is, which is what makes
+    // the most volcanically active body in the solar system a moon rather than a planet.
+    const rolls: WorldRolls = { wet: rng.next(), rare: rng.next(), tidallyHeated: re >= 3.5 && i === 0 }
+    const kind = classify(radius, eqK, planetAxisAu, Infinity, rolls)
     const { habitable, note } = habitability(kind, radius, planetAxisAu, zone)
     moons.push({
       id: `${planet.id}/${ROMAN[i] ?? `m${i}`}`,
       name: '',
       kind,
       radiusMetres: radius,
-      color: rng.pick(WORLD_COLORS[kind]),
+      color: worldColor(kind, rng),
       semiMajorAxisMetres: axis,
       eccentricity: Math.abs(rng.signed()) * 0.06,
       inclinationDeg: rng.signed() * 6,
