@@ -25,6 +25,8 @@ export function AppChrome({ viewer }: { viewer: AtlasViewer | null }) {
   const select = useViewStore((state) => state.select)
 
   const showStats = openPanels.has('stats')
+  const immersive = useViewStore((state) => state.immersive)
+  const setImmersive = useViewStore((state) => state.setImmersive)
   const paletteOpen = openPanels.has('palette')
 
   // --- keyboard ------------------------------------------------------------
@@ -125,6 +127,8 @@ export function AppChrome({ viewer }: { viewer: AtlasViewer | null }) {
         onSearch={() => togglePanel('palette', true)}
         onToggleStats={() => togglePanel('stats')}
         statsOn={showStats}
+        immersive={immersive}
+        onToggleImmersive={() => setImmersive(!immersive)}
       />
 
       <CosmicAddress
@@ -201,10 +205,14 @@ function TopBar({
   onSearch,
   onToggleStats,
   statsOn,
+  immersive,
+  onToggleImmersive,
 }: {
   onSearch: () => void
   onToggleStats: () => void
   statsOn: boolean
+  immersive: boolean
+  onToggleImmersive: () => void
 }) {
   return (
     <header className="topbar">
@@ -221,6 +229,18 @@ function TopBar({
         <span className="search-label-long">Search anything in the atlas</span>
         <span className="search-label-short" aria-hidden="true">Search</span>
         <kbd>⌘K</kbd>
+      </button>
+      {/* Named for what it does rather than for how it feels. "Immersive" would not
+          tell anyone that what appears next is invented, and the one thing this control
+          has to communicate before it is pressed is exactly that. */}
+      <button
+        type="button"
+        className="tool-button"
+        aria-pressed={immersive}
+        onClick={onToggleImmersive}
+        title="Invent plausible planetary systems around real stars. Nothing you see in this mode was observed."
+      >
+        Imagined worlds
       </button>
       <button type="button" className="tool-button" aria-pressed={statsOn} onClick={onToggleStats}>
         Stats

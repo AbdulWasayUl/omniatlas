@@ -17,10 +17,13 @@ import { useViewStore } from '../state/useViewStore'
 export function SceneHost({ onViewer }: { onViewer?: (viewer: AtlasViewer | null) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const labelRef = useRef<HTMLCanvasElement>(null)
+  const viewerRef = useRef<AtlasViewer | null>(null)
   const setSnapshot = useViewStore((state) => state.setSnapshot)
   const setReady = useViewStore((state) => state.setReady)
   const setFailedModules = useViewStore((state) => state.setFailedModules)
   const select = useViewStore((state) => state.select)
+  const immersive = useViewStore((state) => state.immersive)
+  const setImmersive = useViewStore((state) => state.setImmersive)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -82,6 +85,15 @@ export function SceneHost({ onViewer }: { onViewer?: (viewer: AtlasViewer | null
           },
         },
         {
+          // Before `proxy`, which must see the star this module has just given an
+          // `object3D` so it does not build a second stand-in for the same star.
+          id: 'immersive',
+          load: async () => {
+            const { ImmersiveModule } = await import('../modules/immersive')
+            return new ImmersiveModule()
+          },
+        },
+        {
           // Last, so its preRender sees the positions every other module just wrote.
           id: 'proxy',
           load: async () => {
@@ -96,6 +108,12 @@ export function SceneHost({ onViewer }: { onViewer?: (viewer: AtlasViewer | null
         // Restore the shared view before revealing the scene, so a deep link never
         // shows the default camera for a frame and then jumps.
         const urlState = parseUrlState()
+        // Before `applyUrlState`, so a shared link to an invented world has the mode on
+        // by the time the camera is placed and never shows an empty star for a frame.
+        if (urlState.immersive) {
+          viewer.engine.immersive = true
+          setImmersive(true)
+        }
         applyUrlState(viewer, urlState)
         if (urlState.focus) select(urlState.focus)
         stopUrlSync = startUrlSync(viewer)
@@ -112,7 +130,10 @@ export function SceneHost({ onViewer }: { onViewer?: (viewer: AtlasViewer | null
       ;(window as unknown as { __viewer?: unknown }).__viewer = viewer
     }
 
+    viewerRef.current = viewer
+
     return () => {
+      viewerRef.current = null
       onViewer?.(null)
       stopUrlSync?.()
       viewer.dispose()
@@ -121,6 +142,13 @@ export function SceneHost({ onViewer }: { onViewer?: (viewer: AtlasViewer | null
     // would tear down the GPU context on every store identity change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // The engine reads this flag every frame, and the module it gates builds and tears
+  // down from it, so flipping it here is the whole of the wiring.
+  useEffect(() => {
+    const viewer = viewerRef.current
+    if (viewer) viewer.engine.immersive = immersive
+  }, [immersive])
 
   return (
     <>

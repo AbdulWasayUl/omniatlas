@@ -107,6 +107,15 @@ export interface SceneNodeHandle {
   /** Display name. */
   name: string
   /**
+   * Effective temperature in kelvin, where the catalogue supports one.
+   *
+   * Set by the module that knows the spectral type, so anything downstream can use the
+   * measured value instead of inferring one from the radius. Immersive mode is the first
+   * consumer: a star's luminosity decides where its habitable zone falls, and deriving
+   * the temperature from the radius put Sabik 2,800 K too hot.
+   */
+  temperatureK?: number
+  /**
    * Other catalogue designations this node answers to, for identity across catalogues.
    *
    * `oneLabelPerObject` reads the designation out of the id, which settles the common
@@ -222,6 +231,15 @@ export interface EngineOptions {
  * reasoning about the depth encoding must assume log depth.
  */
 export class Engine {
+  /**
+   * Whether invented content may be drawn.
+   *
+   * Off by default and never set by a module: the viewer sets it when the person asks
+   * for immersive mode. Everything it enables is made up, so the flag exists to make
+   * that a decision somebody took rather than a default they inherited.
+   */
+  immersive = false
+
   readonly renderer: THREE.WebGLRenderer
   readonly layers: Map<LayerId, Layer> = new Map()
   readonly layersByOrder: Layer[] = []

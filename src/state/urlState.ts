@@ -22,6 +22,8 @@ export interface AtlasUrlState {
   distanceMetres: number | null
   yaw: number | null
   pitch: number | null
+  /** Whether the link was shared with immersive mode on. */
+  immersive: boolean
   epochMs: number | null
   rate: number | null
 }
@@ -47,6 +49,7 @@ export function parseUrlState(search: string = window.location.search): AtlasUrl
     distanceMetres: num('d'),
     yaw: num('yaw'),
     pitch: num('pitch'),
+    immersive: params.get('immersive') === '1',
     epochMs,
     rate: num('rate'),
   }
@@ -90,6 +93,10 @@ export function serializeUrlState(viewer: AtlasViewer): string {
   params.set('d', viewer.controls.distanceMetres.toExponential(4))
   params.set('yaw', String(round(viewer.controls.yaw, 4)))
   params.set('pitch', String(round(viewer.controls.pitch, 4)))
+  // Only written when it is on. A link to the real atlas should carry no trace of the
+  // invented one, and a link to an invented world has to carry it or the recipient
+  // arrives at an empty star.
+  if (viewer.engine.immersive) params.set('immersive', '1')
   // The clock is only pinned when it is not simply tracking the present, so a casual
   // share link stays "live" rather than freezing the recipient at the sharer's instant.
   //

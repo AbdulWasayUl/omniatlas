@@ -23,6 +23,14 @@ interface ViewState {
   ready: boolean
   /** Modules that failed to load, surfaced rather than hidden. */
   failedModules: string[]
+  /**
+   * Whether invented content is being drawn.
+   *
+   * Off by default, and deliberately not remembered in local storage: the atlas is a map
+   * of things that were measured, and a viewer who comes back to it should find it that
+   * way unless the link they followed says otherwise.
+   */
+  immersive: boolean
 
   setSnapshot: (snapshot: ViewerSnapshot) => void
   select: (id: string | null) => void
@@ -30,6 +38,7 @@ interface ViewState {
   isOpen: (id: PanelId) => boolean
   setReady: (ready: boolean) => void
   setFailedModules: (ids: string[]) => void
+  setImmersive: (on: boolean) => void
 }
 
 export const useViewStore = create<ViewState>((set, get) => ({
@@ -38,6 +47,7 @@ export const useViewStore = create<ViewState>((set, get) => ({
   openPanels: new Set<PanelId>(),
   ready: false,
   failedModules: [],
+  immersive: false,
 
   setSnapshot: (snapshot) => set({ snapshot }),
   select: (selectedId) =>
@@ -58,4 +68,5 @@ export const useViewStore = create<ViewState>((set, get) => ({
   isOpen: (id) => get().openPanels.has(id),
   setReady: (ready) => set({ ready }),
   setFailedModules: (failedModules) => set({ failedModules }),
+  setImmersive: (immersive) => set({ immersive }),
 }))

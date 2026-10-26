@@ -118,6 +118,9 @@ describe('the shared link', () => {
         return !this.paused && this.timeRate === 1 && Math.abs(this.epochMs - Date.now()) < 2000
       },
       controls: { distanceMetres: 2.4457e8, yaw: -2.4536, pitch: 0.2624 },
+      // A real viewer always has an engine, and the link carries its immersive flag so
+      // that a share of an invented world arrives somewhere rather than at an empty star.
+      engine: { immersive: false },
     } as unknown as AtlasViewer
   }
 

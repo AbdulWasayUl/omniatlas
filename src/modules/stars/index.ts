@@ -743,6 +743,7 @@ export class StarsModule implements AtlasModule {
         layer: LAYER,
         objectClass: 'star',
         name: star.proper,
+        temperatureK: kelvin,
         parentId: 'milky-way',
         proxyColor: `#${linearRgbToHex(rgb)}`,
       })
