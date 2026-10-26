@@ -99,6 +99,60 @@ interface NamedStarRecord {
   con?: string
   spect?: string
   hip?: number
+  gl?: string
+}
+
+/**
+ * Stars carrying an IAU proper name that belongs to a different star.
+ *
+ * Two rows of the shipped catalogue are named "Sabik B" and two are named
+ * "Kaffaljidhma B". They are not one star listed twice — 10.5 and 7.9 arcseconds
+ * apart, at the same distance, a magnitude and a half apart in brightness — they are
+ * distinct stars that upstream's name matching attached one component name to by
+ * position. Neither pair can both be right.
+ *
+ * The Gliese identifier settles it, because it carries the component letter the name
+ * claims: Sabik's genuine secondary is Gl 656.1B and Kaffaljidhma's is Gl 106.1B, while
+ * the other member of each pair has no Gliese number, no Hipparcos number, no HD, no HR
+ * and no spectral type — nothing but a position and a magnitude. A star the catalogue
+ * identifies in no way has no claim on a name, so it loses the borrowed one and stays
+ * what it already was: one of the three hundred thousand drawn in the field, unnamed.
+ *
+ * This matters beyond tidiness because `oneLabelPerObject` has to collapse two markers
+ * with one name in one direction, and it breaks the tie on catalogued radius, which
+ * knows nothing about which star owns the name. For Kaffaljidhma it was choosing the
+ * star with no identifier at all, so searching "Kaffaljidhma B" flew the camera to the
+ * wrong one of the pair.
+ *
+ * Where no Gliese letter settles it the names are all left alone and the collision is
+ * logged, because quietly picking a winner is the failure this function exists to undo.
+ */
+export function borrowedProperNames(stars: readonly NamedStarRecord[]): Set<number> {
+  const byName = new Map<string, NamedStarRecord[]>()
+  for (const star of stars) {
+    if (!star.proper) continue
+    const held = byName.get(star.proper)
+    if (held) held.push(star)
+    else byName.set(star.proper, [star])
+  }
+
+  const borrowed = new Set<number>()
+  for (const [proper, members] of byName) {
+    if (members.length < 2) continue
+    const component = /\s([A-Z])$/.exec(proper)
+    const owners = component
+      ? members.filter((s) => typeof s.gl === 'string' && s.gl.toUpperCase().endsWith(component[1]))
+      : []
+    if (owners.length !== 1) {
+      console.warn(
+        `[omniatlas] stars: ${members.length} stars are named "${proper}" and no Gliese component ` +
+          'letter settles which of them owns it; all are left named',
+      )
+      continue
+    }
+    for (const star of members) if (star !== owners[0]) borrowed.add(star.i)
+  }
+  return borrowed
 }
 
 interface NamesPayload {
@@ -659,10 +713,11 @@ export class StarsModule implements AtlasModule {
       .catch(() => null)
     if (!payload?.stars?.length || this.engine.isDisposed) return
 
+    const borrowed = borrowedProperNames(payload.stars)
     let registered = 0
     let outOfRange = 0
     for (const star of payload.stars) {
-      if (!star.proper) continue
+      if (!star.proper || borrowed.has(star.i)) continue
       const base = star.i * 3
       if (base + 2 >= icrfPc.length) {
         // A name indexing into L2, which this module does not keep positions for.
@@ -696,7 +751,8 @@ export class StarsModule implements AtlasModule {
     }
     console.info(
       `[omniatlas] stars: ${registered} proper-named stars registered` +
-        (outOfRange ? `, ${outOfRange} skipped (name indexes a tier with no kept positions)` : ''),
+        (outOfRange ? `, ${outOfRange} skipped (name indexes a tier with no kept positions)` : '') +
+        (borrowed.size ? `, ${borrowed.size} skipped (proper name belongs to another star)` : ''),
     )
   }
 
