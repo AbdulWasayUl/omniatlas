@@ -277,6 +277,9 @@ const POINT_ARRIVAL_SPAN_M: Record<LayerId, number> = {
   // Unchanged, deliberately: the 34 comets with no measured nucleus are helio nodes,
   // and ~1e9 m is the distance their orbit neighbourhood reads at.
   helio: 1.7e9,
+  // An invented world always carries a radius, so this is unreachable today and is here
+  // only to keep the lookup total.
+  imagined: 1.7e9,
   system: 1.7e9,
   surface: 1.7e9,
 }
@@ -412,7 +415,11 @@ export class AtlasViewer {
   }
 
   /** Rebuild the label set from the registry. Call after modules add objects. */
+  /** Last registry version the label set was built from. */
+  private labelledVersion = -1
+
   refreshLabels(): void {
+    this.labelledVersion = this.engine.registryVersion
     this.labels.setItems(
       oneLabelPerObject(this.engine.registry.values()).map((node) => ({
         node,
@@ -484,8 +491,46 @@ export class AtlasViewer {
    * whatever frame that was stated in. For an ICRF star that is wrong by the
    * obliquity, and for a supergalactic-frame galaxy it is wrong by about 60 degrees.
    */
+  /**
+   * The star that lights this body: the nearest ancestor that is one.
+   *
+   * For everything in the solar system this is the Sun, which sits at the origin of
+   * every frame the atlas uses, so the arithmetic below is unchanged by it. It matters
+   * for a body somewhere else — an invented world around another star is lit by THAT
+   * star, and measuring its day side from the Sun eighty-eight light years away gives an
+   * angle with no relation to where its light comes from.
+   */
+  private illuminator(node: SceneNodeHandle): SceneNodeHandle | null {
+    let current: SceneNodeHandle | null = node
+    const seen = new Set<string>([node.id])
+    for (let hops = 0; hops < 8 && current; hops++) {
+      const parent = this.engine.node(current.parentId)
+      if (!parent || seen.has(parent.id)) return null
+      if (parent.objectClass === 'star') return parent
+      seen.add(parent.id)
+      current = parent
+    }
+    return null
+  }
+
+  private readonly scratchArrival = vec3d()
+
   private orientArrival(node: SceneNodeHandle): void {
     convertFrame(this.scratchWorld, node.worldPosition, node.frame, this.controls.frame)
+    // Measured FROM the star that lights this body, not from the frame's origin. The two
+    // are the same vector for anything orbiting the Sun, which is why this changes
+    // nothing about arriving at Europa; they are nothing like each other for a world
+    // around another star, which used to be approached at whatever phase the geometry
+    // between here and there happened to produce. Measured at Sabik d: a phase angle of
+    // 162 degrees, 2 per cent of the disc lit, which reads on screen as having flown to
+    // a planet that is not there.
+    const star = this.illuminator(node)
+    if (star) {
+      convertFrame(this.scratchArrival, star.worldPosition, star.frame, this.controls.frame)
+      this.scratchWorld.x -= this.scratchArrival.x
+      this.scratchWorld.y -= this.scratchArrival.y
+      this.scratchWorld.z -= this.scratchArrival.z
+    }
     const { x, y, z } = this.scratchWorld
     const length = Math.hypot(x, y, z)
     // The Sun itself, and the galactic catalogue's copy of it, sit at the origin of
@@ -706,6 +751,12 @@ export class AtlasViewer {
 
     // 4. and only now is anything measured against the anchor and the camera together.
     this.engine.renderTarget = this.post.sceneTarget
+    // A module may have registered or unregistered nodes during `advance`. Rebuild the
+    // label set before drawing when it has, so a node that appears mid-session gets a
+    // marker on the frame it appears -- and with it a pick target, which is the only
+    // way anything in this atlas can be clicked.
+    if (this.engine.registryVersion !== this.labelledVersion) this.refreshLabels()
+
     this.engine.draw()
     this.elapsed += delta
     this.post.render(this.elapsed)

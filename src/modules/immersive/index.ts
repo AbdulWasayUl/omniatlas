@@ -24,7 +24,7 @@ import {
  * ## Why the rest of the atlas stays honest
  *
  * Nothing measured is altered. Generated nodes live under a `gen:` id that cannot collide
- * with a catalogue id, they carry `provenance: 'invention'` so the inspector can mark
+ * with a catalogue id, they carry `provenance: 'illustration'` so the inspector marks
  * them, and switching the mode off unregisters every one of them. The real star keeps its
  * own radius, position and name; the invention is what orbits it.
  *
@@ -42,10 +42,40 @@ import {
  * while a walk through another GALAXY is not: nothing re-origins at galactic scale yet.
  */
 
-const LAYER = 'system' as const
+/**
+ * Invented systems get a layer of their own, at the heliocentric layer's scale.
+ *
+ * Two layers were tried first and neither works. `system` is sized for ONE planet and
+ * its moons -- a span band stopping at seven AU and a far plane to match -- so a
+ * six-planet system drawn there sat entirely outside the frustum and nothing appeared at
+ * all; forcing the layer active does not help, because an active layer still clips to
+ * its own far plane. Re-origining `helio` onto the host star came much closer, since
+ * every module that draws the solar system positions its bodies through `toLocal` each
+ * frame and those went correctly out of range -- but the orbit lines and the asteroid
+ * belt are STATIC geometry built about the origin, and static geometry does not move
+ * when the origin does, so the real solar system's orbits were drawn around Sabik.
+ *
+ * `imagined` has the same unit and span band as `helio` and an origin this module owns.
+ * It also means invented content can never share a scene with measured content, which is
+ * worth more than the convenience of reusing a layer.
+ */
+const LAYER = 'imagined' as const
 /** Generated positions are stated in the frame the star catalogue uses. */
 const FRAME = 'icrf' as const
 
+
+/**
+ * A generated node, which says plainly that it is one.
+ *
+ * `SceneNodeHandle` carries no provenance field — the inspector widens it, the way the
+ * cosmic and deep-sky modules already do for theirs — so this is where invented content
+ * declares itself. Without it a generated world got no chip at all, which the inspector
+ * treats as "says nothing about itself" and is far too quiet for something made up.
+ */
+interface ImaginedNode extends SceneNodeHandle {
+  provenance: 'illustration'
+  provenanceNote: string
+}
 
 interface Body {
   id: string
@@ -86,6 +116,7 @@ export class ImmersiveModule implements AtlasModule {
       if (wanted) this.build(wanted)
     }
     if (!this.system || !this.hostNode) return
+
     this.place(ctx)
   }
 
@@ -142,6 +173,8 @@ export class ImmersiveModule implements AtlasModule {
     const system = nameSystem(generateSystem({ id: starId, radiusMetres: host.radiusMetres, temperatureK: host.temperatureK }), host.name)
     this.system = system
     const layer = this.engine.layer(LAYER)
+    // This module owns the layer's origin; nothing else draws into it.
+    layer.setOrigin(host.worldPosition, host.frame, starId)
 
     // One orbital plane per system, from the seed, so systems are not all stacked in the
     // catalogue's equator. The planets' own inclinations are measured from this.
@@ -178,11 +211,14 @@ export class ImmersiveModule implements AtlasModule {
     this.starLight = new THREE.PointLight(0xffffff, 1, 0, 0)
     layer.scene.add(this.starLight)
 
+    // The star's world position, which every orbit ring is built about.
+    const hostWorld = vec3d()
+    convertFrame(hostWorld, host.worldPosition, host.frame, FRAME)
     for (const planet of system.planets) {
       this.addWorld(planet, starId, north)
       const planetNorth = planeNormal(system.seed ^ hashOf(planet.id))
       for (const moon of planet.moons) this.addWorld(moon, planet.id, planetNorth)
-      this.addOrbit(planet, north)
+      this.addOrbit(planet, north, hostWorld)
     }
 
     console.info(
@@ -213,7 +249,7 @@ export class ImmersiveModule implements AtlasModule {
     })
     layer.scene.add(body.group)
 
-    const node: SceneNodeHandle = {
+    const node: ImaginedNode = {
       id: `gen:${world.id}`,
       worldPosition: vec3d(),
       frame: FRAME,
@@ -223,6 +259,17 @@ export class ImmersiveModule implements AtlasModule {
       name: world.name,
       parentId: parentId === this.builtFor ? parentId : `gen:${parentId}`,
       object3D: body.group,
+      // The atlas's existing word for "this is a picture, not a measurement". There is
+      // no stronger one in the vocabulary, and adding a fourth kind for this would mean
+      // every consumer of provenance had to learn it; what the chip cannot say, the note
+      // underneath it does, in the first four words.
+      provenance: 'illustration',
+      provenanceNote:
+        `Invented, not observed. ${this.hostNode?.name ?? 'This star'}'s measured radius and ` +
+        'temperature set the scale, and everything else — the number of worlds, their sizes, ' +
+        'their orbits and their moons — was generated from the star\'s identifier. The same ' +
+        'star always yields the same system, so a link to this world shows anyone the same ' +
+        `world.${world.habitable ? ` Habitable: ${world.habitabilityNote}.` : ''}`,
     }
     this.engine.register(node)
     this.bodies.set(world.id, {
@@ -237,20 +284,29 @@ export class ImmersiveModule implements AtlasModule {
   }
 
   /** A faint ring on the orbit, which is what makes a system read as a system. */
-  private addOrbit(planet: GeneratedPlanet, north: Vec3d): void {
+  private addOrbit(planet: GeneratedPlanet, north: Vec3d, hostWorld: Vec3d): void {
     const layer = this.engine.layer(LAYER)
     const points: THREE.Vector3[] = []
     const elements = elementsOf(planet)
     const steps = 192
     const scratch = vec3d()
+    // `toLocal` takes a WORLD position and subtracts the layer's origin, so handing it a
+    // bare orbital offset asks it where a point 0.6 AU from the frame's zero is -- which
+    // is 88 light years from this star, five and a half million AU outside the far plane.
+    // Differencing two local positions gives the offset in the layer's units and basis
+    // with no origin in it, which is what a ring drawn about its star needs.
+    const centre = new THREE.Vector3()
+    layer.toLocal(centre, hostWorld, FRAME)
     for (let i = 0; i <= steps; i++) {
       // Sampled by true position around one period, so an eccentric orbit comes out the
       // shape it actually is rather than as a circle.
       const when = new Date(elements.epoch.getTime() + (i / steps) * elements.periodDays * 86400000)
       const offset = keplerianOffset(elements, when, north, FRAME)
-      copy3d(scratch, offset)
+      scratch.x = hostWorld.x + offset.x
+      scratch.y = hostWorld.y + offset.y
+      scratch.z = hostWorld.z + offset.z
       layer.toLocal(this.local, scratch, FRAME)
-      points.push(this.local.clone())
+      points.push(this.local.clone().sub(centre))
     }
     const geometry = new THREE.BufferGeometry().setFromPoints(points)
     const line = new THREE.Line(
@@ -288,6 +344,22 @@ export class ImmersiveModule implements AtlasModule {
       }
     }
 
+    // Re-origin onto whatever the camera is anchored to, exactly as the engine does for
+    // `system` and `surface`. Two reasons, and the first is not optional: the engine
+    // waives a layer's distance band only while `layer.anchorId` matches the camera's
+    // anchor, so a layer still parked on the star went dark the moment the camera
+    // arrived at one of its planets. The second is precision -- at a planet the local
+    // coordinates are then kilometres rather than AU.
+    //
+    // Safe here because every world position above is absolute and was computed before
+    // the origin moved; only the conversions below depend on it.
+    const anchored = this.engine.anchorId
+    const anchorEntry = anchored
+      ? this.bodies.get(anchored.startsWith('gen:') ? anchored.slice(4) : anchored)
+      : undefined
+    const originOf = anchorEntry ?? host
+    layer.setOrigin(originOf.world, FRAME, anchored ?? this.builtFor)
+
     for (const entry of this.bodies.values()) {
       copy3d(entry.node.worldPosition, entry.world)
       layer.toLocal(this.local, entry.world, FRAME)
@@ -312,6 +384,7 @@ export class ImmersiveModule implements AtlasModule {
 
   private teardown(): void {
     const layer = this.engine.layer(LAYER)
+    const restoreOrigin = this.builtFor !== null
     for (const entry of this.bodies.values()) {
       if (entry.id === this.builtFor) {
         // The real star's node is not ours to unregister; only the mesh we hung on it.
@@ -333,7 +406,10 @@ export class ImmersiveModule implements AtlasModule {
       this.starLight.removeFromParent()
       this.starLight = null
     }
-    void layer
+    // Nothing else draws here, so the origin only needs clearing so that a later build
+    // starts from a known place rather than from the last star visited.
+    if (restoreOrigin) layer.setOrigin(vec3d(), layer.config.frame, null)
+
     this.system = null
     this.hostNode = null
     this.builtFor = null

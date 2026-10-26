@@ -315,6 +315,7 @@ const STAR_VERTEX = /* glsl */ `
   attribute vec3 starPosition;   // parsecs, layer-local
   attribute vec3 starColor;      // linear sRGB, luminance-normalised
   attribute float absMag;        // absolute magnitude
+  attribute float starRadiusPc;  // the star's own radius, in the layer's unit
 
   uniform float uPixelWidth;     // viewport width in device pixels
   uniform float uPixelHeight;    // viewport height in device pixels
@@ -334,6 +335,22 @@ const STAR_VERTEX = /* glsl */ `
     vec4 viewPosition = modelViewMatrix * vec4(starPosition, 1.0);
     float distancePc = max(length(viewPosition.xyz), 1e-4);
 
+    // How big the star actually is on screen. A glyph is a MARK for something too small
+    // to see; once the thing itself covers pixels, the mark is in the way of it.
+    //
+    // Without this, standing next to a star meant an apparent magnitude around -25: the
+    // quad saturated at its maximum pixel radius and the bloom spread it over a quarter
+    // of the screen, burying whatever was actually drawn there -- the proxy module's
+    // stand-in, or a whole invented planetary system. Measured at Sabik from 12.7 AU:
+    // a 250-pixel blob standing in for a 1-pixel star.
+    float bodyPx = (starRadiusPc / distancePc) / uTanHalfFov * uPixelHeight * 0.5;
+    // The band is set by where the glare actually starts costing you the view: Sabik
+    // from nine AU is 1.4 pixels across and was still washing out its own inner planets,
+    // so the handover has to be most of the way done by then. Nothing further off is
+    // touched -- a star one parsec away is six millionths of a pixel across, so this
+    // only ever affects a star you are practically inside.
+    float standDown = smoothstep(0.15, 1.5, bodyPx);
+
     // Apparent magnitude from the TRUE distance to the camera, recomputed every frame.
     float apparent = absMag + 5.0 * (log(distancePc) / 2.302585092994046) - 5.0;
 
@@ -347,7 +364,10 @@ const STAR_VERTEX = /* glsl */ `
     // Radius grows slowly with brightness; intensity carries the rest. Six magnitudes
     // is a 250x flux ratio, which no sane pixel radius can represent.
     float radiusPx = clamp(uMinRadiusPx + 0.62 * headroom, uMinRadiusPx, uMaxRadiusPx);
-    vIntensity = uGain * pow(2.512, min(headroom, 9.0)) * 0.032;
+    // Hand over to the body: the glyph shrinks towards the star's true size and fades,
+    // so the two never both claim the same pixels.
+    radiusPx = mix(radiusPx, max(bodyPx, uMinRadiusPx), standDown);
+    vIntensity = uGain * pow(2.512, min(headroom, 9.0)) * 0.032 * (1.0 - 0.96 * standDown);
     vColor = starColor;
 
     // Offset in clip space so the quad keeps a constant pixel size at any depth.
@@ -447,6 +467,7 @@ export class StarsModule implements AtlasModule {
     const icrf = new Float32Array(count * 3)
     const colors = new Float32Array(count * 3)
     const absMag = new Float32Array(count)
+    const radiusPc = new Float32Array(count)
     const scratch = vec3d()
     let sentinels = 0
 
@@ -483,9 +504,16 @@ export class StarsModule implements AtlasModule {
       const apparent = magu[i] / 16 - 2
       absMag[i] = apparent - 5 * (Math.log10(distancePc) - 1)
 
+      const kelvin = colourIndexToKelvin(tychoToJohnsonBv(ciu[i] / 40 - 0.5))
+      // The star's own size, in the layer's unit, so the shader can tell when it has
+      // stopped being a point. Derived, not measured -- it comes from the magnitude and
+      // the colour through the same relation `stellarRadiusMetres` documents -- and it
+      // is used only to decide when the glyph should stand down, never to draw a disc.
+      radiusPc[i] = stellarRadiusMetres(absMag[i], kelvin) / PC_M
+
       let rgb = colourCache.get(ciu[i])
       if (!rgb) {
-        rgb = kelvinToLinearRgb(colourIndexToKelvin(tychoToJohnsonBv(ciu[i] / 40 - 0.5)))
+        rgb = kelvinToLinearRgb(kelvin)
         colourCache.set(ciu[i], rgb)
       }
       colors[i * 3] = rgb[0]
@@ -517,6 +545,7 @@ export class StarsModule implements AtlasModule {
     geometry.setAttribute('starPosition', new THREE.InstancedBufferAttribute(positions, 3))
     geometry.setAttribute('starColor', new THREE.InstancedBufferAttribute(colors, 3))
     geometry.setAttribute('absMag', new THREE.InstancedBufferAttribute(absMag, 1))
+    geometry.setAttribute('starRadiusPc', new THREE.InstancedBufferAttribute(radiusPc, 1))
     geometry.instanceCount = count
 
     const material = new THREE.ShaderMaterial({
@@ -588,6 +617,7 @@ export class StarsModule implements AtlasModule {
     const positions = new Float32Array(total * 3)
     const colors = new Float32Array(total * 3)
     const absMag = new Float32Array(total)
+    const radiusPc = new Float32Array(total)
     const colourCache = new Map<number, [number, number, number]>()
     const scratch = vec3d()
     let written = 0
@@ -637,9 +667,12 @@ export class StarsModule implements AtlasModule {
           const apparent = magu[i] / 16 - 2
           absMag[written] = apparent - 5 * (Math.log10(distancePc) - 1)
 
+          const kelvin = colourIndexToKelvin(tychoToJohnsonBv(ciu[i] / 40 - 0.5))
+          radiusPc[written] = stellarRadiusMetres(absMag[written], kelvin) / PC_M
+
           let rgb = colourCache.get(ciu[i])
           if (!rgb) {
-            rgb = kelvinToLinearRgb(colourIndexToKelvin(tychoToJohnsonBv(ciu[i] / 40 - 0.5)))
+            rgb = kelvinToLinearRgb(kelvin)
             colourCache.set(ciu[i], rgb)
           }
           colors[o] = rgb[0]
@@ -666,6 +699,7 @@ export class StarsModule implements AtlasModule {
     geometry.setAttribute('starPosition', new THREE.InstancedBufferAttribute(positions.subarray(0, written * 3), 3))
     geometry.setAttribute('starColor', new THREE.InstancedBufferAttribute(colors.subarray(0, written * 3), 3))
     geometry.setAttribute('absMag', new THREE.InstancedBufferAttribute(absMag.subarray(0, written), 1))
+    geometry.setAttribute('starRadiusPc', new THREE.InstancedBufferAttribute(radiusPc.subarray(0, written), 1))
     geometry.instanceCount = written
 
     const material = this.materials[0].clone()
@@ -832,6 +866,7 @@ export class StarsModule implements AtlasModule {
     // drawn as the backdrop behind a subject in another layer, the star field has to
     // read as sky. `spanOpacity` stays raw, as the measurement it is.
     const layerFade = layer.renderOpacity
+
 
     for (const material of this.materials) {
       material.uniforms.uPixelWidth.value = pixelWidth

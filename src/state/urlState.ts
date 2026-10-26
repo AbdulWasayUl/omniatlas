@@ -69,7 +69,33 @@ export function applyUrlState(viewer: AtlasViewer, state: AtlasUrlState): void {
   // setting the orbit before it would silently discard the angle the link encoded —
   // which defeats the point of sharing a view.
   if (state.focus) {
-    viewer.focus(state.focus, { instant: true, distanceMetres: state.distanceMetres ?? undefined })
+    // An invented world does not exist until immersive mode has built the system it
+    // belongs to, and that happens a frame after its star becomes the anchor. A link
+    // straight to one therefore resolved to nothing and fell back to the Sun, which
+    // made every shared view of a generated world a lie about where it pointed.
+    //
+    // The id carries its own host: `gen:star:88/d` is the fourth world of `star:88`.
+    // Anchor the star, let the module build, then land on the world itself. The wait is
+    // bounded because a system that has not appeared within a few frames is not going to.
+    const generated = state.focus.startsWith('gen:') && viewer.engine.node(state.focus) === null
+    if (generated) {
+      const host = state.focus.slice(4).split('/')[0]
+      viewer.focus(host, { instant: true })
+      let framesLeft = 12
+      const land = () => {
+        if (viewer.engine.node(state.focus!) !== null) {
+          viewer.focus(state.focus!, { instant: true, distanceMetres: state.distanceMetres ?? undefined })
+          if (state.yaw !== null || state.pitch !== null) {
+            viewer.controls.setOrbit(state.yaw ?? viewer.controls.yaw, state.pitch ?? viewer.controls.pitch, true)
+          }
+          return
+        }
+        if (framesLeft-- > 0) requestAnimationFrame(land)
+      }
+      requestAnimationFrame(land)
+    } else {
+      viewer.focus(state.focus, { instant: true, distanceMetres: state.distanceMetres ?? undefined })
+    }
   } else if (state.distanceMetres !== null) {
     viewer.controls.setDistance(state.distanceMetres)
   }

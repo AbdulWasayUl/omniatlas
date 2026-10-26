@@ -35,7 +35,7 @@ import {
  * downcasts only the product. So object origins may be large; vertex buffers may not.
  * Every geometry must keep its coordinates within ~1e4 of its own object origin.
  */
-export type LayerId = 'cosmic' | 'galactic' | 'stellar' | 'helio' | 'system' | 'surface'
+export type LayerId = 'cosmic' | 'galactic' | 'stellar' | 'helio' | 'imagined' | 'system' | 'surface'
 
 export interface LayerConfig {
   id: LayerId
@@ -155,6 +155,32 @@ export const LAYER_CONFIGS: readonly LayerConfig[] = [
     bandMetres: [1e-6 * AU_M, 2e5 * AU_M],
     spanBandMetres: [0, 6e14],
     label: 'Heliocentric',
+  },
+  {
+    /**
+     * Invented planetary systems, which are the same SIZE as the heliocentric layer and
+     * must not share it.
+     *
+     * Re-origining `helio` onto another star very nearly worked: the modules that draw
+     * the solar system position their bodies through `toLocal` every frame, so those
+     * went correctly to millions of AU away and fell outside the far plane. But the
+     * orbit lines and the asteroid belt are STATIC geometry, built once in layer-local
+     * coordinates about the origin, and static geometry does not move when the origin
+     * does. The result was the real solar system's orbits and its asteroid belt drawn
+     * around a star eighty-eight light years from the Sun.
+     *
+     * So invention gets its own layer. `bandMetres` is null, which makes it anchor-local
+     * -- judged on whether its content is the right size for the view, never on distance
+     * from a fixed origin -- and its origin is set by the module that fills it.
+     */
+    id: 'imagined',
+    unitMetres: AU_M,
+    frame: 'ecliptic',
+    order: 15,
+    defaultFar: 1e5,
+    bandMetres: null,
+    spanBandMetres: [0, 6e14],
+    label: 'Imagined system',
   },
   {
     id: 'system',

@@ -240,6 +240,17 @@ export class Engine {
    */
   immersive = false
 
+  /**
+   * Bumped whenever the registry gains or loses a node.
+   *
+   * The label set is built from the registry, and it used to be built exactly once, at
+   * the end of boot — which was fine while every module registered everything it would
+   * ever have during init. A module that registers later got no marker, and markers are
+   * the only pick targets the atlas has, so its objects were invisible AND unclickable.
+   * The viewer watches this number instead of guessing.
+   */
+  registryVersion = 0
+
   readonly renderer: THREE.WebGLRenderer
   readonly layers: Map<LayerId, Layer> = new Map()
   readonly layersByOrder: Layer[] = []
@@ -366,10 +377,11 @@ export class Engine {
 
   register(node: SceneNodeHandle): void {
     this.registry.set(node.id, node)
+    this.registryVersion++
   }
 
   unregister(id: string): void {
-    this.registry.delete(id)
+    if (this.registry.delete(id)) this.registryVersion++
   }
 
   node(id: string | null): SceneNodeHandle | null {

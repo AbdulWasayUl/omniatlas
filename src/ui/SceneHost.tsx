@@ -85,20 +85,22 @@ export function SceneHost({ onViewer }: { onViewer?: (viewer: AtlasViewer | null
           },
         },
         {
-          // Before `proxy`, which must see the star this module has just given an
-          // `object3D` so it does not build a second stand-in for the same star.
-          id: 'immersive',
-          load: async () => {
-            const { ImmersiveModule } = await import('../modules/immersive')
-            return new ImmersiveModule()
-          },
-        },
-        {
           // Last, so its preRender sees the positions every other module just wrote.
           id: 'proxy',
           load: async () => {
             const { ProxyModule } = await import('../modules/proxy')
             return new ProxyModule()
+          },
+        },
+        {
+          // After `proxy`, because both write `forceActive` on the same layers and the
+          // last write in a frame is the one the engine reads. Proxy computes it from
+          // its own live set every frame, so an earlier write by this module was simply
+          // erased and the generated system went out with the layer.
+          id: 'immersive',
+          load: async () => {
+            const { ImmersiveModule } = await import('../modules/immersive')
+            return new ImmersiveModule()
           },
         },
       ],
@@ -147,7 +149,17 @@ export function SceneHost({ onViewer }: { onViewer?: (viewer: AtlasViewer | null
   // down from it, so flipping it here is the whole of the wiring.
   useEffect(() => {
     const viewer = viewerRef.current
-    if (viewer) viewer.engine.immersive = immersive
+    if (!viewer) return
+    // Switching the mode off unregisters every invented node, and the camera may be
+    // anchored on one of them. Left alone that is a dangling anchor: an id the registry
+    // no longer answers for, which the breadcrumb, the inspector and the distance
+    // readout all follow. Step back to the star the world belonged to first — it is
+    // real, it is where the viewer just was, and it is named in the id.
+    const anchor = viewer.anchorId
+    if (!immersive && anchor?.startsWith('gen:')) {
+      viewer.focus(anchor.slice(4).split('/')[0], { instant: true })
+    }
+    viewer.engine.immersive = immersive
   }, [immersive])
 
   return (
