@@ -35,7 +35,15 @@ import {
  * downcasts only the product. So object origins may be large; vertex buffers may not.
  * Every geometry must keep its coordinates within ~1e4 of its own object origin.
  */
-export type LayerId = 'cosmic' | 'galactic' | 'stellar' | 'helio' | 'imagined' | 'system' | 'surface'
+export type LayerId =
+  | 'cosmic'
+  | 'galactic'
+  | 'stellar'
+  | 'galaxyInterior'
+  | 'helio'
+  | 'imagined'
+  | 'system'
+  | 'surface'
 
 export interface LayerConfig {
   id: LayerId
@@ -155,6 +163,26 @@ export const LAYER_CONFIGS: readonly LayerConfig[] = [
     bandMetres: [1e-6 * AU_M, 2e5 * AU_M],
     spanBandMetres: [0, 6e14],
     label: 'Heliocentric',
+  },
+  {
+    /**
+     * The inside of an invented galaxy: kiloparsecs, origined on whichever galaxy the
+     * camera is in.
+     *
+     * The `galactic` layer is the right UNIT for this and the wrong origin: it is fixed
+     * on the Sun and reaches a megaparsec, so standing inside M51 it is neither centred
+     * on anything useful nor able to hold coordinates that small against a number that
+     * large. This one is anchor-local, like `system` and `surface`, and the module that
+     * fills it owns its origin.
+     */
+    id: 'galaxyInterior',
+    unitMetres: KPC_M,
+    frame: 'icrf',
+    order: 25,
+    defaultFar: 2e4,
+    bandMetres: null,
+    spanBandMetres: [0, 5e22],
+    label: 'Imagined galaxy',
   },
   {
     /**

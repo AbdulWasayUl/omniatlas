@@ -320,6 +320,7 @@ const STAR_VERTEX = /* glsl */ `
   uniform float uPixelWidth;     // viewport width in device pixels
   uniform float uPixelHeight;    // viewport height in device pixels
   uniform float uTanHalfFov;
+  uniform float uInsideSystemPc;  // radius of the system the camera is in, 0 if none
   uniform float uMagLimit;       // faintest apparent magnitude drawn
   uniform float uMinRadiusPx;
   uniform float uMaxRadiusPx;
@@ -351,6 +352,8 @@ const STAR_VERTEX = /* glsl */ `
     // only ever affects a star you are practically inside.
     float standDown = smoothstep(0.15, 1.5, bodyPx);
 
+
+
     // Apparent magnitude from the TRUE distance to the camera, recomputed every frame.
     float apparent = absMag + 5.0 * (log(distancePc) / 2.302585092994046) - 5.0;
 
@@ -367,7 +370,24 @@ const STAR_VERTEX = /* glsl */ `
     // Hand over to the body: the glyph shrinks towards the star's true size and fades,
     // so the two never both claim the same pixels.
     radiusPx = mix(radiusPx, max(bodyPx, uMinRadiusPx), standDown);
-    vIntensity = uGain * pow(2.512, min(headroom, 9.0)) * 0.032 * (1.0 - 0.96 * standDown);
+    float intensity = uGain * pow(2.512, min(headroom, 9.0)) * 0.032 * (1.0 - 0.96 * standDown);
+
+    // Inside a system the camera is standing in, the glyphs go almost all the way out.
+    //
+    // The resolved-size test above cannot catch this case: a Sun-sized star seen from
+    // twenty AU is six hundredths of a pixel across, so nothing about its geometry says
+    // it is close, while its glyph computes an apparent magnitude near -24. Nor is it
+    // enough to dim the star that was anchored. Achird is a binary and its companion is
+    // one of the 330,000 field stars rather than one of the 604 registered ones, so it
+    // has no node to look up and no object3D to check: the only thing that identifies
+    // it is that it is RIGHT HERE. Folding this into standDown left thirty per cent of
+    // a magnitude -24 glyph, which is still a blob covering the whole system.
+    if (uInsideSystemPc > 0.0) {
+      float inside = 1.0 - smoothstep(uInsideSystemPc * 0.5, uInsideSystemPc * 1.6, distancePc);
+      intensity *= mix(1.0, 0.012, inside);
+      radiusPx = mix(radiusPx, max(bodyPx, uMinRadiusPx), inside);
+    }
+    vIntensity = intensity;
     vColor = starColor;
 
     // Offset in clip space so the quad keeps a constant pixel size at any depth.
@@ -553,6 +573,7 @@ export class StarsModule implements AtlasModule {
         uPixelWidth: { value: 1920 },
         uPixelHeight: { value: 1080 },
         uTanHalfFov: { value: 0.46 },
+        uInsideSystemPc: { value: 0 },
         uMagLimit: { value: 6.5 },
         uMinRadiusPx: { value: 0.7 },
         uMaxRadiusPx: { value: 18 },
@@ -865,7 +886,17 @@ export class StarsModule implements AtlasModule {
     // The engine's verdict on this layer's role in this frame, not the raw span band:
     // drawn as the backdrop behind a subject in another layer, the star field has to
     // read as sky. `spanOpacity` stays raw, as the measurement it is.
-    const layerFade = layer.renderOpacity
+    // Inside a system the camera is standing in, the rest of the galaxy is scenery.
+    //
+    // The per-star rule below handles the stars that are physically here, and it cannot
+    // handle the rest: from inside a system the whole sky is still the catalogue, drawn
+    // at a limiting magnitude that narrows with the field of view, and the brightest few
+    // of them bloom into blobs that compete with the planets for attention. Standing in
+    // a planetary system, a bright star a few parsecs off is a thing in the sky, not a
+    // thing in the room.
+    const insideFade = this.engine.insideSystemRadiusMetres > 0 ? 0.3 : 1
+    const layerFade = layer.renderOpacity * insideFade
+
 
 
     for (const material of this.materials) {
@@ -873,6 +904,7 @@ export class StarsModule implements AtlasModule {
       material.uniforms.uPixelHeight.value = pixelHeight
       material.uniforms.uMagLimit.value = magLimit
       material.uniforms.uTanHalfFov.value = Math.tan((ctx.fovDegrees * Math.PI) / 360)
+      material.uniforms.uInsideSystemPc.value = this.engine.insideSystemRadiusMetres / PC_M
       material.uniforms.uGain.value = STAR_GAIN * layerFade
     }
 

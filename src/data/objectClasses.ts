@@ -18,6 +18,7 @@ export type ObjectClass =
   | 'galaxy'
   | 'nebula'
   | 'cluster'
+  | 'region'
   | 'black-hole'
 
 export interface ObjectClassStyle {
@@ -39,6 +40,10 @@ export const OBJECT_CLASSES: Record<ObjectClass, ObjectClassStyle> = {
   spacecraft: { label: 'Spacecraft', color: '#81d584', glyph: 'chevron', priority: 45 },
   galaxy: { label: 'Galaxy', color: '#f59cd8', glyph: 'spiral', priority: 65 },
   nebula: { label: 'Nebula', color: '#ff9395', glyph: 'cloud', priority: 60 },
+  // A volume rather than a body: a belt, a galactic core, a zone. Already used by two
+  // registered nodes before this entry existed, which meant both fell through to the
+  // default and an asteroid belt was labelled "Planet" in the inspector header.
+  region: { label: 'Region', color: '#9fb4c4', glyph: 'dashed-ring', priority: 48 },
   cluster: { label: 'Star cluster', color: '#a5b6ff', glyph: 'dots', priority: 55 },
   'black-hole': { label: 'Black hole', color: '#aebde5', glyph: 'dark-disc', priority: 75 },
 }

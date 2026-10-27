@@ -28,57 +28,7 @@
  * order in which things happened to load.
  */
 
-/** 32-bit string hash (xmur3), used only to turn a stable id into a stable seed. */
-function hashSeed(text: string): number {
-  let h = 1779033703 ^ text.length
-  for (let i = 0; i < text.length; i++) {
-    h = Math.imul(h ^ text.charCodeAt(i), 3432918353)
-    h = (h << 13) | (h >>> 19)
-  }
-  h = Math.imul(h ^ (h >>> 16), 2246822507)
-  h = Math.imul(h ^ (h >>> 13), 3266489909)
-  return (h ^= h >>> 16) >>> 0
-}
-
-/** mulberry32: the same generator `scripts/build-galaxy.mjs` seeds the disc field with. */
-function mulberry32(seed: number): () => number {
-  let a = seed >>> 0
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0
-    let t = Math.imul(a ^ (a >>> 15), 1 | a)
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
-
-/** A small deterministic random source with the shapes this file actually needs. */
-interface Rng {
-  /** Uniform in [0, 1). */
-  next(): number
-  /** Uniform in [lo, hi). */
-  range(lo: number, hi: number): number
-  /** Log-uniform in [lo, hi): the right default for a quantity spanning decades. */
-  logRange(lo: number, hi: number): number
-  /** True with probability p. */
-  chance(p: number): boolean
-  /** One item, uniformly. */
-  pick<T>(items: readonly T[]): T
-  /** Roughly normal, via the sum of three uniforms; clamped to +/- 1. */
-  signed(): number
-}
-
-function rngFrom(seed: number): Rng {
-  const r = mulberry32(seed)
-  const rng: Rng = {
-    next: r,
-    range: (lo, hi) => lo + (hi - lo) * r(),
-    logRange: (lo, hi) => Math.exp(Math.log(lo) + (Math.log(hi) - Math.log(lo)) * r()),
-    chance: (p) => r() < p,
-    pick: (items) => items[Math.min(items.length - 1, Math.floor(r() * items.length))],
-    signed: () => Math.min(1, Math.max(-1, ((r() + r() + r()) / 3 - 0.5) * 3.4)),
-  }
-  return rng
-}
+import { type Rng, hashSeed, rngFrom } from './random'
 
 // --- constants, in SI unless the name says otherwise -------------------------
 
@@ -211,6 +161,21 @@ export interface GeneratedStar {
   color: string
 }
 
+/** A belt of rubble between two planets, or beyond the last one. */
+export interface GeneratedBelt {
+  id: string
+  name: string
+  /** Inner and outer edge, metres from the star. */
+  innerMetres: number
+  outerMetres: number
+  /** How many bodies to draw. Not a population estimate, a rendering budget. */
+  count: number
+  color: string
+  /** Mean inclination of the belt, degrees. */
+  spreadDeg: number
+  description: string
+}
+
 export interface GeneratedSystem {
   /** The id of the real star this was invented around. */
   starId: string
@@ -221,6 +186,7 @@ export interface GeneratedSystem {
   /** Distance beyond which water is ice during formation, in AU. */
   frostLineAu: number
   planets: GeneratedPlanet[]
+  belts: GeneratedBelt[]
 }
 
 /** The star properties a caller already knows, where it knows them. */
@@ -659,7 +625,77 @@ export function generateSystem(star: StarSeedInput): GeneratedSystem {
     planets.push(planet)
   }
 
-  return { starId: star.id, seed, star: starOut, habitableZoneAu: zone, frostLineAu: frost, planets }
+  return {
+    starId: star.id,
+    seed,
+    star: starOut,
+    habitableZoneAu: zone,
+    frostLineAu: frost,
+    planets,
+    belts: generateBelts(rng, star.id, planets, frost),
+  }
+}
+
+/**
+ * Where the rubble is.
+ *
+ * A belt sits where a planet did not form, and the usual reason is that something large
+ * nearby kept stirring the material until it could not accrete. So they are placed in the
+ * widest gap between neighbouring orbits, and beyond the outermost planet, which is where
+ * the solar system keeps both of its own.
+ */
+function generateBelts(rng: Rng, starId: string, planets: GeneratedPlanet[], frostAu: number): GeneratedBelt[] {
+  const belts: GeneratedBelt[] = []
+  if (planets.length === 0) return belts
+
+  // The widest ratio gap between neighbours, if it is wide enough to be worth drawing.
+  let widest = -1
+  let gap = 1
+  for (let i = 1; i < planets.length; i++) {
+    const ratio = planets[i].semiMajorAxisMetres / planets[i - 1].semiMajorAxisMetres
+    if (ratio > gap) {
+      gap = ratio
+      widest = i
+    }
+  }
+  if (widest > 0 && gap > 1.9 && rng.chance(0.75)) {
+    const inner = planets[widest - 1].semiMajorAxisMetres * rng.range(1.22, 1.38)
+    const outer = planets[widest].semiMajorAxisMetres * rng.range(0.68, 0.82)
+    if (outer > inner * 1.1) {
+      belts.push({
+        id: `${starId}/belt`,
+        name: '',
+        innerMetres: inner,
+        outerMetres: outer,
+        count: 2600 + Math.floor(rng.next() * 3200),
+        color: '#9d8f7e',
+        spreadDeg: rng.range(4, 14),
+        description:
+          'Asteroid belt. A planet did not form here. Something heavy nearby kept stirring the ' +
+          'material until it could no longer stick together, and what is left has been grinding ' +
+          'itself smaller ever since.',
+      })
+    }
+  }
+
+  // And the outer debris, beyond everything, where the ice never got used.
+  const outermost = planets[planets.length - 1].semiMajorAxisMetres
+  if (rng.chance(0.8)) {
+    const inner = outermost * rng.range(1.25, 1.7)
+    belts.push({
+      id: `${starId}/outer-belt`,
+      name: '',
+      innerMetres: inner,
+      outerMetres: inner * rng.range(1.6, 2.6),
+      count: 3200 + Math.floor(rng.next() * 4200),
+      color: '#8fa6b4',
+      spreadDeg: rng.range(8, 26),
+      description:
+        'Outer debris belt. Ice and rock that never joined anything larger, spread thin and cold ' +
+        `well beyond the frost line at ${frostAu.toFixed(1)} AU. Most of it has not been warm since it formed.`,
+    })
+  }
+  return belts
 }
 
 /**
@@ -726,6 +762,9 @@ function generateMoons(
 
 /** Human-readable names, applied in place once the caller knows the star's own name. */
 export function nameSystem(system: GeneratedSystem, starName: string): GeneratedSystem {
+  for (const belt of system.belts) {
+    belt.name = belt.id.endsWith('outer-belt') ? `${starName} Outer Belt` : `${starName} Belt`
+  }
   for (let i = 0; i < system.planets.length; i++) {
     const planet = system.planets[i]
     planet.name = `${starName} ${LETTERS[i] ?? `p${i}`}`

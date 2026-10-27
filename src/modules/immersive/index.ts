@@ -4,6 +4,7 @@ import { SphereBody } from '../../core/render/SphereBody'
 import { type Vec3d, convertFrame, copy3d, vec3d } from '../../core/world'
 import { type KeplerianElements, keplerianOffset } from '../../astronomy/ephemeris'
 import {
+  type GeneratedBelt,
   type GeneratedMoon,
   type GeneratedPlanet,
   type GeneratedSystem,
@@ -11,6 +12,8 @@ import {
   generateSystem,
   nameSystem,
 } from '../../generators/system'
+import { describeWorld } from '../../generators/description'
+import { rngFrom } from '../../generators/random'
 
 /**
  * Immersive mode: invented planetary systems around real stars.
@@ -99,6 +102,8 @@ export class ImmersiveModule implements AtlasModule {
   private system: GeneratedSystem | null = null
   private readonly bodies = new Map<string, Body>()
   private readonly orbits: THREE.Line[] = []
+  private readonly belts: THREE.Points[] = []
+  private readonly beltNodes: { node: SceneNodeHandle; mid: number }[] = []
   private starLight: THREE.PointLight | null = null
   private hostNode: SceneNodeHandle | null = null
   private readonly local = new THREE.Vector3()
@@ -119,6 +124,20 @@ export class ImmersiveModule implements AtlasModule {
       if (wanted) this.build(wanted)
     }
     if (!this.system || !this.hostNode) return
+
+    // Tell the star field it is standing inside this system, so it stops drawing chart
+    // glyphs for the stars that light it. The outermost thing in the system sets the
+    // radius, which is what "inside" has to mean here.
+    const outer = this.system.belts.length
+      ? Math.max(...this.system.belts.map((b) => b.outerMetres))
+      : (this.system.planets.at(-1)?.semiMajorAxisMetres ?? 0) * 1.5
+    // Generous, with a floor, because the thing that needs suppressing is not sized by
+    // the system at all. The star that buried Achird's nine planets sits 859 AU out: an
+    // intrinsically faint red dwarf, absolute magnitude 8.5, which at that range is
+    // apparent magnitude -8.4 and brighter than Venus. Six thousand AU is about a
+    // hundredth of a parsec, so from inside a system this covers a very small patch of
+    // sky and catches only stars that are genuinely standing there with you.
+    this.engine.insideSystemRadiusMetres = Math.max(outer * 3, 6000 * 1.495978707e11)
 
     this.place(ctx)
   }
@@ -218,11 +237,14 @@ export class ImmersiveModule implements AtlasModule {
     const hostWorld = vec3d()
     convertFrame(hostWorld, host.worldPosition, host.frame, FRAME)
     for (const planet of system.planets) {
-      this.addWorld(planet, starId, north)
+      this.addWorld(planet, starId, north, planet.semiMajorAxisMetres)
       const planetNorth = planeNormal(system.seed ^ hashOf(planet.id))
-      for (const moon of planet.moons) this.addWorld(moon, planet.id, planetNorth)
+      for (const moon of planet.moons) {
+        this.addWorld(moon, planet.id, planetNorth, planet.semiMajorAxisMetres, planet.name)
+      }
       this.addOrbit(planet, north, hostWorld)
     }
+    for (const belt of system.belts) this.addBelt(belt, north, starId)
 
     console.info(
       `[omniatlas] immersive: invented ${system.planets.length} worlds and ` +
@@ -231,7 +253,14 @@ export class ImmersiveModule implements AtlasModule {
     )
   }
 
-  private addWorld(world: GeneratedPlanet | GeneratedMoon, parentId: string, north: Vec3d): void {
+  private addWorld(
+    world: GeneratedPlanet | GeneratedMoon,
+    parentId: string,
+    north: Vec3d,
+    /** Distance from the STAR, which for a moon is its planet's. */
+    starDistanceMetres: number,
+    primaryName?: string,
+  ): void {
     const layer = this.engine.layer(LAYER)
     const isPlanet = 'moons' in world
     const rings = isPlanet && (world as GeneratedPlanet).hasRings
@@ -269,8 +298,22 @@ export class ImmersiveModule implements AtlasModule {
       provenance: 'illustration',
       // What kind of world this is, said first, because it is the thing a viewer wants
       // to know on arrival and the thing the colour is only hinting at.
-      caveat: `${WORLD_KINDS[world.kind].label}. ${WORLD_KINDS[world.kind].description}` +
-        `${world.habitable ? ` Habitable: ${world.habitabilityNote}.` : ''}`,
+      // The kind names what it is; the description is only ever true of THIS world.
+      caveat: `${WORLD_KINDS[world.kind].label}. ${describeWorld({
+        id: world.id,
+        kind: world.kind,
+        radiusMetres: world.radiusMetres,
+        semiMajorAxisMetres: world.semiMajorAxisMetres,
+        periodDays: world.periodDays,
+        equilibriumK: isPlanet ? (world as GeneratedPlanet).equilibriumK : undefined,
+        starRadiusMetres: this.system?.star.radiusMetres ?? 6.957e8,
+        starDistanceMetres,
+        moonCount: isPlanet ? (world as GeneratedPlanet).moons.length : 0,
+        hasRings: rings,
+        habitable: world.habitable,
+        isMoon: !isPlanet,
+        primaryName,
+      })}`,
       provenanceNote:
         `Invented, not observed. ${this.hostNode?.name ?? 'This star'}'s measured radius and ` +
         'temperature set the scale, and everything else — how many worlds there are, how big ' +
@@ -324,6 +367,74 @@ export class ImmersiveModule implements AtlasModule {
     line.name = `gen:orbit:${planet.id}`
     layer.scene.add(line)
     this.orbits.push(line)
+  }
+
+  /**
+   * A belt, drawn as the rubble it is rather than as a ring.
+   *
+   * Static geometry in the layer's units, positioned at the star each frame like the
+   * orbit rings: the bodies in a belt do not need propagating individually, because at
+   * any scale where the belt is visible no single rock in it is.
+   */
+  private addBelt(belt: GeneratedBelt, north: Vec3d, starId: string): void {
+    const layer = this.engine.layer(LAYER)
+    const rng = rngFrom(hashOf(belt.id))
+    const positions = new Float32Array(belt.count * 3)
+    // An orthonormal frame for the belt plane, built from the system's own normal so the
+    // rubble lies in the same plane the planets orbit in.
+    const n = new THREE.Vector3(north.x, north.y, north.z).normalize()
+    const u = new THREE.Vector3(1, 0, 0)
+    if (Math.abs(n.dot(u)) > 0.9) u.set(0, 1, 0)
+    const e1 = new THREE.Vector3().crossVectors(n, u).normalize()
+    const e2 = new THREE.Vector3().crossVectors(n, e1).normalize()
+    const spread = Math.tan((belt.spreadDeg * Math.PI) / 180)
+    const unit = layer.config.unitMetres
+    for (let i = 0; i < belt.count; i++) {
+      const r = (belt.innerMetres + (belt.outerMetres - belt.innerMetres) * Math.sqrt(rng.next())) / unit
+      const theta = rng.range(0, Math.PI * 2)
+      const h = (rng.next() + rng.next() - 1) * spread * r
+      positions[i * 3] = e1.x * r * Math.cos(theta) + e2.x * r * Math.sin(theta) + n.x * h
+      positions[i * 3 + 1] = e1.y * r * Math.cos(theta) + e2.y * r * Math.sin(theta) + n.y * h
+      positions[i * 3 + 2] = e1.z * r * Math.cos(theta) + e2.z * r * Math.sin(theta) + n.z * h
+    }
+    const geometry = new THREE.BufferGeometry()
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    const points = new THREE.Points(
+      geometry,
+      new THREE.PointsMaterial({
+        color: new THREE.Color(belt.color),
+        size: 1.6,
+        sizeAttenuation: false,
+        transparent: true,
+        opacity: 0.55,
+        depthWrite: false,
+      }),
+    )
+    points.frustumCulled = false
+    points.name = `gen:belt:${belt.id}`
+    layer.scene.add(points)
+    this.belts.push(points)
+
+    const mid = (belt.innerMetres + belt.outerMetres) / 2
+    const node: ImaginedNode = {
+      id: `gen:${belt.id}`,
+      worldPosition: vec3d(),
+      frame: FRAME,
+      radiusMetres: (belt.outerMetres - belt.innerMetres) / 2,
+      framingRadiusMetres: mid,
+      layer: LAYER,
+      objectClass: 'region',
+      name: belt.name,
+      parentId: starId,
+      provenance: 'illustration',
+      caveat: belt.description,
+      provenanceNote:
+        `Invented, not observed. ${this.hostNode?.name ?? 'This star'} is real; the rubble around ` +
+        'it is not. It was generated from the star\u2019s identifier, so it is the same belt for ' +
+        'everyone, every time.',
+    }
+    this.engine.register(node)
+    this.beltNodes.push({ node, mid })
   }
 
   /** Propagate every orbit and write the transforms. */
@@ -382,11 +493,13 @@ export class ImmersiveModule implements AtlasModule {
       this.starLight.intensity = 1
     }
 
-    // Orbit rings are drawn about the star, so they follow it rather than the origin.
-    for (const line of this.orbits) {
-      layer.toLocal(this.local, host.world, FRAME)
-      line.position.copy(this.local)
-    }
+    // Orbit rings and belts are drawn about the star, so they follow it.
+    layer.toLocal(this.local, host.world, FRAME)
+    for (const line of this.orbits) line.position.copy(this.local)
+    for (const belt of this.belts) belt.position.copy(this.local)
+    // A belt has no single position; park its node on the star so the camera frames the
+    // whole thing rather than one arbitrary rock in it.
+    for (const entry of this.beltNodes) copy3d(entry.node.worldPosition, host.world)
   }
 
   private teardown(): void {
@@ -409,6 +522,14 @@ export class ImmersiveModule implements AtlasModule {
       ;(line.material as THREE.Material).dispose()
     }
     this.orbits.length = 0
+    for (const belt of this.belts) {
+      belt.removeFromParent()
+      belt.geometry.dispose()
+      ;(belt.material as THREE.Material).dispose()
+    }
+    this.belts.length = 0
+    for (const { node } of this.beltNodes) this.engine.unregister(node.id)
+    this.beltNodes.length = 0
     if (this.starLight) {
       this.starLight.removeFromParent()
       this.starLight = null
@@ -417,6 +538,7 @@ export class ImmersiveModule implements AtlasModule {
     // starts from a known place rather than from the last star visited.
     if (restoreOrigin) layer.setOrigin(vec3d(), layer.config.frame, null)
 
+    this.engine.insideSystemRadiusMetres = 0
     this.system = null
     this.hostNode = null
     this.builtFor = null

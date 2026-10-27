@@ -116,6 +116,15 @@ export interface SceneNodeHandle {
    */
   temperatureK?: number
   /**
+   * de Vaucouleurs morphological type, where the catalogue gives one.
+   *
+   * Negative is an elliptical, around zero a lenticular, positive a spiral, and past
+   * about 9 an irregular. Set by the module that has it; immersive mode is the first
+   * consumer, because a generated Whirlpool Galaxy that came out elliptical is wrong in
+   * a way a reader notices immediately.
+   */
+  morphologyT?: number
+  /**
    * Other catalogue designations this node answers to, for identity across catalogues.
    *
    * `oneLabelPerObject` reads the designation out of the id, which settles the common
@@ -239,6 +248,18 @@ export class Engine {
    * that a decision somebody took rather than a default they inherited.
    */
   immersive = false
+
+  /**
+   * Radius of the invented system the camera is currently inside, in metres; 0 when it
+   * is not inside one.
+   *
+   * Set by the module that builds the system and read by the star field, which uses it to
+   * stop drawing chart glyphs for stars at that range. Standing twenty AU from Achird,
+   * the glyphs for Achird and its binary companion were each computing an apparent
+   * magnitude around -24 and blooming over the entire nine-planet system that had just
+   * been built around them.
+   */
+  insideSystemRadiusMetres = 0
 
   /**
    * Bumped whenever the registry gains or loses a node.

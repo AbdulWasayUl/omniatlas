@@ -838,6 +838,7 @@ export class CosmosModule implements AtlasModule {
         layer: LAYER,
         objectClass: 'galaxy',
         name: displayName(galaxy.name),
+        morphologyT: typeof galaxy.tType === 'number' ? galaxy.tType : undefined,
         parentId: null,
         distanceKind: resolved.kind,
         provenance: resolved.provenance,

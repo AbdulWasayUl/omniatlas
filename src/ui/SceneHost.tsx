@@ -93,6 +93,13 @@ export function SceneHost({ onViewer }: { onViewer?: (viewer: AtlasViewer | null
           },
         },
         {
+          id: 'imagined-galaxy',
+          load: async () => {
+            const { ImaginedGalaxyModule } = await import('../modules/imagined-galaxy')
+            return new ImaginedGalaxyModule()
+          },
+        },
+        {
           // After `proxy`, because both write `forceActive` on the same layers and the
           // last write in a frame is the one the engine reads. Proxy computes it from
           // its own live set every frame, so an earlier write by this module was simply

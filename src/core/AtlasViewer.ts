@@ -274,6 +274,8 @@ const POINT_ARRIVAL_SPAN_M: Record<LayerId, number> = {
   galactic: 40 * KPC_M,
   // 40 pc: the solar neighbourhood around a star whose radius nobody recorded.
   stellar: 40 * PC_M,
+  // 2 kpc: a landmark inside an invented galaxy, framed against the arm it sits in.
+  galaxyInterior: 2 * KPC_M,
   // Unchanged, deliberately: the 34 comets with no measured nucleus are helio nodes,
   // and ~1e9 m is the distance their orbit neighbourhood reads at.
   helio: 1.7e9,
