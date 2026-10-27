@@ -55,6 +55,16 @@ export interface GeneratedLandmark {
 
 export interface GeneratedGalaxy {
   hostId: string
+  /**
+   * A rotation applied to everything in this interior, as three basis vectors.
+   *
+   * Without one, every generated disc lay in the same plane as every other: the
+   * generator works in a frame where z is the disc normal and the renderer dropped that
+   * straight into ICRF, so the whole atlas tilted the same way. The rotation is seeded,
+   * like everything else here, and it is applied at generation time so the landmarks and
+   * the star cloud cannot drift apart.
+   */
+  basis: { e1: [number, number, number]; e2: [number, number, number]; e3: [number, number, number] }
   seed: number
   shape: GalaxyShape
   /** Half-light radius, kiloparsecs. */
@@ -195,6 +205,45 @@ const LANDMARK_LINES: Record<LandmarkKind, readonly string[]> = {
   ],
 }
 
+/** Three orthonormal axes from the seed, so not every disc lies in the same plane. */
+function seededBasis(rng: Rng): GeneratedGalaxy['basis'] {
+  // A random unit normal, then any two axes perpendicular to it.
+  const cosT = rng.range(-1, 1)
+  const sinT = Math.sqrt(Math.max(0, 1 - cosT * cosT))
+  const phi = rng.range(0, Math.PI * 2)
+  const e3: [number, number, number] = [sinT * Math.cos(phi), sinT * Math.sin(phi), cosT]
+  const seed: [number, number, number] = Math.abs(e3[0]) > 0.9 ? [0, 1, 0] : [1, 0, 0]
+  const cross = (a: number[], b: number[]): [number, number, number] => [
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0],
+  ]
+  const norm = (v: [number, number, number]): [number, number, number] => {
+    const n = Math.hypot(v[0], v[1], v[2]) || 1
+    return [v[0] / n, v[1] / n, v[2] / n]
+  }
+  const e1 = norm(cross(seed, e3))
+  const e2 = norm(cross(e3, e1))
+  // A roll about the normal, so two galaxies with the same inclination still differ.
+  const roll = rng.range(0, Math.PI * 2)
+  const c = Math.cos(roll)
+  const sn = Math.sin(roll)
+  return {
+    e1: [e1[0] * c + e2[0] * sn, e1[1] * c + e2[1] * sn, e1[2] * c + e2[2] * sn],
+    e2: [e2[0] * c - e1[0] * sn, e2[1] * c - e1[1] * sn, e2[2] * c - e1[2] * sn],
+    e3,
+  }
+}
+
+/** Take a point from the generator's frame into the interior's own orientation. */
+function rotate(basis: GeneratedGalaxy['basis'], x: number, y: number, z: number): [number, number, number] {
+  return [
+    basis.e1[0] * x + basis.e2[0] * y + basis.e3[0] * z,
+    basis.e1[1] * x + basis.e2[1] * y + basis.e3[1] * z,
+    basis.e1[2] * x + basis.e2[2] * y + basis.e3[2] * z,
+  ]
+}
+
 function landmarkName(kind: LandmarkKind, rng: Rng, used: Set<string>): string {
   for (let attempt = 0; attempt < 24; attempt++) {
     const name = `the ${rng.pick(NAME_FIRST)} ${rng.pick(NAME_SECOND[kind])}`
@@ -331,19 +380,21 @@ export function generateGalaxy(hostId: string, radiusMetres: number, shapeHint?:
   const armCount = shape === 'barred' ? 2 : shape === 'spiral' ? (rng.chance(0.55) ? 2 : rng.chance(0.6) ? 4 : 3) : 0
   const armPitch = rng.range(0.18, 0.42)
 
+  const basis = seededBasis(rng)
   const used = new Set<string>()
   const landmarks: GeneratedLandmark[] = []
 
   const add = (kind: LandmarkKind, x: number, y: number, z: number, radiusK: number, color: string, intensity: number) => {
     const name = landmarkName(kind, rng, used)
     const id = `${hostId}/${name.replace(/^the /, '').toLowerCase().replace(/\s+/g, '-')}`
+    const [rx, ry, rz] = rotate(basis, x, y, z)
     landmarks.push({
       id,
       name,
       kind,
-      x,
-      y,
-      z,
+      x: rx,
+      y: ry,
+      z: rz,
       radiusKpc: radiusK,
       color,
       intensity,
@@ -352,7 +403,7 @@ export function generateGalaxy(hostId: string, radiusMetres: number, shapeHint?:
   }
 
   // The core, always, because every one of these has a middle.
-  add('core', 0, 0, 0, Math.max(0.12, radiusKpc * 0.06), rng.pick(CORE_COLORS), 1)
+  add('core', 0, 0, 0, Math.max(0.12, radiusKpc * 0.05), rng.pick(CORE_COLORS), 0.55)
 
   // Star-forming regions and clouds sit in the disc, and in a spiral they sit ON the arms.
   const nebulaCount = discLike ? 4 + Math.floor(rng.next() * 6) : shape === 'irregular' ? 5 + Math.floor(rng.next() * 5) : 1
@@ -411,6 +462,7 @@ export function generateGalaxy(hostId: string, radiusMetres: number, shapeHint?:
   return {
     hostId,
     seed,
+    basis,
     shape,
     radiusKpc,
     thicknessKpc,
@@ -433,6 +485,7 @@ export function generateGalaxy(hostId: string, radiusMetres: number, shapeHint?:
 function generateNebula(hostId: string, radiusMetres: number, remnantHint?: boolean): GeneratedGalaxy {
   const seed = hashSeed(`nebula:${hostId}`)
   const rng = rngFrom(seed)
+  const basis = seededBasis(rng)
   const KPC_M = 3.0856775814913673e19
   const radiusKpc = radiusMetres > 0 ? Math.max(0.0004, Math.min(0.2, radiusMetres / KPC_M)) : rng.range(0.002, 0.02)
 
@@ -479,7 +532,7 @@ function generateNebula(hostId: string, radiusMetres: number, remnantHint?: bool
   }
 
   return {
-    hostId, seed, shape: 'irregular', radiusKpc, thicknessKpc: radiusKpc * 0.7,
+    hostId, seed, basis, shape: 'irregular', radiusKpc, thicknessKpc: radiusKpc * 0.7,
     armCount: 0, armPitch: 0, landmarks,
     starCount: Math.round(2500 + rng.next() * 3500),
     description: remnant
@@ -498,6 +551,7 @@ function generateNebula(hostId: string, radiusMetres: number, remnantHint?: bool
 function generateCluster(hostId: string, radiusMetres: number, globularHint?: boolean): GeneratedGalaxy {
   const seed = hashSeed(`cluster:${hostId}`)
   const rng = rngFrom(seed)
+  const basis = seededBasis(rng)
   const KPC_M = 3.0856775814913673e19
   const radiusKpc = radiusMetres > 0 ? Math.max(0.0008, Math.min(0.08, radiusMetres / KPC_M)) : rng.range(0.003, 0.02)
   const globular = globularHint ?? rng.chance(0.55)
@@ -514,7 +568,9 @@ function generateCluster(hostId: string, radiusMetres: number, globularHint?: bo
     landmarks.push({
       id: `${hostId}/${name.replace(/^the /, '').toLowerCase().replace(/\s+/g, '-')}`,
       name, kind: 'member',
-      x: r * sinPhi * Math.cos(theta), y: r * sinPhi * Math.sin(theta), z: r * cosPhi,
+      x: rotate(basis, r * sinPhi * Math.cos(theta), r * sinPhi * Math.sin(theta), r * cosPhi)[0],
+      y: rotate(basis, r * sinPhi * Math.cos(theta), r * sinPhi * Math.sin(theta), r * cosPhi)[1],
+      z: rotate(basis, r * sinPhi * Math.cos(theta), r * sinPhi * Math.sin(theta), r * cosPhi)[2],
       radiusKpc: radiusKpc * rng.range(0.03, 0.07),
       color: globular ? rng.pick(['#ffd0a0', '#ffc088', '#ffe0c0']) : rng.pick(['#cfe0ff', '#dde8ff', '#b8d0ff']),
       intensity: rng.range(0.6, 1),
@@ -523,7 +579,7 @@ function generateCluster(hostId: string, radiusMetres: number, globularHint?: bo
   }
 
   return {
-    hostId, seed, shape: 'elliptical', radiusKpc,
+    hostId, seed, basis, shape: 'elliptical', radiusKpc,
     thicknessKpc: radiusKpc * (globular ? 0.95 : 0.7),
     armCount: 0, armPitch: 0, landmarks,
     starCount: Math.round(globular ? 14000 + rng.next() * 16000 : 1200 + rng.next() * 2600),
@@ -562,12 +618,12 @@ export function galaxyStarField(galaxy: GeneratedGalaxy): Float32Array {
       // Exponential disc, with the arms as an overdensity rather than a separate thing.
       const r = -Math.log(Math.max(1e-6, rng.next())) * galaxy.radiusKpc * 0.42
       let theta = rng.range(0, Math.PI * 2)
-      if (galaxy.armCount > 0 && rng.chance(0.62) && r > galaxy.radiusKpc * 0.08) {
+      if (galaxy.armCount > 0 && rng.chance(0.74) && r > galaxy.radiusKpc * 0.08) {
         const arm = Math.floor(rng.next() * galaxy.armCount)
         theta =
           Math.log(Math.max(r, 0.05) / Math.max(galaxy.radiusKpc * 0.1, 0.05)) / galaxy.armPitch +
           (arm * 2 * Math.PI) / galaxy.armCount +
-          rng.signed() * 0.3
+          rng.signed() * 0.17
       }
       x = r * Math.cos(theta)
       y = r * Math.sin(theta)
@@ -579,9 +635,10 @@ export function galaxyStarField(galaxy: GeneratedGalaxy): Float32Array {
         y = y * (1 - t) * (1 - t * 0.75)
       }
     }
-    out[i * 3] = x
-    out[i * 3 + 1] = y
-    out[i * 3 + 2] = z
+    const [rx, ry, rz] = rotate(galaxy.basis, x, y, z)
+    out[i * 3] = rx
+    out[i * 3 + 1] = ry
+    out[i * 3 + 2] = rz
   }
   return out
 }
