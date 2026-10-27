@@ -138,12 +138,19 @@ const GROUND: Record<WorldKind, readonly string[]> = {
     'Impact craters here have the shape of ripples, because the ground relaxed after the strike.',
     'There is liquid water under the shell. The ridges are the only evidence for it from above.',
     'Nitrogen snow collects in the shadows of the ridges and never melts.',
+    'The ice is dirty with the dust of everything that has ever landed on it.',
+    'Long cracks run most of the way round, and they are not all old.',
+    'It is bright where it is fresh and grey where it is not, in patches with hard edges.',
   ],
   snowball: [
     'White from pole to pole, bright enough to throw back most of the little light it gets.',
     'It is frozen so completely that the ice has flowed flat, and the horizon is a clean line.',
     'The albedo keeps it cold and the cold keeps the albedo. Nothing is going to break that.',
     'Frost grows on frost here, in crystals large enough to see from a standing height.',
+    'Every surface is the same surface: ice, polished by nothing, for a very long time.',
+    'What little light arrives mostly leaves again, which is the whole problem.',
+    'There are no dark patches anywhere on it, at any season.',
+    'Snow falls here, slowly, out of almost nothing.',
   ],
   superEarth: [
     'Gravity is half again what a visitor would expect, and the horizon sits further away than it should.',
@@ -195,7 +202,12 @@ const OTHER: Record<WorldKind, readonly string[]> = {
     'It is the most geologically active body for a long way in any direction.',
   ],
   carbon: ['Diamond is a common rock here, and worth exactly as much as rock.', 'Its sunsets are the only colour it has.'],
-  iron: ['Something took its mantle away, and the record of what does not survive.', 'It rings, faintly, after a large impact, for days.'],
+  iron: [
+    'Something took its mantle away, and no record of what survives.',
+    'It rings, faintly, after a large impact, for days.',
+    'Its magnetic field is far stronger than a world this size has any business having.',
+    'What is left is the part that was always going to be hardest to remove.',
+  ],
   greenhouse: [
     'It may have had oceans once. If it did, they are in the sky now.',
     'The surface and the upper cloud are two different worlds that happen to share a name.',
@@ -207,8 +219,9 @@ const OTHER: Record<WorldKind, readonly string[]> = {
   ],
   rocky: [
     'It has no atmosphere worth the name, and nothing to lose.',
-    'The same side faces its primary always, so half of it has never seen that sky.',
     'It is old, and it has been finished for a very long time.',
+    'Nothing has moved on it since the last large impact.',
+    'Its surface records every hit it has ever taken, in order.',
   ],
   terrestrial: [
     'If anything were ever going to happen anywhere, it would be somewhere like this.',
@@ -292,11 +305,35 @@ function skySentence(input: WorldDescriptionInput, rng: Rng): string {
  * come out as four sentences of mood with nothing measurable in it, which is exactly the
  * failure this kind of generated text falls into.
  */
-function orbitSentence(input: WorldDescriptionInput, rng: Rng): { year: string; others: string[] } {
+function moonSentence(input: WorldDescriptionInput, rng: Rng): string | null {
+  // Always stated when there are any, because leaving it to a random pick meant one
+  // planet with a moon mentioned it and the next one did not.
+  if (input.moonCount === 1) {
+    return rng.pick(['It has one moon.', 'A single moon goes round it.', 'One moon, and nothing else.'])
+  }
+  if (input.moonCount > 1) {
+    return rng.pick([
+      `${input.moonCount} moons go round it, and they are never all full at once.`,
+      `It holds ${input.moonCount} moons, the innermost of them close enough to show a disc.`,
+      `There are ${input.moonCount} moons in its sky.`,
+    ])
+  }
+  return null
+}
+
+function orbitSentence(input: WorldDescriptionInput, rng: Rng): { year: string; moons: string | null; others: string[] } {
   const out: string[] = []
   const years = input.periodDays / 365.25
   let year = ''
-  if (input.periodDays < 30) {
+  if (input.isMoon) {
+    // A moon's period is the time it goes round its PLANET, which is a month. Calling it
+    // a year gave one moon a 395-day year around a planet that takes 75 years to orbit.
+    const around = input.primaryName ?? 'its planet'
+    year =
+      input.periodDays < 2
+        ? `It goes round ${around} in ${(input.periodDays * 24).toFixed(0)} hours.`
+        : `It goes round ${around} once every ${input.periodDays.toFixed(input.periodDays < 30 ? 1 : 0)} days.`
+  } else if (input.periodDays < 30) {
     year = `A year here lasts ${input.periodDays.toFixed(1)} days.`
   } else if (years < 2) {
     year = `Its year is ${Math.round(input.periodDays)} days long.`
@@ -311,20 +348,14 @@ function orbitSentence(input: WorldDescriptionInput, rng: Rng): { year: string; 
       'A ring runs round its equator, close in, made of whatever it pulled apart.',
     ]))
   }
-  if (input.moonCount === 1) out.push('It has one moon.')
-  else if (input.moonCount > 1) {
-    out.push(rng.pick([
-      `${input.moonCount} moons go round it, and they are never all full at once.`,
-      `It holds ${input.moonCount} moons, the innermost of them close enough to show a disc.`,
-    ]))
-  }
+
   if (input.isMoon && input.primaryName) {
     out.push(rng.pick([
       `${input.primaryName} hangs fixed in its sky, always in the same place.`,
       `From the near side, ${input.primaryName} never moves from where it sits.`,
     ]))
   }
-  return { year, others: out }
+  return { year, moons: moonSentence(input, rng), others: out }
 }
 
 /**
@@ -334,8 +365,9 @@ export function describeWorld(input: WorldDescriptionInput): string {
   const rng = rngFrom(hashSeed(`describe:${input.id}`))
   const parts: string[] = [rng.pick(GROUND[input.kind]), skySentence(input, rng)]
 
-  const { year, others } = orbitSentence(input, rng)
+  const { year, moons, others } = orbitSentence(input, rng)
   parts.push(year)
+  if (moons) parts.push(moons)
   // One more fact at most: a paragraph of statistics is not a description either.
   if (others.length && rng.chance(0.8)) parts.push(rng.pick(others))
   if (rng.chance(0.75)) parts.push(rng.pick(OTHER[input.kind]))

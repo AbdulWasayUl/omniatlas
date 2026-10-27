@@ -116,21 +116,31 @@ const SHAPE_NOTE: Record<GalaxyShape, readonly string[]> = {
 
 /** Name fragments, combined into landmark names that read like places. */
 const NAME_FIRST = [
-  'Amber', 'Ash', 'Bright', 'Cinder', 'Cold', 'Deep', 'Ember', 'Far', 'Glass', 'Grey',
-  'High', 'Hollow', 'Iron', 'Lantern', 'Long', 'Low', 'Pale', 'Quiet', 'Red', 'Salt',
-  'Shear', 'Silver', 'Slow', 'Still', 'Thin', 'Vast', 'White', 'Wide',
+  'Amber', 'Ash', 'Bitter', 'Black', 'Bright', 'Broken', 'Cinder', 'Clay', 'Cold', 'Copper',
+  'Deep', 'Drowned', 'Dust', 'Ember', 'Far', 'First', 'Glass', 'Grey', 'Half', 'High',
+  'Hollow', 'Hungry', 'Iron', 'Lantern', 'Last', 'Long', 'Low', 'Narrow', 'Old', 'Pale',
+  'Patient', 'Quiet', 'Rust', 'Salt', 'Shear', 'Silver', 'Slow', 'Smoke', 'Still', 'Stone',
+  'Tall', 'Thin', 'Thorn', 'Vast', 'Wandering', 'White', 'Wide', 'Winter',
 ]
 const NAME_SECOND: Record<LandmarkKind, readonly string[]> = {
-  core: ['Throat', 'Furnace', 'Hub', 'Crown', 'Anvil'],
-  nebula: ['Veil', 'Bloom', 'Shoal', 'Curtain', 'Drift', 'Hollow', 'Reach', 'Mantle'],
-  cluster: ['Knot', 'Hive', 'Bell', 'Cairn', 'Crowd', 'Lantern', 'Nest', 'Spindle'],
-  starCloud: ['Bank', 'Field', 'Shelf', 'Spill', 'Strand', 'Sprawl'],
-  remnant: ['Scar', 'Wake', 'Shell', 'Ruin', 'Echo', 'Bell'],
-  void: ['Gap', 'Quiet', 'Hollow', 'Lull', 'Gulf'],
-  knot: ['Pillar', 'Spire', 'Knot', 'Finger', 'Thumb', 'Column'],
-  front: ['Edge', 'Rim', 'Front', 'Wall', 'Break', 'Bow'],
-  pulsar: ['Heart', 'Pin', 'Engine', 'Beacon', 'Clock'],
-  member: ['Lamp', 'Watcher', 'Elder', 'Beacon', 'Ember', 'Sentinel', 'Lantern'],
+  core: ['Throat', 'Furnace', 'Hub', 'Crown', 'Anvil', 'Forge', 'Axle', 'Well'],
+  nebula: [
+    'Veil', 'Bloom', 'Shoal', 'Curtain', 'Drift', 'Hollow', 'Reach', 'Mantle', 'Garden',
+    'Cradle', 'Loom', 'Haze', 'Awning', 'Bank', 'Billow', 'Canopy', 'Fathom', 'Fleece',
+    'Lantern', 'Nursery', 'Pall', 'Shroud',
+  ],
+  cluster: [
+    'Knot', 'Hive', 'Bell', 'Cairn', 'Crowd', 'Nest', 'Spindle', 'Choir', 'Congress',
+    'Hoard', 'Swarm', 'Assembly', 'Beehive', 'Bundle', 'Clutch', 'Company', 'Gathering',
+    'Granary', 'Huddle', 'Muster', 'Reliquary', 'Vault',
+  ],
+  starCloud: ['Bank', 'Field', 'Shelf', 'Spill', 'Strand', 'Sprawl', 'Meadow', 'Drift', 'Scatter'],
+  remnant: ['Scar', 'Wake', 'Shell', 'Ruin', 'Echo', 'Bell', 'Cinder', 'Aftermath'],
+  void: ['Gap', 'Quiet', 'Hollow', 'Lull', 'Gulf', 'Shadow', 'Absence', 'Shutter'],
+  knot: ['Pillar', 'Spire', 'Knot', 'Finger', 'Thumb', 'Column', 'Tower', 'Anvil'],
+  front: ['Edge', 'Rim', 'Front', 'Wall', 'Break', 'Bow', 'Verge', 'Margin'],
+  pulsar: ['Heart', 'Pin', 'Engine', 'Beacon', 'Clock', 'Needle', 'Metronome'],
+  member: ['Lamp', 'Watcher', 'Elder', 'Beacon', 'Ember', 'Sentinel', 'Candle', 'Warden', 'Keeper'],
 }
 
 const LANDMARK_LABEL: Record<LandmarkKind, string> = {
@@ -159,12 +169,24 @@ const LANDMARK_LINES: Record<LandmarkKind, readonly string[]> = {
     'Pillars stand where denser knots have resisted the wind from the hot stars nearby.',
     'In a few million years there will be a cluster here and no cloud left at all.',
     'The colour is hydrogen, excited and falling back, over and over.',
+    'Dark lanes cross the front of it where the dust has not been cleared.',
+    'The youngest stars in it are still wrapped in what they were made from.',
+    'It is thinner than any laboratory vacuum and bright enough to see across a galaxy.',
+    'Shock waves run through it where the winds of the big stars collide.',
+    'There are places inside it that light has not reached since it formed.',
   ],
   cluster: [
     'A few hundred thousand stars, bound to each other since before the disc below them existed.',
     'There is no gas left in it. Everything here formed at once, and nothing has formed since.',
     'From the middle of it, the nearest neighbours would be brighter than any planet in Earth’s sky.',
     'It is older than the galaxy it orbits, which is a strange thing to be able to say.',
+    'Packed tightly enough at the centre that the individual stars stop being separable.',
+    'It has lost most of what it started with to the tides, and what remains is the hard core of it.',
+    'A sphere of old red stars, falling through the disc and out the other side.',
+    'Everything in it is the same age and almost the same composition, which is why it is so useful.',
+    'The brightest members are red giants, and they are what gives it its colour from outside.',
+    'It trails a thin stream of stars behind it, stripped away pass by pass.',
+    'Nothing has disturbed its middle since it formed, and nothing is likely to.',
   ],
   starCloud: [
     'Not a cluster, just a stretch of the arm where the stars happen to crowd.',
@@ -244,15 +266,126 @@ function rotate(basis: GeneratedGalaxy['basis'], x: number, y: number, z: number
   ]
 }
 
-function landmarkName(kind: LandmarkKind, rng: Rng, used: Set<string>): string {
-  for (let attempt = 0; attempt < 24; attempt++) {
-    const name = `the ${rng.pick(NAME_FIRST)} ${rng.pick(NAME_SECOND[kind])}`
-    if (!used.has(name)) {
-      used.add(name)
-      return name
-    }
+/**
+ * A name for one place, avoiding both words another place in the same host already used.
+ *
+ * Deduping the whole string was not enough. One galaxy came out holding the Lantern
+ * Bloom, the Lantern Reach and the Lantern Scar, plus an Iron Bell and a High Bell: every
+ * name distinct, and the set of them reading like a list of variations rather than a list
+ * of places. Each word is now claimed, and only released when the vocabulary runs out.
+ */
+
+/**
+ * A second sentence per place, drawn separately from the first.
+ *
+ * One sentence from a pool of three or four meant 107 landmarks across eight galaxies
+ * shared nineteen sentences between them, and one of them appeared fourteen times. Two
+ * independent draws plus a measured clause takes the same vocabulary a very long way:
+ * the same arithmetic that makes 887 worlds come out with 887 different descriptions.
+ */
+const LANDMARK_DETAIL: Record<LandmarkKind, readonly string[]> = {
+  core: [
+    'Everything within reach of it is moving fast and has been for a long time.',
+    'The stars here are packed close enough that collisions are a normal event rather than a catastrophe.',
+    'Whatever formed first in this galaxy formed here.',
+    'Nothing young survives this close in.',
+    'The light leaving it was made by stars that are already gone.',
+  ],
+  nebula: [
+    'Give it ten million years and there will be a cluster here and nothing else.',
+    'The hot stars inside are eating it from within and will finish the job.',
+    'Dust sits in lanes across the front of it, dark against the glow behind.',
+    'Its edges are ragged where the radiation has already broken through.',
+    'It is bright in a handful of narrow colours and almost nothing in between.',
+    'Most of what it is made of will end up in stars, and the rest will be blown clear.',
+  ],
+  cluster: [
+    'It has survived every pass through the disc so far, and it has made many.',
+    'Nothing in it has formed since it did.',
+    'Its orbit takes it far above the plane and back again.',
+    'The centre is crowded enough that stars there trade partners.',
+    'It is one of the oldest things in this galaxy by a wide margin.',
+  ],
+  starCloud: [
+    'It is a line of sight more than an object, and knowing that does not make it less striking.',
+    'The stars in it are not bound to each other and will have drifted apart before long.',
+    'Dust thins here and lets a great deal through at once.',
+    'From the far side it would not look like anything at all.',
+  ],
+  remnant: [
+    'The shell is still accelerating into whatever was thinnest around it.',
+    'What it scattered is already part of the next generation of stars.',
+    'It will be undetectable in a hundred thousand years, which is not long.',
+    'The gas it swept up is hotter than the gas it threw out.',
+    'Its filaments are thin enough to see straight through in places.',
+  ],
+  void: [
+    'Nothing behind it has been seen at any wavelength that matters here.',
+    'It is colder inside than anything around it, which is why it holds together.',
+    'Stars are forming in it, and none of that is visible from outside.',
+    'Its edge is sharper than a cloud has any right to be.',
+  ],
+  knot: [
+    'The head of it is denser than the rest and is sheltering what lies behind.',
+    'It will outlast the cloud it is standing in, and then it will go too.',
+    'There is something inside it that has not finished collapsing.',
+    'Its shadow stretches away from the stars that are eroding it.',
+  ],
+  front: [
+    'It is measurably further out than it was a decade ago.',
+    'Everything it meets is swept up and carried along with it.',
+    'The light here is from gas that has been hit rather than gas that is burning.',
+    'Behind it there is very little left.',
+  ],
+  pulsar: [
+    'It is the densest thing for a very long way in any direction.',
+    'Its spin is slowing, by an amount small enough to need good instruments and large enough to measure.',
+    'The energy lighting everything nearby comes out of that rotation.',
+    'A teaspoon of it would outweigh a mountain.',
+  ],
+  member: [
+    'It has been here since before the disc below had a shape.',
+    'It is running out of the fuel it has left and the colour shows it.',
+    'From a world in orbit around it, the rest of the crowd would never let the sky go dark.',
+    'It is one of the few here bright enough to name from outside.',
+  ],
+}
+
+/**
+ * A measured clause, so no two places read identically even where the prose repeats.
+ *
+ * Size and position are the two things the generator actually knows about a place, and
+ * they are different for every one of them.
+ */
+function landmarkScale(radiusKpc: number, distanceKpc: number): string {
+  const ly = (kpc: number) => kpc * 3261.56
+  const across = radiusKpc * 2
+  const size =
+    across < 0.03
+      ? `${Math.round(ly(across))} light years across`
+      : `${across.toFixed(across < 1 ? 2 : 1)} kiloparsecs across`
+  if (distanceKpc < 1e-4) return `It is ${size}, and it sits at the centre.`
+  const out =
+    distanceKpc < 0.05
+      ? `${Math.round(ly(distanceKpc)).toLocaleString('en-GB')} light years`
+      : `${distanceKpc.toFixed(distanceKpc < 10 ? 2 : 1)} kiloparsecs`
+  return `It is ${size}, ${out} out from the centre.`
+}
+
+function landmarkName(kind: LandmarkKind, rng: Rng, usedFirst: Set<string>, usedSecond: Set<string>): string {
+  const seconds = NAME_SECOND[kind]
+  let first = ''
+  let second = ''
+  for (let attempt = 0; attempt < 48; attempt++) {
+    first = rng.pick(NAME_FIRST)
+    second = rng.pick(seconds)
+    const firstFree = !usedFirst.has(first) || usedFirst.size >= NAME_FIRST.length
+    const secondFree = !usedSecond.has(second) || usedSecond.size >= seconds.length
+    if (firstFree && secondFree) break
   }
-  return `the ${rng.pick(NAME_FIRST)} ${rng.pick(NAME_SECOND[kind])} ${used.size}`
+  usedFirst.add(first)
+  usedSecond.add(second)
+  return `the ${first} ${second}`
 }
 
 const NEBULA_COLORS = ['#c8527a', '#b8486b', '#8f5fb0', '#4f7fc0', '#3f9c8f', '#c06a4a']
@@ -332,7 +465,7 @@ export function generateInterior(
   form: InteriorForm,
   shapeHint?: GalaxyShape,
 ): GeneratedGalaxy {
-  if (form === 'nebula') return generateNebula(hostId, radiusMetres, isKnownRemnant(hostId))
+  if (form === 'nebula') return generateNebula(hostId, radiusMetres, nebulaKindHint(hostId))
   // `gc:` is the Harris catalogue, which is globulars and nothing else. Without this,
   // omega Centauri came out an open cluster, and omega Centauri is the largest globular
   // in the Galaxy.
@@ -354,9 +487,31 @@ const KNOWN_REMNANTS = new Set([
   'IC443', 'NGC2736',
 ])
 
-function isKnownRemnant(hostId: string): boolean | undefined {
+/**
+ * The famous star-forming nebulae, which must never be called remnants.
+ *
+ * Protecting the remnants from being called nurseries and leaving the reverse unguarded
+ * was half a fix. Orion, the Eagle and the Omega all rolled remnant, so the Eagle Nebula
+ * was handed a neutron star and a shock front while the generator's "pillars resisting
+ * them" branch sat unused next to it.
+ *
+ * This is the error that costs the most, and it is worth being precise about why. The
+ * ILLUSTRATED badge covers an invented ARRANGEMENT. It does not cover an invented
+ * IDENTITY: what kind of object M42 is was settled a century ago, and getting it wrong
+ * is not imagination, it is a mistake.
+ */
+const KNOWN_NURSERIES = new Set([
+  'NGC1976', 'NGC1982', 'IC4703', 'NGC6611', 'NGC6618', 'NGC6523', 'NGC6514', // Orion, Eagle, Omega, Lagoon, Trifid
+  'NGC7000', 'IC1396', 'IC1805', 'IC1848', 'NGC2237', 'NGC2238', 'NGC2244', // North America, Elephant Trunk, Heart, Soul, Rosette
+  'NGC3372', 'NGC6357', 'NGC6334', 'IC2944', 'NGC281', 'NGC1333', 'IC348', // Carina, War and Peace, Cat's Paw, Running Chicken, Pacman
+  'NGC2024', 'IC434', 'B33', 'NGC7023', 'NGC1499', 'IC5070', 'NGC6820', // Flame, Horsehead, Iris, California, Pelican
+])
+
+function nebulaKindHint(hostId: string): boolean | undefined {
   const body = hostId.slice(hostId.indexOf(':') + 1).toUpperCase().replace(/\s|_/g, '')
-  return KNOWN_REMNANTS.has(body) ? true : undefined
+  if (KNOWN_REMNANTS.has(body)) return true
+  if (KNOWN_NURSERIES.has(body)) return false
+  return undefined
 }
 
 export function generateGalaxy(hostId: string, radiusMetres: number, shapeHint?: GalaxyShape): GeneratedGalaxy {
@@ -381,11 +536,12 @@ export function generateGalaxy(hostId: string, radiusMetres: number, shapeHint?:
   const armPitch = rng.range(0.18, 0.42)
 
   const basis = seededBasis(rng)
-  const used = new Set<string>()
+  const usedFirst = new Set<string>()
+  const usedSecond = new Set<string>()
   const landmarks: GeneratedLandmark[] = []
 
   const add = (kind: LandmarkKind, x: number, y: number, z: number, radiusK: number, color: string, intensity: number) => {
-    const name = landmarkName(kind, rng, used)
+    const name = landmarkName(kind, rng, usedFirst, usedSecond)
     const id = `${hostId}/${name.replace(/^the /, '').toLowerCase().replace(/\s+/g, '-')}`
     const [rx, ry, rz] = rotate(basis, x, y, z)
     landmarks.push({
@@ -398,7 +554,9 @@ export function generateGalaxy(hostId: string, radiusMetres: number, shapeHint?:
       radiusKpc: radiusK,
       color,
       intensity,
-      description: `${LANDMARK_LABEL[kind]}. ${rng.pick(LANDMARK_LINES[kind])}`,
+      description:
+        `${LANDMARK_LABEL[kind]}. ${rng.pick(LANDMARK_LINES[kind])} ${rng.pick(LANDMARK_DETAIL[kind])} ` +
+        landmarkScale(radiusK, Math.hypot(x, y, z)),
     })
   }
 
@@ -449,7 +607,11 @@ export function generateGalaxy(hostId: string, radiusMetres: number, shapeHint?:
   if (discLike && rng.chance(0.75)) {
     const r = radiusKpc * rng.range(0.2, 0.8)
     const theta = rng.range(0, Math.PI * 2)
-    add('remnant', r * Math.cos(theta), r * Math.sin(theta), rng.signed() * thicknessKpc, radiusKpc * rng.range(0.008, 0.025), '#7fd0c8', rng.range(0.4, 0.8))
+    // Capped in absolute terms, not as a fraction of the galaxy: scaled to a 14 kpc
+    // disc the old range produced a supernova remnant 441 light years in radius, about
+    // fifteen times the Crab.
+    const remnantKpc = Math.min(radiusKpc * 0.02, rng.range(0.004, 0.016))
+    add('remnant', r * Math.cos(theta), r * Math.sin(theta), rng.signed() * thicknessKpc, remnantKpc, '#7fd0c8', rng.range(0.4, 0.8))
   }
   if (discLike && rng.chance(0.6)) {
     const r = radiusKpc * rng.range(0.25, 0.85)
@@ -457,7 +619,10 @@ export function generateGalaxy(hostId: string, radiusMetres: number, shapeHint?:
     add('void', r * Math.cos(theta), r * Math.sin(theta), rng.signed() * thicknessKpc * 0.5, radiusKpc * rng.range(0.03, 0.09), '#241c20', rng.range(0.5, 0.9))
   }
 
-  const starCount = Math.round(18000 + radiusKpc * 900)
+  // Enough that standing inside one is not standing in the dark. 30,000 points spread
+  // through a 14 kpc disc puts almost nothing within a kiloparsec of wherever you are,
+  // so arriving at a place inside the galaxy showed an empty sky with a few dots in it.
+  const starCount = Math.round(50000 + radiusKpc * 2600)
 
   return {
     hostId,
@@ -489,18 +654,24 @@ function generateNebula(hostId: string, radiusMetres: number, remnantHint?: bool
   const KPC_M = 3.0856775814913673e19
   const radiusKpc = radiusMetres > 0 ? Math.max(0.0004, Math.min(0.2, radiusMetres / KPC_M)) : rng.range(0.002, 0.02)
 
-  const used = new Set<string>()
+  const usedFirst = new Set<string>()
+  const usedSecond = new Set<string>()
   const landmarks: GeneratedLandmark[] = []
   const add = (kind: LandmarkKind, x: number, y: number, z: number, r: number, color: string, intensity: number) => {
-    const name = landmarkName(kind, rng, used)
+    const name = landmarkName(kind, rng, usedFirst, usedSecond)
     landmarks.push({
       id: `${hostId}/${name.replace(/^the /, '').toLowerCase().replace(/\s+/g, '-')}`,
       name, kind, x, y, z, radiusKpc: r, color, intensity,
-      description: `${LANDMARK_LABEL[kind]}. ${rng.pick(LANDMARK_LINES[kind])}`,
+      description:
+        `${LANDMARK_LABEL[kind]}. ${rng.pick(LANDMARK_LINES[kind])} ${rng.pick(LANDMARK_DETAIL[kind])} ` +
+        landmarkScale(r, Math.hypot(x, y, z)),
     })
   }
 
-  const remnant = remnantHint ?? rng.chance(0.35)
+  // Remnants are rare in a nebula catalogue, and the ones people know are listed above.
+  // A third of everything was far too many, and every one of them was a guess about an
+  // identity rather than about an arrangement.
+  const remnant = remnantHint ?? rng.chance(0.12)
   if (remnant) {
     add('pulsar', 0, 0, 0, radiusKpc * 0.02, '#cfe4ff', 1)
     const fronts = 2 + Math.floor(rng.next() * 3)
@@ -556,7 +727,8 @@ function generateCluster(hostId: string, radiusMetres: number, globularHint?: bo
   const radiusKpc = radiusMetres > 0 ? Math.max(0.0008, Math.min(0.08, radiusMetres / KPC_M)) : rng.range(0.003, 0.02)
   const globular = globularHint ?? rng.chance(0.55)
 
-  const used = new Set<string>()
+  const usedFirst = new Set<string>()
+  const usedSecond = new Set<string>()
   const landmarks: GeneratedLandmark[] = []
   const count = 3 + Math.floor(rng.next() * 5)
   for (let i = 0; i < count; i++) {
@@ -564,7 +736,7 @@ function generateCluster(hostId: string, radiusMetres: number, globularHint?: bo
     const theta = rng.range(0, Math.PI * 2)
     const cosPhi = rng.range(-1, 1)
     const sinPhi = Math.sqrt(Math.max(0, 1 - cosPhi * cosPhi))
-    const name = landmarkName('member', rng, used)
+    const name = landmarkName('member', rng, usedFirst, usedSecond)
     landmarks.push({
       id: `${hostId}/${name.replace(/^the /, '').toLowerCase().replace(/\s+/g, '-')}`,
       name, kind: 'member',
@@ -574,7 +746,9 @@ function generateCluster(hostId: string, radiusMetres: number, globularHint?: bo
       radiusKpc: radiusKpc * rng.range(0.03, 0.07),
       color: globular ? rng.pick(['#ffd0a0', '#ffc088', '#ffe0c0']) : rng.pick(['#cfe0ff', '#dde8ff', '#b8d0ff']),
       intensity: rng.range(0.6, 1),
-      description: `${LANDMARK_LABEL.member}. ${rng.pick(LANDMARK_LINES.member)}`,
+      description:
+        `${LANDMARK_LABEL.member}. ${rng.pick(LANDMARK_LINES.member)} ${rng.pick(LANDMARK_DETAIL.member)} ` +
+        landmarkScale(radiusKpc * 0.05, r),
     })
   }
 

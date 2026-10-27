@@ -14,6 +14,7 @@ import {
 } from '../../generators/system'
 import { describeWorld } from '../../generators/description'
 import { rngFrom } from '../../generators/random'
+import { surfaceTexture } from '../../generators/surface'
 
 /**
  * Immersive mode: invented planetary systems around real stars.
@@ -103,7 +104,8 @@ export class ImmersiveModule implements AtlasModule {
   private readonly bodies = new Map<string, Body>()
   private readonly orbits: THREE.Line[] = []
   private readonly belts: THREE.Points[] = []
-  private readonly beltNodes: { node: SceneNodeHandle; mid: number }[] = []
+  /** Each belt's node, with where on the ring it sits, in metres from the star. */
+  private readonly beltNodes: { node: SceneNodeHandle; offset: Vec3d }[] = []
   private starLight: THREE.PointLight | null = null
   private hostNode: SceneNodeHandle | null = null
   private readonly local = new THREE.Vector3()
@@ -209,11 +211,16 @@ export class ImmersiveModule implements AtlasModule {
       radius: layer.toLocalLength(system.star.radiusMetres),
       color: system.star.color,
       emissive: true,
-      emissiveIntensity: 3.2,
+      // A sun seen from twenty AU is a small disc and an enormous amount of light, and
+      // the atlas was drawing only the disc. Suppressing the catalogue glyph was right
+      // and left the star reading as a five-pixel dot no brighter than a planet marker,
+      // in a system that then appeared to orbit nothing. The corona is what carries the
+      // brightness at this range, so it reaches much further and much harder.
+      emissiveIntensity: 6,
       limbDarkened: true,
-      coronaScale: 2.4,
+      coronaScale: 9,
       coronaColor: system.star.color,
-      coronaIntensity: 0.5,
+      coronaIntensity: 0.85,
       segments: 64,
     })
     layer.scene.add(starBody.group)
@@ -264,10 +271,15 @@ export class ImmersiveModule implements AtlasModule {
     const layer = this.engine.layer(LAYER)
     const isPlanet = 'moons' in world
     const rings = isPlanet && (world as GeneratedPlanet).hasRings
+    // A map of its own, so the text and the picture say the same thing. Null under a
+    // test runner, where SphereBody falls back to the flat colour.
+    const map = surfaceTexture(world.id, world.kind, world.color) ?? undefined
     const body = new SphereBody({
       id: `gen:${world.id}`,
       radius: layer.toLocalLength(world.radiusMetres),
       color: world.color,
+      textureUrl: map,
+      unimagedFill: world.color,
       // A habitable world gets a rim light, which is the one visual cue the mode gives
       // for a property it invented. The inspector says the rest.
       atmosphereColor: world.habitable ? '#9ec9ff' : undefined,
@@ -415,13 +427,25 @@ export class ImmersiveModule implements AtlasModule {
     layer.scene.add(points)
     this.belts.push(points)
 
+    // A point ON the belt, not the star it surrounds.
+    //
+    // The node used to sit at the star with a radius of half the belt's width, so flying
+    // to "Achird Belt" took you to the middle of the system, framed 1.35 AU, and showed
+    // you nothing: the rubble was out at ten to thirteen AU and the label sat on top of
+    // the inner planets. A belt has no single position, but the one useful place to
+    // stand is in it.
     const mid = (belt.innerMetres + belt.outerMetres) / 2
+    const azimuth = rng.range(0, Math.PI * 2)
+    const offset = new THREE.Vector3()
+      .addScaledVector(e1, mid * Math.cos(azimuth))
+      .addScaledVector(e2, mid * Math.sin(azimuth))
     const node: ImaginedNode = {
       id: `gen:${belt.id}`,
       worldPosition: vec3d(),
       frame: FRAME,
+      // Arriving should put the neighbouring rocks on screen, not the whole ring.
       radiusMetres: (belt.outerMetres - belt.innerMetres) / 2,
-      framingRadiusMetres: mid,
+      framingRadiusMetres: (belt.outerMetres - belt.innerMetres) * 0.45,
       layer: LAYER,
       objectClass: 'region',
       name: belt.name,
@@ -434,7 +458,9 @@ export class ImmersiveModule implements AtlasModule {
         'everyone, every time.',
     }
     this.engine.register(node)
-    this.beltNodes.push({ node, mid })
+    // `mid` is metres, so `offset` is already metres. Scaling it by the layer unit as
+    // well put the belt node 1.7e12 AU from its own star.
+    this.beltNodes.push({ node, offset: vec3d(offset.x, offset.y, offset.z) })
   }
 
   /** Propagate every orbit and write the transforms. */
@@ -497,9 +523,11 @@ export class ImmersiveModule implements AtlasModule {
     layer.toLocal(this.local, host.world, FRAME)
     for (const line of this.orbits) line.position.copy(this.local)
     for (const belt of this.belts) belt.position.copy(this.local)
-    // A belt has no single position; park its node on the star so the camera frames the
-    // whole thing rather than one arbitrary rock in it.
-    for (const entry of this.beltNodes) copy3d(entry.node.worldPosition, host.world)
+    for (const entry of this.beltNodes) {
+      entry.node.worldPosition.x = host.world.x + entry.offset.x
+      entry.node.worldPosition.y = host.world.y + entry.offset.y
+      entry.node.worldPosition.z = host.world.z + entry.offset.z
+    }
   }
 
   private teardown(): void {

@@ -43,6 +43,7 @@ const STAR_VERTEX = /* glsl */ `
   attribute vec3 starOffset;   // kiloparsecs, in the galaxy's frame
   attribute float starSeed;    // 0..1, for colour and brightness variation
 
+  uniform float uPixelWidth;
   uniform float uPixelHeight;
   uniform float uTanHalfFov;
   uniform float uFade;
@@ -68,12 +69,20 @@ const STAR_VERTEX = /* glsl */ `
     vColor = mix(vec3(1.0, 0.80, 0.55), vec3(0.72, 0.82, 1.0), youth);
 
     // Constant screen size, so the cloud reads as stars rather than as a textured blob
-    // whichever distance it is seen from.
+    // whichever distance it is seen from. Brightness is NOT constant: it falls off hard
+    // enough that the stars near wherever you are standing stand out from the rest of
+    // the galaxy behind them. A near-flat falloff made every star in the disc equally
+    // dim, so standing at a place inside the galaxy looked like standing outside it in
+    // empty space.
     float radiusPx = mix(0.9, 2.1, starSeed);
-    vIntensity = uFade * mix(0.35, 1.0, starSeed) / (1.0 + d * 0.006);
+    float near = 1.0 / (1.0 + d * d * 0.06);
+    vIntensity = uFade * mix(0.35, 1.0, starSeed) * (0.22 + 1.9 * near);
 
     vec4 clip = projectionMatrix * viewPosition;
-    clip.xy += position.xy * (2.0 * radiusPx / vec2(uPixelHeight * 1.6, uPixelHeight)) * clip.w;
+    // The viewport's OWN width. A hardcoded 1.6 here stretched every billboard
+    // vertically by 1.6/aspect, which on a square-ish canvas is about 1.45 and turns
+    // every glow in the atlas into an egg.
+    clip.xy += position.xy * (2.0 * radiusPx / vec2(uPixelWidth, uPixelHeight)) * clip.w;
     gl_Position = clip;
   }
 `
@@ -86,11 +95,15 @@ const STAR_FRAGMENT = /* glsl */ `
   void main() {
     float r2 = dot(vQuad, vQuad);
     if (r2 > 1.0) discard;
-    gl_FragColor = vec4(vColor * vIntensity * exp(-3.0 * r2), 1.0);
+    // Falls to exactly zero at the quad's rim. A bare exponential is still 5 per cent of
+    // peak where the quad is cut, and that leaves a visible circular seam on every point.
+    float fall = (exp(-3.0 * r2) - 0.0498) / 0.9502;
+    gl_FragColor = vec4(vColor * vIntensity * max(fall, 0.0), 1.0);
   }
 `
 
 const GLOW_VERTEX = /* glsl */ `
+  uniform float uPixelWidth;
   uniform float uPixelHeight;
   uniform float uTanHalfFov;
   uniform float uRadiusKpc;
@@ -112,7 +125,7 @@ const GLOW_VERTEX = /* glsl */ `
     float extentPx = (uRadiusKpc / d) / uTanHalfFov * uPixelHeight * 0.5;
     float radiusPx = max(extentPx, 3.0);
     vec4 clip = projectionMatrix * viewPosition;
-    clip.xy += position.xy * (2.0 * radiusPx / vec2(uPixelHeight * 1.6, uPixelHeight)) * clip.w;
+    clip.xy += position.xy * (2.0 * radiusPx / vec2(uPixelWidth, uPixelHeight)) * clip.w;
     gl_Position = clip;
   }
 `
@@ -126,9 +139,11 @@ const GLOW_FRAGMENT = /* glsl */ `
   void main() {
     float r2 = dot(vQuad, vQuad);
     if (r2 > 1.0) discard;
-    // Soft, wide falloff: these are clouds and crowds, not discs with edges.
-    float a = exp(-2.2 * r2) * uIntensity * vFade;
-    gl_FragColor = vec4(uColor * a, 1.0);
+    // Clouds and crowds, not discs with edges. The subtraction is what makes that true:
+    // exp(-2.2) is still eleven per cent of peak at the rim, so the old falloff gave
+    // every landmark a hard elliptical outline and turned a nebula into a pastel egg.
+    float fall = (exp(-3.4 * r2) - 0.0334) / 0.9666;
+    gl_FragColor = vec4(uColor * max(fall, 0.0) * uIntensity * vFade, 1.0);
   }
 `
 
@@ -235,6 +250,7 @@ export class ImaginedGalaxyModule implements AtlasModule {
 
     const cloudMaterial = new THREE.ShaderMaterial({
       uniforms: {
+        uPixelWidth: { value: 1920 },
         uPixelHeight: { value: 1080 },
         uTanHalfFov: { value: 0.466 },
         uFade: { value: 1 },
@@ -291,6 +307,7 @@ export class ImaginedGalaxyModule implements AtlasModule {
     const colour = new THREE.Color(landmark.color)
     const material = new THREE.ShaderMaterial({
       uniforms: {
+        uPixelWidth: { value: 1920 },
         uPixelHeight: { value: 1080 },
         uTanHalfFov: { value: 0.466 },
         uRadiusKpc: { value: landmark.radiusKpc },
@@ -366,6 +383,7 @@ export class ImaginedGalaxyModule implements AtlasModule {
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
     for (const material of this.materials) {
+      material.uniforms.uPixelWidth.value = ctx.width * dpr
       material.uniforms.uPixelHeight.value = ctx.height * dpr
       material.uniforms.uTanHalfFov.value = Math.tan((ctx.fovDegrees * Math.PI) / 360)
     }

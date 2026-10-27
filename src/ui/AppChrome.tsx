@@ -275,6 +275,21 @@ function CosmicAddress({
         // ran select(), which set a selectedId nothing resolves and made the inspector
         // silently vanish. A span says the same thing and promises nothing.
         const live = isReal(entry.id)
+        // An invented place reads exactly like a measured one here, which is the one
+        // place in the chrome where that matters: the address is what tells you where
+        // you are. The inspector says it too, but only once opened. `gen:` is the
+        // namespace every generated node carries and nothing else uses.
+        const invented = entry.id.startsWith('gen:')
+        const label = (
+          <>
+            {entry.name}
+            {invented && (
+              <span className="address-invented" title="Invented, not observed">
+                {' '}imagined
+              </span>
+            )}
+          </>
+        )
         return (
           <span key={entry.id} style={{ display: 'contents' }}>
             {index > 0 && <span className="address-sep" aria-hidden="true">›</span>}
@@ -282,14 +297,15 @@ function CosmicAddress({
               <button
                 type="button"
                 className="address-crumb"
+                data-invented={invented || undefined}
                 aria-current={index === path.length - 1}
                 onClick={() => onPick(entry.id)}
               >
-                {entry.name}
+                {label}
               </button>
             ) : (
               <span className="address-crumb" data-static="true" aria-current={index === path.length - 1}>
-                {entry.name}
+                {label}
               </span>
             )}
           </span>

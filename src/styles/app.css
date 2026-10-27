@@ -328,6 +328,16 @@ button {
   color: var(--text-1);
 }
 
+/* The address is what tells you where you are, so an invented place has to say so here
+   and not only in the inspector. Dimmer than the name it follows, because it is a
+   qualifier rather than part of the name. */
+.address-invented {
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--accent-2, #c8a46a);
+  opacity: 0.85;
+}
+
 /* A crumb that names a chain rather than a registered object: it is a label, not a
    control, so it must not read as clickable. */
 .address-crumb[data-static='true'] {
