@@ -162,6 +162,12 @@ const LANDMARK_LINES: Record<LandmarkKind, readonly string[]> = {
     'Something very heavy sits at the middle of it, and everything within a few parsecs is in a hurry.',
     'Orbits this close to the centre take a few thousand years, not a few hundred million.',
     'The light is old and red, and there is a great deal of it.',
+    'Every orbit in this galaxy is ultimately about what is here.',
+    'The stars are packed so closely that from inside, night would never properly fall.',
+    'It is the oldest part of the galaxy and the most crowded.',
+    'Gas falling in from outside never gets back out.',
+    'The motions here are measured in hundreds of kilometres a second.',
+    'Whatever is at the exact centre is small, dark, and extremely heavy.',
   ],
   nebula: [
     'New stars are condensing out of it now, and their light is eating the cloud that made them.',
@@ -192,38 +198,86 @@ const LANDMARK_LINES: Record<LandmarkKind, readonly string[]> = {
     'Not a cluster, just a stretch of the arm where the stars happen to crowd.',
     'Dust thins out here and lets the light of a hundred thousand stars through at once.',
     'From outside it looks solid. From inside it is as empty as anywhere else.',
+    'A window rather than an object: the arm behind it is doing the work.',
+    'The stars in it have nothing to do with each other beyond a line of sight.',
+    'Bright enough from far away to have been catalogued long before anyone knew what it was.',
+    'It will have sheared apart within an orbit or two of the centre.',
+    'There is no boundary to it, only a place where counting gets harder.',
+    'Older surveys mapped it as one object, and it has kept the name.',
+    'Its light is the sum of more stars than anyone has ever counted individually.',
   ],
   remnant: [
     'A star ended here, and the shell it threw off is still expanding.',
     'The filaments are thin, bright, and moving outward fast enough to measure year by year.',
     'Whatever is left at the centre is small, dense, and turning very quickly.',
     'The elements that make rocky worlds were scattered from here, and are still on their way out.',
+    'For a few weeks it outshone everything else in this galaxy put together.',
+    'The shell is thinner on one side, where it met less to push against.',
+    'Somebody somewhere saw this happen, and may have written it down.',
+    'What it scattered is the reason rocky worlds are possible at all.',
+    'It is still expanding and it will not stop for a long time.',
+    'The gas around it has been rearranged permanently.',
   ],
   void: [
     'Dust blocks this line of sight completely. Whatever is behind it is simply not available.',
     'A lane of cold dust, dark against the light of everything behind it.',
     'It is not empty. It is the opposite of empty, which is why nothing gets through.',
+    'The grains in it are the size of smoke, and there are enough of them to hide a galaxy.',
+    'At longer wavelengths it is not dark at all, and what is inside it is busy.',
+    'It is the coldest place for a long way in any direction.',
+    'Its outline is sharp enough to trace by hand from an image.',
+    'Everything behind it has been catalogued as absent.',
+    'Something is forming in there and nobody outside will know until it emerges.',
+    'It looks like a hole and it is the densest thing in the frame.',
   ],
   knot: [
     'Gas dense enough here to shadow what is behind it, and dense enough to be collapsing.',
     'A pillar, with its head turned towards the stars that are eroding it.',
     'Something is forming inside this, and in a hundred thousand years it will blow the rest away.',
     'The edge of it glows where the radiation is eating in, and the inside stays dark.',
+    'It is being sculpted from one side only, and it shows.',
+    'What is left of it is what was dense enough to resist.',
+    'The far side of it has never been lit by anything.',
+    'Give it long enough and there will be a star here and no pillar at all.',
+    'It casts a shadow longer than most solar systems are wide.',
+    'Its surface is boiling away into the cavity beside it.',
   ],
   front: [
     'The expanding edge, moving outward fast enough to measure from one year to the next.',
     'Where the ejecta meets what was already here, both of them light up.',
     'A thin bright rim, and nothing behind it but the gas it has already swept.',
+    'It is slowing, but not by much, and not yet.',
+    'The gas it has passed through is hotter than the gas it brought with it.',
+    'Seen edge on it is a bright filament; seen face on it is almost nothing.',
+    'It is ragged where it met something dense and smooth where it did not.',
+    'Everything it touches is lit for a while and then goes out again.',
+    'This edge has been travelling since before anyone was watching.',
+    'It is thin enough that the stars behind it show through unchanged.',
   ],
   pulsar: [
     'What is left of the star: a few kilometres across, and turning tens of times a second.',
     'It is powering everything around it, and it will keep doing so for a very long time.',
     'The beam sweeps past this line of sight on a schedule you could set a clock by.',
+    'It is the size of a city and heavier than the star it came from.',
+    'Its surface gravity would flatten anything that reached it, instantly and completely.',
+    'The magnetic field around it is the strongest thing in this part of the galaxy.',
+    'It has been slowing down since the day it formed, by a measurable amount.',
+    'Everything bright nearby is bright because of it.',
+    'Nothing about it is visible except what it does to its surroundings.',
+    'It will still be turning long after the shell around it has dispersed.',
   ],
   member: [
     'One of the brighter stars here, and old, like everything else in this crowd.',
     'A red giant, well past its best, and conspicuous for it.',
     'Close enough to its neighbours that their light would cast shadows.',
+    'It has been here since the crowd formed and will outlast most of it.',
+    'Bright enough to have been picked out individually from a very long way off.',
+    'It is burning helium now, which is the beginning of the end for a star.',
+    'Its colour gives away both its age and what it is made of.',
+    'One of the few here with a name rather than a number.',
+    'It has swollen well past the size it spent most of its life at.',
+    'A straggler: bluer and younger-looking than it has any right to be.',
+    'If it has worlds, their skies are never dark.',
   ],
 }
 
@@ -290,6 +344,11 @@ const LANDMARK_DETAIL: Record<LandmarkKind, readonly string[]> = {
     'Whatever formed first in this galaxy formed here.',
     'Nothing young survives this close in.',
     'The light leaving it was made by stars that are already gone.',
+    'Nothing here has been quiet for as long as the galaxy has existed.',
+    'The orbits are short enough that a star can lap the centre many times in a life.',
+    'Most of the galaxy\u2019s heavy elements passed through here on the way out.',
+    'Light from the far side of it takes a human lifetime to cross.',
+    'It is the one place in the galaxy that everything else is arranged around.',
   ],
   nebula: [
     'Give it ten million years and there will be a cluster here and nothing else.',
@@ -298,6 +357,10 @@ const LANDMARK_DETAIL: Record<LandmarkKind, readonly string[]> = {
     'Its edges are ragged where the radiation has already broken through.',
     'It is bright in a handful of narrow colours and almost nothing in between.',
     'Most of what it is made of will end up in stars, and the rest will be blown clear.',
+    'Its shape is set by the winds inside it rather than by anything it inherited.',
+    'In a photograph it is the brightest thing for a long way; in the infrared it is a different object.',
+    'What is forming in it now will outlive it by billions of years.',
+    'Nothing about it is stable on any timescale worth the word.',
   ],
   cluster: [
     'It has survived every pass through the disc so far, and it has made many.',
@@ -305,6 +368,11 @@ const LANDMARK_DETAIL: Record<LandmarkKind, readonly string[]> = {
     'Its orbit takes it far above the plane and back again.',
     'The centre is crowded enough that stars there trade partners.',
     'It is one of the oldest things in this galaxy by a wide margin.',
+    'It passes through the disc every few hundred million years and loses a little each time.',
+    'There is no dust in it at all, which is why it looks so clean.',
+    'Its brightest members are visible from outside the galaxy.',
+    'It is bound tightly enough that nothing short of the core will break it up.',
+    'Everything here was made from the same cloud at the same moment.',
   ],
   starCloud: [
     'It is a line of sight more than an object, and knowing that does not make it less striking.',
@@ -312,6 +380,11 @@ const LANDMARK_DETAIL: Record<LandmarkKind, readonly string[]> = {
     'From the far side it would not look like anything at all.',
     'It has no edge anybody could agree on.',
     'The crowding is a trick of depth: these stars are no closer to each other than any others.',
+    'Depth is doing all the work: these stars are no nearer each other than any others.',
+    'It is an accident of where the dust is not.',
+    'Resolve it and it stops being a thing at all.',
+    'Nobody has ever agreed where it ends.',
+    'It was named before anyone knew what they were looking at.',
   ],
   remnant: [
     'The shell is still accelerating into whatever was thinnest around it.',
@@ -319,36 +392,71 @@ const LANDMARK_DETAIL: Record<LandmarkKind, readonly string[]> = {
     'It will be undetectable in a hundred thousand years, which is not long.',
     'The gas it swept up is hotter than the gas it threw out.',
     'Its filaments are thin enough to see straight through in places.',
+    'The shock is still travelling outward and will be for thousands of years.',
+    'It is brightest where it ran into something and faintest where it did not.',
+    'What it scattered is already inside the next generation of stars.',
+    'Nothing at the centre is more than a few kilometres across.',
+    'It is younger than most human writing.',
   ],
   void: [
     'Nothing behind it has been seen at any wavelength that matters here.',
     'It is colder inside than anything around it, which is why it holds together.',
     'Stars are forming in it, and none of that is visible from outside.',
     'Its edge is sharper than a cloud has any right to be.',
+    'Nothing has got through it in the time anyone has been looking.',
+    'It is cold enough inside for molecules to survive that would not anywhere else.',
+    'It is denser than anything bright nearby, which is the whole point.',
+    'Its edges are where the dust runs out rather than where anything begins.',
+    'What it hides has never been counted.',
+    'It will be a cluster one day, and then it will be gone.',
   ],
   knot: [
     'The head of it is denser than the rest and is sheltering what lies behind.',
     'It will outlast the cloud it is standing in, and then it will go too.',
     'There is something inside it that has not finished collapsing.',
     'Its shadow stretches away from the stars that are eroding it.',
+    'It is denser at the head and trails away behind, like everything in this wind.',
+    'Something inside it stopped being gas a long time ago.',
+    'It is losing its outer layers faster than it is gaining anything.',
+    'The light behind it never reaches the far side.',
+    'It will be a star and a memory of a pillar.',
+    'Its shadow is measured in light years.',
   ],
   front: [
     'It is measurably further out than it was a decade ago.',
     'Everything it meets is swept up and carried along with it.',
     'The light here is from gas that has been hit rather than gas that is burning.',
     'Behind it there is very little left.',
+    'It is brighter where it is slower and fainter where it is free.',
+    'Measurable motion, year on year, with a good enough instrument.',
+    'Everything behind it has already been swept.',
+    'It is the only part of this that is still doing anything.',
+    'Thin enough to see stars straight through.',
+    'It has further to go than it has come.',
   ],
   pulsar: [
     'It is the densest thing for a very long way in any direction.',
     'Its spin is slowing, by an amount small enough to need good instruments and large enough to measure.',
     'The energy lighting everything nearby comes out of that rotation.',
     'A teaspoon of it would outweigh a mountain.',
+    'It is turning faster than anything else of its size anywhere.',
+    'What it radiates comes out of its rotation and nothing else.',
+    'Its field lines sweep past here on a schedule.',
+    'It will be doing this long after the shell has gone.',
+    'A spoonful of it would weigh more than a mountain range.',
+    'It is the densest thing anyone can point at.',
   ],
   member: [
     'It has been here since before the disc below had a shape.',
     'It is running out of the fuel it has left and the colour shows it.',
     'From a world in orbit around it, the rest of the crowd would never let the sky go dark.',
     'It is one of the few here bright enough to name from outside.',
+    'Its light left before anything was here to see it.',
+    'Bright enough to have a name of its own in a crowd of numbers.',
+    'It has outlived almost everything it formed alongside.',
+    'The colour is the giveaway: this one is nearly finished.',
+    'From a world here the night sky would never be properly dark.',
+    'It is one of the handful here that can be picked out from outside.',
   ],
 }
 
@@ -359,9 +467,10 @@ const LANDMARK_DETAIL: Record<LandmarkKind, readonly string[]> = {
  * they are different for every one of them.
  */
 function lightYears(kpc: number): string {
-  const ly = kpc * 3261.56
-  if (ly >= 9500) return `${(ly / 1000).toFixed(ly / 1000 < 100 ? 1 : 0)} thousand light years`
-  const n = Math.round(ly)
+  // One format throughout. Switching to "13.9 thousand light years" above a threshold
+  // put two formats for the same unit in a single sentence: "3,037 light years across,
+  // 13.9 thousand light years out from the centre".
+  const n = Math.round(kpc * 3261.56)
   return `${n.toLocaleString('en-GB')} light ${n === 1 ? 'year' : 'years'}`
 }
 
@@ -380,7 +489,9 @@ function lightYears(kpc: number): string {
  */
 function landmarkScale(kind: LandmarkKind, radiusKpc: number, distanceKpc: number): string {
   if (kind === 'member') {
-    if (distanceKpc < 1e-5) return 'It sits at the very centre of the crowd.'
+    // Anything inside half a light year rounds to zero, and "It lies 0 light years from
+    // the centre" is not a sentence.
+    if (distanceKpc < 1.6e-4) return 'It sits at the very centre of the crowd.'
     return `It lies ${lightYears(distanceKpc)} from the centre of the crowd.`
   }
   const size = `${lightYears(radiusKpc * 2)} across`
@@ -860,3 +971,15 @@ export function galaxyStarField(galaxy: GeneratedGalaxy): Float32Array {
   }
   return out
 }
+
+/**
+ * Both sentence pools, exposed so a test can check they are deeper than the number of
+ * places that will draw from them. Picking without replacement is powerless against a
+ * pool smaller than the draw.
+ */
+export const LANDMARK_POOLS: Record<string, readonly string[]> = Object.fromEntries(
+  Object.keys(LANDMARK_LINES).flatMap((kind) => [
+    [`${kind}:lines`, LANDMARK_LINES[kind as LandmarkKind]],
+    [`${kind}:detail`, LANDMARK_DETAIL[kind as LandmarkKind]],
+  ]),
+)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { generateInterior } from '../../src/generators/galaxy'
+import { LANDMARK_POOLS, generateInterior } from '../../src/generators/galaxy'
 
 /**
  * A place has to be worth arriving at, which starts with it not being the last place.
@@ -71,6 +71,50 @@ describe('landmark variety', () => {
   it('still calls a famous remnant a remnant', () => {
     for (const id of ['ngc:NGC1952', 'ngc:NGC6960', 'ngc:NGC6992']) {
       expect(generateInterior(id, 1.6e17, 'nebula').description, id).toMatch(/remnant/i)
+    }
+  })
+})
+
+describe('sentence pools', () => {
+  it('holds more lines than a single host will draw from them', () => {
+    // Without-replacement picking cannot help once a pool is smaller than the number of
+    // places drawn from it: omega Centauri names seven members from a three-line pool,
+    // so the pigeonhole guaranteed four repeats however the picking worked. Measured
+    // worst cases: 7 members per cluster, 4 shock fronts per remnant, up to 10 nebulae
+    // per galaxy.
+    const worst = 10
+    for (const [kind, lines] of Object.entries(LANDMARK_POOLS)) {
+      expect(lines.length, `${kind} has too few lines to avoid repeating itself`).toBeGreaterThanOrEqual(worst)
+    }
+  })
+
+  it('says something different about each member of one cluster', () => {
+    for (let i = 0; i < 40; i++) {
+      const cluster = generateInterior(`gc:probe${i}`, 5e17, 'cluster')
+      const stripped = cluster.landmarks.map((l) => l.description.replace(/[\d,]+/g, '#'))
+      expect(new Set(stripped).size, `cluster ${i} repeats once the numbers are stripped`).toBe(stripped.length)
+    }
+  })
+
+  it('never reports a distance of zero light years', () => {
+    // "It lies 0 light years from the centre of the crowd" is not a sentence.
+    for (let i = 0; i < 60; i++) {
+      for (const l of generateInterior(`gc:probe${i}`, 5e17, 'cluster').landmarks) {
+        expect(l.description, l.name).not.toMatch(/\b0 light years\b/)
+      }
+      for (const l of generateInterior(`probe:${i}`, 1.2e20, 'galaxy').landmarks) {
+        expect(l.description, l.name).not.toMatch(/\b0 light years\b/)
+      }
+    }
+  })
+
+  it('uses one number format per sentence', () => {
+    // "It is 3,037 light years across, 13.9 thousand light years out" put two formats
+    // for the same unit side by side.
+    for (let i = 0; i < 40; i++) {
+      for (const l of generateInterior(`probe:${i}`, 1.2e20, 'galaxy').landmarks) {
+        expect(l.description, l.name).not.toMatch(/thousand light years/)
+      }
     }
   })
 })
