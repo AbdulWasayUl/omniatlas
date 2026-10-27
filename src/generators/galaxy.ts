@@ -309,8 +309,9 @@ const LANDMARK_DETAIL: Record<LandmarkKind, readonly string[]> = {
   starCloud: [
     'It is a line of sight more than an object, and knowing that does not make it less striking.',
     'The stars in it are not bound to each other and will have drifted apart before long.',
-    'Dust thins here and lets a great deal through at once.',
     'From the far side it would not look like anything at all.',
+    'It has no edge anybody could agree on.',
+    'The crowding is a trick of depth: these stars are no closer to each other than any others.',
   ],
   remnant: [
     'The shell is still accelerating into whatever was thinnest around it.',
@@ -357,19 +358,54 @@ const LANDMARK_DETAIL: Record<LandmarkKind, readonly string[]> = {
  * Size and position are the two things the generator actually knows about a place, and
  * they are different for every one of them.
  */
-function landmarkScale(radiusKpc: number, distanceKpc: number): string {
-  const ly = (kpc: number) => kpc * 3261.56
-  const across = radiusKpc * 2
-  const size =
-    across < 0.03
-      ? `${Math.round(ly(across))} light years across`
-      : `${across.toFixed(across < 1 ? 2 : 1)} kiloparsecs across`
+function lightYears(kpc: number): string {
+  const ly = kpc * 3261.56
+  if (ly >= 9500) return `${(ly / 1000).toFixed(ly / 1000 < 100 ? 1 : 0)} thousand light years`
+  const n = Math.round(ly)
+  return `${n.toLocaleString('en-GB')} light ${n === 1 ? 'year' : 'years'}`
+}
+
+/**
+ * How big a place is and where it sits, in the units the rest of the atlas uses.
+ *
+ * Kiloparsecs appear nowhere else in this interface, which shows light years and
+ * thousands of them, and a rounding that could produce "1 light years" put a plural bug
+ * on a tenth of all landmarks.
+ *
+ * `member` takes no size clause at all. A named star in a cluster was measured by the
+ * same code as a nebula and came out "2 light years across" on all 154 of them: a star
+ * some thirteen thousand times the width of the largest one known, stated as a fact, 154
+ * times over. A number that sounds measured and is wrong is worse than the repetition
+ * this clause was added to cure.
+ */
+function landmarkScale(kind: LandmarkKind, radiusKpc: number, distanceKpc: number): string {
+  if (kind === 'member') {
+    if (distanceKpc < 1e-5) return 'It sits at the very centre of the crowd.'
+    return `It lies ${lightYears(distanceKpc)} from the centre of the crowd.`
+  }
+  const size = `${lightYears(radiusKpc * 2)} across`
   if (distanceKpc < 1e-4) return `It is ${size}, and it sits at the centre.`
-  const out =
-    distanceKpc < 0.05
-      ? `${Math.round(ly(distanceKpc)).toLocaleString('en-GB')} light years`
-      : `${distanceKpc.toFixed(distanceKpc < 10 ? 2 : 1)} kiloparsecs`
-  return `It is ${size}, ${out} out from the centre.`
+  return `It is ${size}, ${lightYears(distanceKpc)} out from the centre.`
+}
+
+/**
+ * Pick from a pool, preferring something this host has not used yet.
+ *
+ * Deduping only the whole description was not enough: the trailing measurement made
+ * every string unique while the sentences in front of it repeated, so one galaxy opened
+ * all three of its star clouds with the same line and a reader stopped reading by the
+ * fourth entry.
+ */
+function pickFresh(pool: readonly string[], rng: Rng, used: Set<string>): string {
+  for (let attempt = 0; attempt < 32; attempt++) {
+    const line = rng.pick(pool)
+    if (!used.has(line)) {
+      used.add(line)
+      return line
+    }
+    if (used.size >= pool.length) break
+  }
+  return rng.pick(pool)
 }
 
 function landmarkName(kind: LandmarkKind, rng: Rng, usedFirst: Set<string>, usedSecond: Set<string>): string {
@@ -483,7 +519,6 @@ export function generateInterior(
 const KNOWN_REMNANTS = new Set([
   'NGC1952', // Crab
   'NGC6960', 'NGC6992', 'NGC6995', // Veil
-  'NGC6888', // Crescent
   'IC443', 'NGC2736',
 ])
 
@@ -505,6 +540,9 @@ const KNOWN_NURSERIES = new Set([
   'NGC7000', 'IC1396', 'IC1805', 'IC1848', 'NGC2237', 'NGC2238', 'NGC2244', // North America, Elephant Trunk, Heart, Soul, Rosette
   'NGC3372', 'NGC6357', 'NGC6334', 'IC2944', 'NGC281', 'NGC1333', 'IC348', // Carina, War and Peace, Cat's Paw, Running Chicken, Pacman
   'NGC2024', 'IC434', 'B33', 'NGC7023', 'NGC1499', 'IC5070', 'NGC6820', // Flame, Horsehead, Iris, California, Pelican
+  // A Wolf-Rayet wind bubble rather than a nursery or a remnant, but of the three
+  // choices available here an emission nebula is the one that is not wrong.
+  'NGC6888', // Crescent
 ])
 
 function nebulaKindHint(hostId: string): boolean | undefined {
@@ -538,6 +576,7 @@ export function generateGalaxy(hostId: string, radiusMetres: number, shapeHint?:
   const basis = seededBasis(rng)
   const usedFirst = new Set<string>()
   const usedSecond = new Set<string>()
+  const usedLines = new Set<string>()
   const landmarks: GeneratedLandmark[] = []
 
   const add = (kind: LandmarkKind, x: number, y: number, z: number, radiusK: number, color: string, intensity: number) => {
@@ -555,8 +594,9 @@ export function generateGalaxy(hostId: string, radiusMetres: number, shapeHint?:
       color,
       intensity,
       description:
-        `${LANDMARK_LABEL[kind]}. ${rng.pick(LANDMARK_LINES[kind])} ${rng.pick(LANDMARK_DETAIL[kind])} ` +
-        landmarkScale(radiusK, Math.hypot(x, y, z)),
+        `${LANDMARK_LABEL[kind]}. ${pickFresh(LANDMARK_LINES[kind], rng, usedLines)} ` +
+        `${pickFresh(LANDMARK_DETAIL[kind], rng, usedLines)} ` +
+        landmarkScale(kind, radiusK, Math.hypot(x, y, z)),
     })
   }
 
@@ -656,6 +696,7 @@ function generateNebula(hostId: string, radiusMetres: number, remnantHint?: bool
 
   const usedFirst = new Set<string>()
   const usedSecond = new Set<string>()
+  const usedLines = new Set<string>()
   const landmarks: GeneratedLandmark[] = []
   const add = (kind: LandmarkKind, x: number, y: number, z: number, r: number, color: string, intensity: number) => {
     const name = landmarkName(kind, rng, usedFirst, usedSecond)
@@ -663,8 +704,9 @@ function generateNebula(hostId: string, radiusMetres: number, remnantHint?: bool
       id: `${hostId}/${name.replace(/^the /, '').toLowerCase().replace(/\s+/g, '-')}`,
       name, kind, x, y, z, radiusKpc: r, color, intensity,
       description:
-        `${LANDMARK_LABEL[kind]}. ${rng.pick(LANDMARK_LINES[kind])} ${rng.pick(LANDMARK_DETAIL[kind])} ` +
-        landmarkScale(r, Math.hypot(x, y, z)),
+        `${LANDMARK_LABEL[kind]}. ${pickFresh(LANDMARK_LINES[kind], rng, usedLines)} ` +
+        `${pickFresh(LANDMARK_DETAIL[kind], rng, usedLines)} ` +
+        landmarkScale(kind, r, Math.hypot(x, y, z)),
     })
   }
 
@@ -729,6 +771,7 @@ function generateCluster(hostId: string, radiusMetres: number, globularHint?: bo
 
   const usedFirst = new Set<string>()
   const usedSecond = new Set<string>()
+  const usedLines = new Set<string>()
   const landmarks: GeneratedLandmark[] = []
   const count = 3 + Math.floor(rng.next() * 5)
   for (let i = 0; i < count; i++) {
@@ -747,8 +790,9 @@ function generateCluster(hostId: string, radiusMetres: number, globularHint?: bo
       color: globular ? rng.pick(['#ffd0a0', '#ffc088', '#ffe0c0']) : rng.pick(['#cfe0ff', '#dde8ff', '#b8d0ff']),
       intensity: rng.range(0.6, 1),
       description:
-        `${LANDMARK_LABEL.member}. ${rng.pick(LANDMARK_LINES.member)} ${rng.pick(LANDMARK_DETAIL.member)} ` +
-        landmarkScale(radiusKpc * 0.05, r),
+        `${LANDMARK_LABEL.member}. ${pickFresh(LANDMARK_LINES.member, rng, usedLines)} ` +
+        `${pickFresh(LANDMARK_DETAIL.member, rng, usedLines)} ` +
+        landmarkScale('member', radiusKpc * 0.05, r),
     })
   }
 

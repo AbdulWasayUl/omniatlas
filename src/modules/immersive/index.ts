@@ -84,6 +84,63 @@ interface ImaginedNode extends SceneNodeHandle {
   caveat: string
 }
 
+
+/**
+ * The star's glare, sized in SCREEN space rather than by its own radius.
+ *
+ * The corona on `SphereBody` scales with the body, which is correct and useless here: a
+ * Sun-sized star framed with its whole planetary system is a fraction of a pixel across,
+ * so every knob on the corona was turning something sub-pixel. Measured before and after
+ * raising them: 573 lit pixels against 578, which is nothing.
+ *
+ * A star seen from anywhere inside its system is a small disc and an overwhelming amount
+ * of light, and it is the light that has to be drawn. This quad keeps a floor in pixels,
+ * so the star stays the brightest thing in its own sky at every framing from a planet's
+ * surface out to the far belt -- which it was not, having been out-shone by random
+ * background stars in its own frame.
+ */
+const GLARE_VERTEX = /* glsl */ `
+  uniform float uPixelWidth;
+  uniform float uPixelHeight;
+  uniform float uTanHalfFov;
+  uniform float uRadius;      // the star's radius, in layer units
+  uniform float uMinPx;
+
+  varying vec2 vQuad;
+
+  void main() {
+    vQuad = position.xy;
+    vec4 viewPosition = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+    if (viewPosition.z > -1e-6) {
+      gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+      return;
+    }
+    float d = max(length(viewPosition.xyz), 1e-9);
+    float extentPx = (uRadius / d) / uTanHalfFov * uPixelHeight * 0.5;
+    // Several times the disc once it is resolved, a fixed floor before that.
+    float radiusPx = max(extentPx * 6.0, uMinPx);
+    vec4 clip = projectionMatrix * viewPosition;
+    clip.xy += position.xy * (2.0 * radiusPx / vec2(uPixelWidth, uPixelHeight)) * clip.w;
+    clip.z = 0.0;
+    gl_Position = clip;
+  }
+`
+
+const GLARE_FRAGMENT = /* glsl */ `
+  uniform vec3 uColor;
+  uniform float uIntensity;
+  varying vec2 vQuad;
+
+  void main() {
+    float r2 = dot(vQuad, vQuad);
+    if (r2 > 1.0) discard;
+    // Bright core, long soft skirt, exactly zero at the rim.
+    float core = exp(-7.0 * r2);
+    float skirt = (exp(-2.0 * r2) - 0.1353) / 0.8647;
+    gl_FragColor = vec4(uColor * uIntensity * (core + 0.5 * max(skirt, 0.0)), 1.0);
+  }
+`
+
 interface Body {
   id: string
   node: SceneNodeHandle
@@ -106,12 +163,22 @@ export class ImmersiveModule implements AtlasModule {
   private readonly belts: THREE.Points[] = []
   /** Each belt's node, with where on the ring it sits, in metres from the star. */
   private readonly beltNodes: { node: SceneNodeHandle; offset: Vec3d }[] = []
+  /** Description lines this system has already spent, so it does not repeat itself. */
+  private usedLines = new Set<string>()
   private starLight: THREE.PointLight | null = null
+  private glare: THREE.Mesh | null = null
+  private glareMaterial: THREE.ShaderMaterial | null = null
+  private readonly quad = new THREE.BufferGeometry()
   private hostNode: SceneNodeHandle | null = null
   private readonly local = new THREE.Vector3()
 
   init(engine: Engine): void {
     this.engine = engine
+    this.quad.setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0], 3),
+    )
+    this.quad.setIndex([0, 1, 2, 0, 2, 3])
   }
 
   /**
@@ -194,6 +261,7 @@ export class ImmersiveModule implements AtlasModule {
     // that did not exist.
     this.builtFor = starId
     this.hostNode = host
+    this.usedLines = new Set<string>()
     const system = nameSystem(generateSystem({ id: starId, radiusMetres: host.radiusMetres, temperatureK: host.temperatureK }), host.name)
     this.system = system
     const layer = this.engine.layer(LAYER)
@@ -224,6 +292,32 @@ export class ImmersiveModule implements AtlasModule {
       segments: 64,
     })
     layer.scene.add(starBody.group)
+
+    const starColour = new THREE.Color(system.star.color)
+    const glareMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        uPixelWidth: { value: 1920 },
+        uPixelHeight: { value: 1080 },
+        uTanHalfFov: { value: 0.466 },
+        uRadius: { value: layer.toLocalLength(system.star.radiusMetres) },
+        uMinPx: { value: 11 },
+        uColor: { value: new THREE.Vector3(starColour.r, starColour.g, starColour.b) },
+        uIntensity: { value: 1.5 },
+      },
+      vertexShader: GLARE_VERTEX,
+      fragmentShader: GLARE_FRAGMENT,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      depthTest: false,
+    })
+    this.glareMaterial = glareMaterial
+    const glare = new THREE.Mesh(this.quad, glareMaterial)
+    glare.frustumCulled = false
+    glare.renderOrder = -3
+    glare.name = `gen:glare:${starId}`
+    layer.scene.add(glare)
+    this.glare = glare
     // The real star is now drawn by this module, so the proxy module must not also build
     // a stand-in for it. Removed again in `teardown`.
     host.object3D = starBody.group
@@ -291,6 +385,15 @@ export class ImmersiveModule implements AtlasModule {
       polarRatio: rings ? 0.93 : undefined,
       segments: world.radiusMetres > 2e7 ? 64 : 32,
     })
+    // Ask for the map. `SphereBody` holds every texture behind a deferred load and only
+    // swaps out the 1x1 placeholder when this is called, which is right for the solar
+    // module -- 9.9 MB of imagery before the first frame, most of it for bodies under a
+    // pixel -- and wrong here. These maps were generated a moment ago into a data URL
+    // that is already in memory, so there is nothing to defer and nothing to wait for.
+    //
+    // Without this line the whole surface generator was dead code: every invented world
+    // kept its one-pixel placeholder and rendered as the flat colour underneath it.
+    body.requestTextures()
     layer.scene.add(body.group)
 
     const node: ImaginedNode = {
@@ -325,7 +428,7 @@ export class ImmersiveModule implements AtlasModule {
         habitable: world.habitable,
         isMoon: !isPlanet,
         primaryName,
-      })}`,
+      }, this.usedLines)}`,
       provenanceNote:
         `Invented, not observed. ${this.hostNode?.name ?? 'This star'}'s measured radius and ` +
         'temperature set the scale, and everything else — how many worlds there are, how big ' +
@@ -510,6 +613,15 @@ export class ImmersiveModule implements AtlasModule {
       entry.body.group.position.copy(this.local)
     }
 
+    if (this.glare && this.glareMaterial) {
+      layer.toLocal(this.local, host.world, FRAME)
+      this.glare.position.copy(this.local)
+      const dpr = Math.min(window.devicePixelRatio || 1, 2)
+      this.glareMaterial.uniforms.uPixelWidth.value = ctx.width * dpr
+      this.glareMaterial.uniforms.uPixelHeight.value = ctx.height * dpr
+      this.glareMaterial.uniforms.uTanHalfFov.value = Math.tan((ctx.fovDegrees * Math.PI) / 360)
+    }
+
     if (this.starLight) {
       layer.toLocal(this.local, host.world, FRAME)
       this.starLight.position.copy(this.local)
@@ -562,6 +674,12 @@ export class ImmersiveModule implements AtlasModule {
       this.starLight.removeFromParent()
       this.starLight = null
     }
+    if (this.glare) {
+      this.glare.removeFromParent()
+      this.glare = null
+    }
+    this.glareMaterial?.dispose()
+    this.glareMaterial = null
     // Nothing else draws here, so the origin only needs clearing so that a later build
     // starts from a known place rather than from the last star visited.
     if (restoreOrigin) layer.setOrigin(vec3d(), layer.config.frame, null)

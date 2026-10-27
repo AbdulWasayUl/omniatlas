@@ -314,8 +314,10 @@ function moonSentence(input: WorldDescriptionInput, rng: Rng): string | null {
   if (input.moonCount > 1) {
     return rng.pick([
       `${input.moonCount} moons go round it, and they are never all full at once.`,
-      `It holds ${input.moonCount} moons, the innermost of them close enough to show a disc.`,
+      `It holds ${input.moonCount} moons, the innermost close enough to show a disc.`,
       `There are ${input.moonCount} moons in its sky.`,
+      `${input.moonCount} moons, and no two of them alike.`,
+      `A family of ${input.moonCount} moons keeps it company.`,
     ])
   }
   return null
@@ -332,7 +334,9 @@ function orbitSentence(input: WorldDescriptionInput, rng: Rng): { year: string; 
     year =
       input.periodDays < 2
         ? `It goes round ${around} in ${(input.periodDays * 24).toFixed(0)} hours.`
-        : `It goes round ${around} once every ${input.periodDays.toFixed(input.periodDays < 30 ? 1 : 0)} days.`
+        : input.periodDays < 400
+          ? `It goes round ${around} once every ${input.periodDays.toFixed(input.periodDays < 30 ? 1 : 0)} days.`
+          : `It goes round ${around} once every ${(input.periodDays / 365.25).toFixed(1)} years.`
   } else if (input.periodDays < 30) {
     year = `A year here lasts ${input.periodDays.toFixed(1)} days.`
   } else if (years < 2) {
@@ -359,18 +363,43 @@ function orbitSentence(input: WorldDescriptionInput, rng: Rng): { year: string; 
 }
 
 /**
- * Two to five sentences about one world, the same every time for the same world.
+ * Pick from a pool, preferring a line this system has not used yet.
+ *
+ * A planet with ten moons exhausts any per-kind pool, and when it does the repetition
+ * lands exactly where it is most visible: three of one planet's moons opened with the
+ * same sentence, and the inspector shows the opening first. The set is per SYSTEM, which
+ * is the list a reader actually works through.
  */
-export function describeWorld(input: WorldDescriptionInput): string {
+function pickFresh(pool: readonly string[], rng: Rng, used?: Set<string>): string {
+  if (!used) return rng.pick(pool)
+  for (let attempt = 0; attempt < 32; attempt++) {
+    const line = rng.pick(pool)
+    if (!used.has(line)) {
+      used.add(line)
+      return line
+    }
+    if (used.size >= pool.length) break
+  }
+  return rng.pick(pool)
+}
+
+/**
+ * Two to five sentences about one world, the same every time for the same world.
+ *
+ * `used` is optional and carries the lines this system has already spent, so that a
+ * system read top to bottom does not repeat itself. Passing nothing still gives a stable
+ * description for that world on its own.
+ */
+export function describeWorld(input: WorldDescriptionInput, used?: Set<string>): string {
   const rng = rngFrom(hashSeed(`describe:${input.id}`))
-  const parts: string[] = [rng.pick(GROUND[input.kind]), skySentence(input, rng)]
+  const parts: string[] = [pickFresh(GROUND[input.kind], rng, used), skySentence(input, rng)]
 
   const { year, moons, others } = orbitSentence(input, rng)
   parts.push(year)
   if (moons) parts.push(moons)
   // One more fact at most: a paragraph of statistics is not a description either.
   if (others.length && rng.chance(0.8)) parts.push(rng.pick(others))
-  if (rng.chance(0.75)) parts.push(rng.pick(OTHER[input.kind]))
+  if (rng.chance(0.75)) parts.push(pickFresh(OTHER[input.kind], rng, used))
   if (input.habitable) {
     parts.push(rng.pick([
       'Liquid water could stand on its surface, which is rarer than it sounds.',

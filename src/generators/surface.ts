@@ -127,7 +127,10 @@ export function surfaceTexture(id: string, kind: WorldKind, baseColor: string): 
   const bandPhase = rng.range(0, Math.PI * 2)
   // How far the colour is allowed to wander from the world's own colour. Small, because
   // the colour is what says which KIND of world this is.
-  const swing = style === 'banded' ? 0.4 : style === 'continents' ? 0.55 : 0.32
+  // Bands need far more contrast than the other two styles to read at all. At 0.4 a gas
+  // giant was about ninety per cent flat brown with the banding only just visible, which
+  // is not what "bands of cloud run east and west at different speeds" promises.
+  const swing = style === 'banded' ? 0.78 : style === 'continents' ? 0.55 : 0.32
   const seaLevel = rng.range(0.44, 0.58)
   const iceLatitude = rng.range(0.72, 0.93)
   const sea = kind === 'ocean' ? shade(base, 0.85) : shade(base, 0.6)
