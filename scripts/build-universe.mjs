@@ -35,7 +35,8 @@ const CDS_ACKNOWLEDGEMENT =
   'This research has made use of the VizieR catalogue access tool, CDS, Strasbourg, ' +
   'France (DOI: 10.26093/cds/vizier). The original description of the VizieR service ' +
   'was published in A&AS 143, 23 (2000).'
-const CDS_LICENCE = 'CC BY 4.0 (CDS VizieR service) — underlying catalogue (c) the cited authors / AAS'
+const CDS_LICENCE =
+  'Free for scientific use, citing the authors and journal below (CDS VizieR rules of usage); no blanket licence applies — underlying catalogue (c) the cited authors / AAS'
 
 // ---------------------------------------------------------------------------
 // download + cache
@@ -998,9 +999,13 @@ The UI MUST display the attribution strings below wherever these layers are rend
 
 > ${CDS_ACKNOWLEDGEMENT}
 
-The CDS VizieR service makes its data available under the Creative Commons Attribution 4.0
-International licence (CC BY 4.0). Copyright in the underlying catalogue content remains with the
-original authors and the publishing journals; each is cited individually below.
+VizieR does not place the catalogues it distributes under one blanket licence. Data retrieved
+through it are free to use in a scientific context, on the condition that the original authors and
+the publishing journal are cited; VizieR is explicit that omitting a pertinent author or reference
+is unacceptable, and that this applies to press releases, websites and podcasts as much as to
+papers. Whether a copyright applies to a given catalogue depends on that catalogue's origin and is
+recorded, where one exists, in its VizieR ReadMe. Commercial use is governed by those same
+origin-specific terms rather than by VizieR. Each catalogue used here is cited individually below.
 
 ## ungc.json — Updated Nearby Galaxy Catalog
 

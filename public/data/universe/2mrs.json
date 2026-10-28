@@ -355,7 +355,7 @@
   "vizierTable": "J/ApJS/199/26/table3",
   "sourceVersion": "Huchra, Macri, Masters et al. 2012, ApJS 199, 26 (2012ApJS..199...26H)",
   "retrieved": "2026-10-14",
-  "licence": "CC BY 4.0 (CDS VizieR service) — underlying catalogue (c) the cited authors / AAS",
+  "licence": "Free for scientific use, citing the authors and journal below (CDS VizieR rules of usage); no blanket licence applies — underlying catalogue (c) the cited authors / AAS",
   "attribution": "2MASS Redshift Survey — Huchra, Macri, Masters et al. (2012), ApJS 199, 26. Retrieved from VizieR (CDS, Strasbourg).",
   "sha256": "7cd2f8d573715e35c766fbe2342934365c6883cf601e369d8fa112a4cbd0da36"
 }
