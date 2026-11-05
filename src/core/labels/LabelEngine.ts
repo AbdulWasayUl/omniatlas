@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import type { Engine, SceneNodeHandle } from '../Engine'
+import type { Layer } from '../Layer'
 import { classStyle } from '../../data/objectClasses'
 
 /**
@@ -29,6 +30,23 @@ export interface LabelItem {
   node: SceneNodeHandle
   /** Higher survives collision. */
   priority: number
+}
+
+interface Candidate {
+  item: LabelItem
+  x: number
+  y: number
+  apparentPixels: number
+  score: number
+  selected: boolean
+  /** Set in pass 2a, so the hit pass can tell which candidates already have one. */
+  marked: boolean
+}
+
+/** Per-layer values that are constant across a frame's nodes. */
+interface LayerConstants {
+  pixelsPerUnitAtUnitDistance: number
+  metresPerUnit: number
 }
 
 interface Placed {
@@ -148,10 +166,21 @@ export class LabelEngine {
   readonly canvas: HTMLCanvasElement
   private readonly ctx: CanvasRenderingContext2D
   private readonly items: LabelItem[] = []
+  /**
+   * The part of each item's score that depends only on its name, parallel to `items`.
+   *
+   * A regex over the name and a Set lookup, which used to run once per on-screen
+   * candidate per frame. Neither answer can change while the registry does not, and
+   * with the deep sky registered the loop that read them runs five thousand times a
+   * frame, so they are settled once in `setItems` instead.
+   */
+  private readonly namePenalty: number[] = []
   private readonly index = new Map<string, number>()
   /** Ids whose name is another registered name plus a component letter. */
   private readonly companions = new Set<string>()
   private readonly placed: Placed[] = []
+  /** Reused per frame; see the hoist in `render`. */
+  private readonly layerConstants = new Map<Layer, LayerConstants>()
   private readonly projected = new THREE.Vector3()
   private dpr = 1
   private width = 1
@@ -195,6 +224,7 @@ export class LabelEngine {
    */
   setItems(items: LabelItem[]): void {
     this.items.length = 0
+    this.namePenalty.length = 0
     this.index.clear()
     this.companions.clear()
     const names = new Set<string>()
@@ -213,6 +243,13 @@ export class LabelEngine {
       if (cut <= 0 || name.length - cut > 3) continue
       if (!/^[A-Za-z]{1,2}$/.test(name.slice(cut + 1))) continue
       if (names.has(name.slice(0, cut))) this.companions.add(item.node.id)
+    }
+
+    for (const item of this.items) {
+      this.namePenalty.push(
+        (isDesignation(item.node.name) ? DESIGNATION_PENALTY : 0) +
+          (this.companions.has(item.node.id) ? COMPANION_PENALTY : 0),
+      )
     }
   }
 
@@ -240,18 +277,17 @@ export class LabelEngine {
     const logSpan = Math.log10(Math.max(viewSpanMetres, 1))
 
     // Pass 1: project everything on screen and score it for relevance to this view.
-    const candidates: {
-      item: LabelItem
-      x: number
-      y: number
-      apparentPixels: number
-      score: number
-      selected: boolean
-    }[] = []
+    const candidates: Candidate[] = []
+    // Per-layer constants, computed on first use rather than per node; see below.
+    const layerConstants = this.layerConstants
+    layerConstants.clear()
+    /** The best score among the non-selected candidates, for the relative floor. */
+    let best = -Infinity
 
-    for (const item of this.items) {
-      const layer = engine.layers.get(item.node.layer)
-      if (!layer || !layer.active) continue
+    for (let index = 0; index < this.items.length; index++) {
+      const item = this.items[index]
+      const layer = activeLayerFor(engine, item.node)
+      if (!layer) continue
 
       layer.toLocal(this.projected, item.node.worldPosition, item.node.frame)
       const camera = layer.camera
@@ -267,13 +303,28 @@ export class LabelEngine {
       if (x < -80 || x > this.width + 80 || y < -40 || y > this.height + 40) continue
 
       // Apparent radius in pixels, from the TRUE radius — never a display radius.
-      const radiusUnits = layer.toLocalLength(item.node.radiusMetres)
-      const pixelsPerUnit = halfHeight / Math.tan((camera.fov * Math.PI) / 360) / distance
+      //
+      // The two per-layer constants are hoisted out of the loop: with the whole deep-sky
+      // catalogue in the registry this runs fifteen thousand times a frame, and a
+      // Math.tan per node is fifteen thousand transcendental calls to get eight answers.
+      let perLayer = layerConstants.get(layer)
+      if (perLayer === undefined) {
+        perLayer = {
+          pixelsPerUnitAtUnitDistance: halfHeight / Math.tan((camera.fov * Math.PI) / 360),
+          metresPerUnit: layer.config.unitMetres,
+        }
+        layerConstants.set(layer, perLayer)
+      }
+      // The size on SCREEN, which is what ink and clicks are rationed by; see
+      // `SceneNodeHandle.drawnRadiusMetres`.
+      const drawnRadius = item.node.drawnRadiusMetres ?? item.node.radiusMetres
+      const radiusUnits = drawnRadius / perLayer.metresPerUnit
+      const pixelsPerUnit = perLayer.pixelsPerUnitAtUnitDistance / distance
       const apparentPixels = radiusUnits * pixelsPerUnit
 
       const selected = item.node.id === this.selectedId || item.node.id === this.anchorId
 
-      const distanceMetres = distance * layer.config.unitMetres
+      const distanceMetres = distance * perLayer.metresPerUnit
       const mismatch =
         Math.round(Math.abs(Math.log10(Math.max(distanceMetres, 1)) - logSpan) / MISMATCH_QUANTUM) * MISMATCH_QUANTUM
       // Objects big enough to see get credit for it; a planet filling the screen
@@ -281,35 +332,17 @@ export class LabelEngine {
       const sizeBonus = Math.min(apparentPixels, 40)
       const score = selected
         ? Number.POSITIVE_INFINITY
-        : item.priority +
-          sizeBonus -
-          DISTANCE_MISMATCH_PENALTY * mismatch -
-          (isDesignation(item.node.name) ? DESIGNATION_PENALTY : 0) -
-          (this.companions.has(item.node.id) ? COMPANION_PENALTY : 0)
+        : item.priority + sizeBonus - DISTANCE_MISMATCH_PENALTY * mismatch - this.namePenalty[index]
 
-      candidates.push({ item, x, y, apparentPixels, score, selected })
+      if (score > best && Number.isFinite(score)) best = score
+      candidates.push({ item, x, y, apparentPixels, score, selected, marked: false })
     }
 
-    // Ties are now common by design (see MISMATCH_QUANTUM), so they have to be broken
-    // deliberately rather than by whichever float happened to compare larger. True
-    // physical size is the right discriminator where the catalogue's radii are
-    // comparable — a planet before its own moon, Sirius A 1.03e9 m before Sirius B
-    // 3.5e7 m — but it is NOT what settles a binary in general: AT-HYG has Porrima B
-    // larger than Porrima, so the pairs are ordered by COMPANION_PENALTY in the score
-    // above and this only has to be stable. The id makes it so, frame to frame, which
-    // the greedy declutterer depends on.
-    candidates.sort(
-      (a, b) =>
-        b.score - a.score ||
-        b.item.node.radiusMetres - a.item.node.radiusMetres ||
-        (a.item.node.id < b.item.node.id ? -1 : 1),
-    )
     // The floor is measured from the best NON-selected score. Selected and anchored
     // objects score Infinity so they are never dropped, but letting that set the
     // reference would push the floor to -Infinity and mark everything on screen the
     // moment the user clicks something.
-    const best = candidates.find((c) => Number.isFinite(c.score))?.score ?? 0
-    const floor = Math.max(best - SCORE_FLOOR_BELOW_BEST, ABSOLUTE_SCORE_FLOOR)
+    const floor = Math.max((Number.isFinite(best) ? best : 0) - SCORE_FLOOR_BELOW_BEST, ABSOLUTE_SCORE_FLOOR)
 
     // Two sets, and the difference between them is the point.
     //
@@ -327,8 +360,28 @@ export class LabelEngine {
     // linear scan over this array, run once per pointer-up, and a few hundred entries
     // costs nothing. The score floor still applies, so this does not make the empty sky
     // clickable — only the things the view already considers worth showing.
+    //
+    // Filtered BEFORE the sort, which is only an ordering of a set the floor does not
+    // depend on, and which the sort therefore does not have to see. With the deep sky
+    // registered that is eight thousand on-screen candidates reduced to the eight
+    // hundred the view is about, and a comparison sort over a tenth as many elements.
     const worthShowing = candidates.filter((c) => c.selected || c.score >= floor)
+    // Ties are now common by design (see MISMATCH_QUANTUM), so they have to be broken
+    // deliberately rather than by whichever float happened to compare larger. True
+    // physical size is the right discriminator where the catalogue's radii are
+    // comparable — a planet before its own moon, Sirius A 1.03e9 m before Sirius B
+    // 3.5e7 m — but it is NOT what settles a binary in general: AT-HYG has Porrima B
+    // larger than Porrima, so the pairs are ordered by COMPANION_PENALTY in the score
+    // above and this only has to be stable. The id makes it so, frame to frame, which
+    // the greedy declutterer depends on.
+    worthShowing.sort(
+      (a, b) =>
+        b.score - a.score ||
+        b.item.node.radiusMetres - a.item.node.radiusMetres ||
+        (a.item.node.id < b.item.node.id ? -1 : 1),
+    )
     const marked = worthShowing.slice(0, MAX_MARKED)
+    for (const candidate of marked) candidate.marked = true
 
     // Pass 2a: markers, LOWEST score first.
     //
@@ -350,12 +403,24 @@ export class LabelEngine {
       }
     }
 
-    // Hit targets for everything worth showing, including what the ink budget dropped.
+    // Hit targets for EVERYTHING on screen, not only for what cleared the score floor.
+    //
+    // The floor used to apply here, and the reasoning was that it stops the empty sky
+    // being clickable. It does not: what stops that is the four-pixel radius below. What
+    // the floor actually did was ration clicking by the same budget that rations ink,
+    // one view at a time — and once the whole NGC/IC catalogue was in the registry that
+    // meant thousands of galaxies drawn as visible ellipses with 15 of them reachable,
+    // because the Milky Way was in frame and set a floor 16 points above what a
+    // catalogue designation can score. Fly away from the Milky Way and they came back.
+    // A thing is clickable, you turn the camera, it is not.
+    //
     // A smaller radius for the unmarked ones: an object with no ring on screen should
     // not win a click from a neighbour that has one, so it gets the apparent size it
-    // actually occupies rather than the marker's generous floor.
-    for (let i = MAX_MARKED; i < worthShowing.length; i++) {
-      const { item, x, y, apparentPixels } = worthShowing[i]
+    // actually occupies rather than the marker's generous floor. `AtlasViewer.pick`
+    // takes the NEAREST hit within its own radius, so a dense field costs precision
+    // nothing — it is a linear scan of a few thousand comparisons per pointer event.
+    for (const { item, x, y, apparentPixels, marked: hasMarker } of candidates) {
+      if (hasMarker) continue
       // `touch: false` — see `AtlasViewer.pick`. These have no ring on screen, so they
       // do not get the generous finger-sized grab radius a drawn marker does.
       hits.push({ id: item.node.id, x, y, r: Math.max(apparentPixels, 4), touch: false })
@@ -515,6 +580,22 @@ export class LabelEngine {
 /** Marker opacity: full when the body is sub-pixel, gone once it carries itself. */
 function markerAlphaFor(apparentPixels: number, selected: boolean): number {
   return selected ? 1 : 1 - smoothstep(MARKER_FULL_BELOW, MARKER_GONE_ABOVE, apparentPixels)
+}
+
+/**
+ * The layer to project a node in: its own, or the nearest active copy of it.
+ *
+ * See `SceneNodeHandle.alsoDrawnIn`. Nodes that name one layer — almost all of them —
+ * take the first branch and pay one map lookup, exactly as before.
+ */
+function activeLayerFor(engine: Engine, node: SceneNodeHandle): Layer | null {
+  const own = engine.layers.get(node.layer)
+  if (own?.active) return own
+  for (const id of node.alsoDrawnIn ?? []) {
+    const alt = engine.layers.get(id)
+    if (alt?.active) return alt
+  }
+  return null
 }
 
 function smoothstep(edge0: number, edge1: number, x: number): number {

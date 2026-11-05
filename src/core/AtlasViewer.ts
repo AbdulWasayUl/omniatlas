@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { Engine, type AtlasModule, type SceneNodeHandle } from './Engine'
 import { AtlasControls } from './camera/AtlasControls'
 import { LabelEngine } from './labels/LabelEngine'
+import { designationKey, idDesignationKey } from './names'
 import { PostStack } from './render/PostStack'
 import { classStyle } from '../data/objectClasses'
 import { AU_M, KPC_M, MPC_M, PC_M, type Vec3d, convertFrame, copy3d, distance3d, vec3d } from './world'
@@ -26,35 +27,6 @@ import type { LayerId } from './Layer'
  * the same number in all of them and no conversion is needed to ask this.
  */
 const MILKY_WAY_REACH_M = 1.54e21
-
-/**
- * A catalogue designation carried by a node id, normalised so two spellings of one
- * designation compare equal; null when the id carries none.
- *
- * `ungc:ngc5128` and `ngc:NGC5128` are one galaxy listed in two tables, and the tables
- * disagree about what to call it — "NGC 5128" against "Centaurus A". Leading zeros,
- * case and separators differ too, so the comparison is over the catalogue prefix and
- * the number alone.
- */
-function designationKey(raw: string): string | null {
-  const match = /^(NGC|IC|UGCA|UGC|PGC|DDO|ESO|MESSIER|M)[\s_-]*0*(\d+[A-Za-z]*(?:-\d+)?)$/i.exec(raw)
-  if (!match) return null
-  const prefix = match[1].toUpperCase()
-  return `${prefix === 'M' ? 'MESSIER' : prefix}${match[2].toUpperCase()}`
-}
-
-/**
- * The designation an id carries, if any.
- *
- * A bare "M" is deliberately not read as a Messier number here: `bh:m87` is the black
- * hole at the centre of M87, not the galaxy, and merging the two would cost the atlas
- * one of them. A module that means the Messier number says so in `designations`, where
- * it is a statement rather than an inference from a naming convention.
- */
-function idDesignationKey(id: string): string | null {
-  const body = id.slice(id.indexOf(':') + 1)
-  return /^m\d/i.test(body) ? null : designationKey(body)
-}
 
 /**
  * One label per object, which is not the same as one per registry entry.

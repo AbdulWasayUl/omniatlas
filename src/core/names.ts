@@ -23,3 +23,32 @@ export function displayName(name: string): string {
   if (designation) return `${designation[1].toUpperCase()} ${designation[2]}`
   return name
 }
+
+/**
+ * A catalogue designation carried by a node id, normalised so two spellings of one
+ * designation compare equal; null when the id carries none.
+ *
+ * `ungc:ngc5128` and `ngc:NGC5128` are one galaxy listed in two tables, and the tables
+ * disagree about what to call it — "NGC 5128" against "Centaurus A". Leading zeros,
+ * case and separators differ too, so the comparison is over the catalogue prefix and
+ * the number alone.
+ */
+export function designationKey(raw: string): string | null {
+  const match = /^(NGC|IC|UGCA|UGC|PGC|DDO|ESO|MESSIER|M)[\s_-]*0*(\d+[A-Za-z]*(?:-\d+)?)$/i.exec(raw)
+  if (!match) return null
+  const prefix = match[1].toUpperCase()
+  return `${prefix === 'M' ? 'MESSIER' : prefix}${match[2].toUpperCase()}`
+}
+
+/**
+ * The designation an id carries, if any.
+ *
+ * A bare "M" is deliberately not read as a Messier number here: `bh:m87` is the black
+ * hole at the centre of M87, not the galaxy, and merging the two would cost the atlas
+ * one of them. A module that means the Messier number says so in `designations`, where
+ * it is a statement rather than an inference from a naming convention.
+ */
+export function idDesignationKey(id: string): string | null {
+  const body = id.slice(id.indexOf(':') + 1)
+  return /^m\d/i.test(body) ? null : designationKey(body)
+}

@@ -100,8 +100,47 @@ export interface SceneNodeHandle {
    * Absent or 1 means a sphere.
    */
   shapeRatio?: number
+  /**
+   * The radius the object is actually DRAWN at, where that is neither `radiusMetres`
+   * nor a framing hint.
+   *
+   * Same standing as `shapeRatio`: a fact about the picture, never reported as a
+   * measurement. The deep sky is the case. An object with no trustworthy distance is
+   * projected onto a 100 kpc shell and drawn there at its catalogued ANGULAR size, so
+   * it can be forty pixels across while `radiusMetres` is 0 — correctly 0, because a
+   * size derived from a placeholder distance is not a size.
+   *
+   * The label engine needs the drawn number and only the drawn number: it decides how
+   * much ink an object has earned, whether a marker ring would be redundant over it,
+   * and how big a click target it is. Reading `radiusMetres` there made every
+   * direction-only galaxy a point source worth no more than its class, so the biggest
+   * ellipse on screen lost its label to a sizeless row typed `*`. Reading
+   * `framingRadiusMetres` instead would be worse in the other direction, because an
+   * arrival distance is not an extent: the cosmic layer's annotation wedges state one
+   * a quarter of their reach across and are drawn as points.
+   */
+  drawnRadiusMetres?: number
   /** Which layer draws it, for label and picking routing. */
   layer: LayerId
+  /**
+   * The other layers that also draw this object, nearest first.
+   *
+   * `layer` is one id and some content is drawn in more than one: the deep sky exists
+   * in both the stellar and the galactic layer, in each one's own frame and unit, and
+   * crossfades between them so that the sky neither vanishes 3 kpc from the Sun nor
+   * has to be held in a layer that is switched off next to it.
+   *
+   * The label engine skips a node whose layer is not active, which with a single id is
+   * the same as saying the object stops being clickable the moment the OTHER copy is
+   * the one on screen. At 715 kly that was all 13,371 NGC/IC objects at once: thousands
+   * of galaxies drawn as ellipses, every one of them untouchable, because their nodes
+   * named a layer that was off. Listing the copies here lets the engine project the
+   * node in whichever of them is live.
+   *
+   * It does not change where the node BELONGS: `layer` is still the one that frames an
+   * arrival, and these are only alternatives for routing a label and a click.
+   */
+  alsoDrawnIn?: readonly LayerId[]
   /** Object class, for glyph and colour. */
   objectClass: string
   /** Display name. */

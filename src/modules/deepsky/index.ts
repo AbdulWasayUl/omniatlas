@@ -1,4 +1,4 @@
-import { displayName } from '../../core/names'
+import { designationKey, displayName, idDesignationKey } from '../../core/names'
 import { discBasis } from '../../core/skyOrientation'
 import * as THREE from 'three'
 import { assetUrl } from '../../data/assetUrl'
@@ -18,6 +18,21 @@ import {
 /**
  * The deep sky: 13,371 NGC/IC objects, 157 Harris globular clusters and 379 traced
  * nebula outlines, in the stellar layer.
+ *
+ * ## Drawn and clickable are the same set
+ *
+ * A marker is the only pick target the atlas has, and a marker comes from a registry
+ * node. For most of a year this module drew the catalogue from `ngc.bin` and filled the
+ * registry from `ngc-names.json`, which is a list of the objects that have NAMES — so
+ * 13,174 of the 13,371 objects on screen, including every one of the 10,775 oriented
+ * ellipses, were geometry that looked exactly like something you could click and was
+ * not. `registerField` closes that: drawing and registering now come off the same loop.
+ *
+ * The invariant runs both ways, which is the half that is easy to lose. Where another
+ * catalogue in this atlas owns an object — Harris for the globulars, AT-HYG for the
+ * stars, the Local Group table for the Magellanic Clouds — this module declines to
+ * register it AND stops drawing it, rather than leaving a second copy on screen with
+ * nothing behind it. See `registerField` and `settleDuplicates`.
  *
  * ## The honesty problem this module exists to solve
  *
@@ -94,6 +109,8 @@ const DISC_FADE_PX: readonly [number, number] = [2.5, 8]
 
 const LAYER = 'stellar' as const
 const FAR_LAYER = 'galactic' as const
+/** Shared by every node: one array rather than 13,371 identical ones. */
+const ALSO_DRAWN_IN = [FAR_LAYER] as const
 
 /** Camera distances (pc from the Sun) over which the stellar copy hands over. */
 const HANDOVER_PC: [number, number] = [80, 700]
@@ -545,6 +562,25 @@ export interface DeepSkyManifest {
     /** Rows OpenNGC records no angular size for, so nothing could be framed or drawn. */
     skippedSizeless: number
   }
+  /**
+   * The rest of the drawn catalogue, registered so that everything on screen can be
+   * clicked. See `registerField`.
+   */
+  field: {
+    registered: number
+    measured: number
+    directionOnly: number
+    /** Rows the named pass already registered under the same id. */
+    skippedNamed: number
+    /** Rows Harris owns: the sprite is suppressed, so there is nothing to click. */
+    skippedGlobular: number
+    /** Rows OpenNGC types as stars, which the star catalogue owns. */
+    skippedStellar: number
+    /** ...and whose sprite this module therefore stops drawing. */
+    suppressedStellarSprites: number
+    /** Rows another catalogue measures, no longer drawn here; see `settleDuplicates`. */
+    suppressedDuplicates: number
+  }
   globulars: {
     registered: number
     nearestKpc: number
@@ -561,6 +597,47 @@ export interface DeepSkyManifest {
     illustration: string[]
   }
   attribution: string[]
+}
+
+/**
+ * A drawn catalogue row, held until the later passes have claimed what they want.
+ *
+ * Deliberately not a `SceneNodeHandle`: building 13,371 of those up front and throwing
+ * most of the work away would cost a frame at load, and the two numbers that are
+ * expensive to derive (the world position and the physical radius) both depend on
+ * which distance the row ends up with, which is not settled until the named pass runs.
+ */
+interface FieldRow {
+  row: number
+  raDeg: number
+  decDeg: number
+  /** Parsecs, or 0 where the catalogue has no distance this module will trust. */
+  distancePc: number
+  majArcmin: number
+  category: DeepSkyCategory
+  /** The catalogued axis is a separation; see SEPARATION_NOT_EXTENT_TYPES. */
+  separationOnly: boolean
+  /** OpenNGC types this a star; see STELLAR_TYPES and `registerField`. */
+  stellar: boolean
+}
+
+/**
+ * The keys two rows have to share before they can be called the same object.
+ *
+ * The same pair `oneLabelPerObject` uses, and for the same reason: the name alone
+ * misses NGC 5128 against Centaurus A, and the designation alone misses the rows whose
+ * catalogues number them differently. A node states its other designations where it
+ * knows them; otherwise the id is where the designation is.
+ */
+function identityKeys(node: SceneNodeHandle): string[] {
+  const keys = [`n:${node.name.trim().toLowerCase()}`]
+  const fromId = idDesignationKey(node.id)
+  if (fromId) keys.push(`d:${fromId}`)
+  for (const designation of node.designations ?? []) {
+    const key = designationKey(designation)
+    if (key) keys.push(`d:${key}`)
+  }
+  return keys
 }
 
 /** A registry node that knows how much of itself is a measurement. */
@@ -1042,6 +1119,16 @@ export class DeepSkyModule implements AtlasModule {
       skippedNonObject: 0,
       skippedSizeless: 0,
     },
+    field: {
+      registered: 0,
+      measured: 0,
+      directionOnly: 0,
+      skippedNamed: 0,
+      skippedGlobular: 0,
+      skippedStellar: 0,
+      suppressedStellarSprites: 0,
+      suppressedDuplicates: 0,
+    },
     globulars: {
       registered: 0,
       nearestKpc: 0,
@@ -1101,6 +1188,37 @@ export class DeepSkyModule implements AtlasModule {
   private readonly outlineAttributes: THREE.InstancedBufferAttribute[] = []
   /** OpenNGC designation -> catalogue row. */
   private designationToRow = new Map<string, number>()
+  /** Catalogue row -> OpenNGC designation, for `registerField`. */
+  private rowDesignations: string[] = []
+  /**
+   * One entry per DRAWN row, in draw order, waiting to become a registry node.
+   *
+   * Collected during the field load and consumed by `registerField` after the named
+   * and globular passes have had their pick, because both of those claim rows out of
+   * this set and neither can be asked about a row that is not registered yet.
+   */
+  private fieldRows: FieldRow[] = []
+  /** Designations the Harris pass took over, by replacement or by sprite suppression. */
+  private readonly globularDesignations = new Set<string>()
+  /** Index of the catalogue row -> oriented-disc slot, for suppressing one. */
+  private readonly rowToDisc = new Map<number, number>()
+  /** One per layer copy; the disc buffers are not shared the way the sprite's is. */
+  private readonly discMagAttributes: THREE.InstancedBufferAttribute[] = []
+  /** Registry version the duplicate sweep last ran against; see `settleDuplicates`. */
+  private duplicatesSettledAt = -1
+  /** Catalogue rows this module has stopped drawing, by designation. */
+  private readonly suppressedRows = new Set<string>()
+  /**
+   * Rows the FIELD put on the direction-only shell, by designation.
+   *
+   * Not the same set as the nodes carrying `directionOnly`, which is the trap this was
+   * written for. The named pass falls back to the literature table before it falls back
+   * to the shell, so 43 rows — the Andromeda Galaxy among them — are registered at a
+   * published distance while the field, which reads only the catalogue, draws them as a
+   * bearing. Asking the node whether it is a bearing therefore gets the wrong answer
+   * about the picture, which is what `settleDuplicates` is about.
+   */
+  private readonly shellDesignations = new Set<string>()
   /** Shared by both layer copies, so suppressing an instance suppresses it in both. */
   private pointMagAttribute: THREE.InstancedBufferAttribute | null = null
   private pointColorAttribute: THREE.InstancedBufferAttribute | null = null
@@ -1134,6 +1252,9 @@ export class DeepSkyModule implements AtlasModule {
     })
     if (engine.isDisposed) return
 
+    // Last, so that the named and Harris passes have already claimed their rows.
+    this.registerField()
+
     // The outlines register nothing, so they can finish after the first frame.
     void this.loadOutlines().catch((error) => {
       this.manifest.datasets['outlines.bin'] = 'malformed'
@@ -1145,7 +1266,7 @@ export class DeepSkyModule implements AtlasModule {
       `[omniatlas] deep sky: ${m.ngc.drawn} NGC/IC objects ` +
         `(${m.ngc.measured} at a measured distance, ${m.ngc.directionOnly} direction-only on a ` +
         `${SHELL_PC / 1000} kpc shell), ${m.named.registered} named, ` +
-        `${m.globulars.registered} Harris globulars`,
+        `${m.field.registered} by designation, ${m.globulars.registered} Harris globulars`,
       m,
     )
   }
@@ -1177,6 +1298,7 @@ export class DeepSkyModule implements AtlasModule {
     }
 
     const designations = ids?.designations ?? []
+    this.rowDesignations = designations
     this.manifest.datasets['ngc-ids.json'] = designations.length ? 'loaded' : 'missing'
     for (let i = 0; i < designations.length; i++) this.designationToRow.set(designations[i], i)
 
@@ -1245,6 +1367,7 @@ export class DeepSkyModule implements AtlasModule {
       const measured = hasTrustworthyDistance(distanceKind[i], distancePc[i], redshiftValues[i])
       const dPc = measured ? distancePc[i] : 0
       dists[slot] = dPc
+      if (!measured && designations[i]) this.shellDesignations.add(designations[i])
 
       let magnitude: number
       if (vmag[i] !== -32768) magnitude = vmag[i] * 0.01
@@ -1313,8 +1436,23 @@ export class DeepSkyModule implements AtlasModule {
         discColors[discSlot * 3 + 1] = color.g
         discColors[discSlot * 3 + 2] = color.b
         hasDisc[slot] = 1
+        this.rowToDisc.set(i, discSlot)
         discSlot++
       }
+
+      // Everything drawn gets a registry entry, which is what makes it clickable; the
+      // row is only parked here because the named and globular passes run after this
+      // one and both take rows out of it. See `registerField`.
+      this.fieldRows.push({
+        row: i,
+        raDeg,
+        decDeg,
+        distancePc: measured ? dPc : 0,
+        majArcmin,
+        category,
+        separationOnly: SEPARATION_NOT_EXTENT_TYPES.has(typeName),
+        stellar: STELLAR_TYPES.has(typeName),
+      })
 
       this.rowToInstance.set(i, slot)
       slot++
@@ -1401,7 +1539,9 @@ export class DeepSkyModule implements AtlasModule {
         discGeometry.setAttribute('dsDist', new THREE.InstancedBufferAttribute(scaled(discDists, discSlot, k), 1))
         discGeometry.setAttribute('dsRadius', new THREE.InstancedBufferAttribute(scaled(discRadii, discSlot, k), 1))
         discGeometry.setAttribute('dsRatio', new THREE.InstancedBufferAttribute(discRatios.slice(0, discSlot), 1))
-        discGeometry.setAttribute('dsMag', new THREE.InstancedBufferAttribute(discMags.slice(0, discSlot), 1))
+        const discMagAttribute = new THREE.InstancedBufferAttribute(discMags.slice(0, discSlot), 1)
+        this.discMagAttributes.push(discMagAttribute)
+        discGeometry.setAttribute('dsMag', discMagAttribute)
         discGeometry.setAttribute('dsColor', new THREE.InstancedBufferAttribute(discColors.slice(0, discSlot * 3), 3))
         discGeometry.instanceCount = discSlot
         this.geometries.push(discGeometry)
@@ -1614,7 +1754,17 @@ export class DeepSkyModule implements AtlasModule {
       frame: REGISTRY_FRAME,
       radiusMetres: spec.radiusMetres,
       framingRadiusMetres: spec.framingRadiusMetres ?? spec.radiusMetres,
+      // A direction-only object is drawn on the shell at its catalogued angular size,
+      // which is the same number `framingRadiusMetres` carries. Stating it separately
+      // is what lets the label engine ration ink by what is on screen without anything
+      // treating a shell projection as a measured extent. See `drawnRadiusMetres`.
+      drawnRadiusMetres: spec.measured ? undefined : (spec.framingRadiusMetres ?? 0),
       layer: LAYER,
+      // The same object is drawn into the galactic layer too, and past about 700 pc
+      // that copy is the only one on screen. Without this the node stops being
+      // clickable exactly where it is most of what there is to click. See
+      // `SceneNodeHandle.alsoDrawnIn` and LAYER_SPECS.
+      alsoDrawnIn: ALSO_DRAWN_IN,
       objectClass: spec.objectClass,
       name: spec.name,
       parentId: spec.parentId,
@@ -1632,6 +1782,125 @@ export class DeepSkyModule implements AtlasModule {
       designation: spec.designation,
       catalogue: spec.catalogue,
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // 2b. The rest of the catalogue, in the registry
+  // -------------------------------------------------------------------------
+
+  /**
+   * Register every drawn row the earlier passes did not claim.
+   *
+   * ## Why this exists
+   *
+   * A marker is the only pick target in this atlas: `AtlasViewer.pick` scans the hits
+   * the label engine returns, and the label engine only knows about registry nodes. So
+   * an object that is drawn and not registered is geometry that looks exactly like
+   * something you could click and is not — and for most of a year that was 13,174 of
+   * the 13,371 NGC/IC objects this module draws, including all 10,775 oriented discs.
+   * At 715 kly the screen was full of pink ellipses and the number of deep-sky objects
+   * a click could reach was zero.
+   *
+   * `ngc-names.json` is a list of the objects that have NAMES, and it is the right
+   * source for a label. It was the wrong source for a registry, and the two had been
+   * the same thing. Drawing and registering now come off the same loop, so the invariant
+   * is structural rather than a thing to remember: if it is drawn, it is in here.
+   *
+   * ## Why it runs last
+   *
+   * Both later passes take rows out of this set, and neither can be asked about a row
+   * that is already registered under the id it wants to use:
+   *
+   * - The named pass owns the rows with real names, better distances from the
+   *   literature table, and the Messier cross-references. It registers `ngc:NGC5194`
+   *   as "Whirlpool Galaxy"; this pass must not overwrite that with "NGC 5194".
+   * - The Harris pass owns the 157 globular clusters outright — it replaces the NGC
+   *   registry entry AND suppresses the NGC sprite, so there is nothing left on screen
+   *   for an `ngc:` node to be the hit target of.
+   *
+   * ## What this does not do
+   *
+   * It invents nothing. Every node here carries the distance the field drew it at, or
+   * none at all: a row with no trustworthy distance goes in `directionOnly` with
+   * `provenance: 'illustration'` and a radius of zero, exactly as the named pass does
+   * it, because the shell is a bearing and not a place.
+   */
+  private registerField(): void {
+    const stats = this.manifest.field
+    const kinds = this.rowDistanceKind
+    let suppressed = 0
+
+    for (const row of this.fieldRows) {
+      const designation = this.rowDesignations[row.row]
+      if (!designation) continue
+      if (this.globularDesignations.has(designation)) {
+        stats.skippedGlobular++
+        continue
+      }
+      const id = `ngc:${designation}`
+      if (this.engine.registry.has(id)) {
+        stats.skippedNamed++
+        continue
+      }
+      // A star that happens to carry an NGC or IC number is a star, and the atlas has
+      // a star catalogue: 329,860 of them drawn from AT-HYG, against 793 rows here.
+      // The named pass has dropped these since the M102 bug and said why; the field
+      // pass has to drop them too, and for a second reason of its own. OpenNGC records
+      // no angular size for 791 of the 793, so they are drawn as the minimum sprite and
+      // carry no size bonus — but `objectClass: 'star'` is priority 90, the highest in
+      // the atlas after a planet, so at 715 kly the entire ink budget went to IC 3183,
+      // IC 3417 and a dozen more invisible Virgo-field stars while the galaxies the
+      // view is made of went unlabelled.
+      //
+      // The sprite goes with the registry entry, exactly as it does for the globulars
+      // Harris takes over: what this module declines to own, it declines to draw, so
+      // "drawn" and "clickable" stay the same set. A row the named pass kept for its
+      // Messier number is already registered and was returned above.
+      if (row.stellar) {
+        const instance = this.rowToInstance.get(row.row)
+        if (instance !== undefined && this.pointMagAttribute) {
+          // Past the magnitude limit by construction; the vertex shader collapses it.
+          this.pointMagAttribute.setX(instance, 99)
+          suppressed++
+        }
+        stats.skippedStellar++
+        continue
+      }
+
+      const measured = row.distancePc > 0
+      const distPc = measured ? row.distancePc : SHELL_PC
+      // The same arithmetic the field used for the sprite, and the same split the named
+      // pass makes: a size carried out to the shell frames a camera but is not a
+      // property of the object, so it goes only to `framingRadiusMetres`.
+      const angularSizeRadius = this.radiusFromAngularSize(row.majArcmin, distPc)
+      const node = this.makeNode({
+        id,
+        name: displayName(designation),
+        designation,
+        catalogue: 'OpenNGC',
+        objectClass: CATEGORY_OBJECT_CLASS[row.category],
+        raDeg: row.raDeg,
+        decDeg: row.decDeg,
+        distancePc: distPc,
+        radiusMetres: measured && !row.separationOnly ? angularSizeRadius : 0,
+        framingRadiusMetres: angularSizeRadius,
+        measured,
+        distanceSource: measured ? (kinds && kinds[row.row] === 1 ? 'parallax' : 'redshift') : 'none',
+        parentId: null,
+      })
+      this.engine.register(node)
+      this.nodeIds.push(node.id)
+      stats.registered++
+      if (measured) stats.measured++
+      else stats.directionOnly++
+    }
+
+    if (this.pointMagAttribute && suppressed > 0) this.pointMagAttribute.needsUpdate = true
+    stats.suppressedStellarSprites = suppressed
+
+    // 13,371 parked rows are 13,371 objects the GC cannot collect, and nothing reads
+    // them again: the registry holds everything this pass produced.
+    this.fieldRows = []
   }
 
   // -------------------------------------------------------------------------
@@ -1696,6 +1965,10 @@ export class DeepSkyModule implements AtlasModule {
       const ngcDesignation = openNgcDesignation(columns.id[i])
       let inheritedName: string | null = null
       if (ngcDesignation) {
+        // Recorded whether or not there is a named row to replace, because what makes
+        // the NGC copy unregisterable is the sprite suppression below, which happens
+        // either way. Without this the field pass puts the duplicate straight back.
+        this.globularDesignations.add(ngcDesignation)
         const duplicate = this.engine.node(`ngc:${ngcDesignation}`) as DeepSkyNode | null
         if (duplicate) {
           inheritedName = duplicate.name
@@ -2019,6 +2292,114 @@ export class DeepSkyModule implements AtlasModule {
   // -------------------------------------------------------------------------
   // Per-frame
   // -------------------------------------------------------------------------
+
+  update(): void {
+    // Cheap guard: the registry stops changing a moment after load, and this is the
+    // only thing that can change the answer.
+    if (this.engine.registryVersion !== this.duplicatesSettledAt) this.settleDuplicates()
+  }
+
+  /**
+   * Stop drawing the rows that another catalogue in this atlas has actually measured.
+   *
+   * ## The Large Magellanic Cloud, twice
+   *
+   * OpenNGC lists the LMC as ESO 056-115 and records no distance for it that this
+   * module will trust, so the field does what it does with any bearing: projects it
+   * onto the 100 kpc shell and draws it there at the 10.7 degrees of sky it covers —
+   * a pink ellipse 63 pixels across. The atlas also has the LMC in the Local Group
+   * table at its measured 50 kpc, drawn and labelled in the right place. At 715 kly
+   * both were on screen, 140 pixels apart, and only one of them had a name on it. The
+   * other is what prompted this: a large, bright, unlabelled, unclickable ring that
+   * reads as an uncatalogued object and is in fact the galaxy already named above it.
+   *
+   * It is not one row. 106 direction-only rows duplicate something the atlas measures
+   * elsewhere, Barnard's Galaxy, the Fireworks Galaxy, IC 342, IC 1613 and
+   * Coddington's Nebula among them, each drawn as a bearing beside its own measured
+   * self.
+   *
+   * ## Why suppression and not a merge
+   *
+   * `oneLabelPerObject` already merges the two into one NAME, which is why the ring
+   * had none; what it cannot do is stop the geometry being drawn. The Harris pass
+   * settles the same conflict the same way — the better catalogue wins, and the loser's
+   * sprite goes with its registry entry. The difference here is that the row keeps its
+   * registry entry, because the designation is still a true thing to search for and the
+   * measured node carries a different name. Nothing is drawn for it, so nothing is
+   * unclickable.
+   *
+   * ## Why it runs from a frame and not from `init`
+   *
+   * The answer depends on modules this one does not know about and does not load; the
+   * Local Group table is registered by `galaxy` and the Local Volume rows by `cosmos`.
+   * The registry is settled by the first frame, and `registryVersion` says when it
+   * changes again, so this costs one integer comparison a frame after the first.
+   */
+  private settleDuplicates(): void {
+    const version = this.engine.registryVersion
+
+    // Identity -> the best-measured node claiming it. A node with a radius is required
+    // on purpose: it is what `oneLabelPerObject` prefers, so the surviving label is
+    // guaranteed to be on something this module is still drawing.
+    const measured = new Map<string, SceneNodeHandle>()
+    for (const node of this.engine.registry.values()) {
+      if (node.radiusMetres <= 0) continue
+      if ((node as DeepSkyNode).directionOnly) continue
+      for (const key of identityKeys(node)) if (!measured.has(key)) measured.set(key, node)
+    }
+
+    const mine = vec3d()
+    const theirs = vec3d()
+    let suppressed = 0
+    for (const id of this.nodeIds) {
+      const node = this.engine.node(id) as DeepSkyNode | null
+      if (!node) continue
+      if (!this.shellDesignations.has(node.designation)) continue
+      if (this.suppressedRows.has(node.designation)) continue
+
+      let match: SceneNodeHandle | null = null
+      for (const key of identityKeys(node)) {
+        const hit = measured.get(key)
+        if (hit && hit.id !== node.id) {
+          match = hit
+          break
+        }
+      }
+      if (!match) continue
+
+      // Same name is not yet the same object: "NGC 5195" and a star called NGC 5195
+      // would pass. The bearing is the measurement these two share, so it is what has
+      // to agree — half a degree, a tenth of what the label dedupe allows itself.
+      convertFrame(mine, node.worldPosition, node.frame, 'icrf')
+      convertFrame(theirs, match.worldPosition, match.frame, 'icrf')
+      const rm = Math.hypot(mine.x, mine.y, mine.z)
+      const rt = Math.hypot(theirs.x, theirs.y, theirs.z)
+      if (rm <= 0 || rt <= 0) continue
+      const cosine = (mine.x * theirs.x + mine.y * theirs.y + mine.z * theirs.z) / (rm * rt)
+      if (cosine < 0.99996) continue
+
+      if (this.suppressRow(node.designation)) suppressed++
+      this.suppressedRows.add(node.designation)
+    }
+
+    if (suppressed > 0) {
+      if (this.pointMagAttribute) this.pointMagAttribute.needsUpdate = true
+      for (const attribute of this.discMagAttributes) attribute.needsUpdate = true
+      this.manifest.field.suppressedDuplicates += suppressed
+    }
+    this.duplicatesSettledAt = version
+  }
+
+  /** Push one catalogue row's sprite and disc past the magnitude limit. */
+  private suppressRow(designation: string): boolean {
+    const row = this.designationToRow.get(designation)
+    if (row === undefined) return false
+    const instance = this.rowToInstance.get(row)
+    if (instance !== undefined && this.pointMagAttribute) this.pointMagAttribute.setX(instance, 99)
+    const disc = this.rowToDisc.get(row)
+    if (disc !== undefined) for (const attribute of this.discMagAttributes) attribute.setX(disc, 99)
+    return instance !== undefined || disc !== undefined
+  }
 
   preRender(ctx: FrameContext): void {
     const layer = this.engine.layer(LAYER)

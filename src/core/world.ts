@@ -297,7 +297,16 @@ const FROM_ICRF: Record<FrameId, Mat3> = {
   supergalactic: M_ICRF_TO_SUPERGALACTIC,
 }
 
-const frameCache = new Map<string, Mat3>()
+/**
+ * Memoised frame-to-frame rotations, nested rather than keyed on a joined string.
+ *
+ * `${from}>${to}` is the obvious key and it allocates a string on every call. That is
+ * invisible at a few hundred calls a frame and is not at fourteen thousand: the label
+ * engine converts every registry node into its layer's frame once per frame, so this
+ * sat under the hottest loop in the renderer. Two property reads on a plain object
+ * allocate nothing.
+ */
+const frameCache: Record<string, Partial<Record<FrameId, Mat3>>> = {}
 
 /**
  * The rotation taking a vector expressed in `from` to the same vector expressed in `to`.
@@ -305,12 +314,10 @@ const frameCache = new Map<string, Mat3>()
  */
 export function frameRotation(from: FrameId, to: FrameId): Mat3 {
   if (from === to) return TO_ICRF.icrf
-  const key = `${from}>${to}`
-  const hit = frameCache.get(key)
+  const row = (frameCache[from] ??= {})
+  const hit = row[to]
   if (hit) return hit
-  const m = mat3Multiply(FROM_ICRF[to], TO_ICRF[from])
-  frameCache.set(key, m)
-  return m
+  return (row[to] = mat3Multiply(FROM_ICRF[to], TO_ICRF[from]))
 }
 
 /** Convert a position (or any vector) between frames. Allocation-free when `out` is supplied. */
