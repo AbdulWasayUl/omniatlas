@@ -1,4 +1,5 @@
 import type { AtlasViewer } from '../core/AtlasViewer'
+import { MARKER_STYLES, type MarkerStyle } from '../core/labels/LabelEngine'
 
 /**
  * Deep links.
@@ -24,6 +25,8 @@ export interface AtlasUrlState {
   pitch: number | null
   /** Whether the link was shared with immersive mode on. */
   immersive: boolean
+  /** Which clickability glyph to draw. A DEMO SWITCH; see `MarkerStyle`. */
+  markers: MarkerStyle | null
   epochMs: number | null
   rate: number | null
 }
@@ -50,6 +53,9 @@ export function parseUrlState(search: string = window.location.search): AtlasUrl
     yaw: num('yaw'),
     pitch: num('pitch'),
     immersive: params.get('immersive') === '1',
+    markers: (MARKER_STYLES as readonly string[]).includes(params.get('markers') ?? '')
+      ? (params.get('markers') as MarkerStyle)
+      : null,
     epochMs,
     rate: num('rate'),
   }
@@ -57,6 +63,8 @@ export function parseUrlState(search: string = window.location.search): AtlasUrl
 
 /** Apply a parsed URL state to a live viewer. Called once, after modules have loaded. */
 export function applyUrlState(viewer: AtlasViewer, state: AtlasUrlState): void {
+  if (state.markers) viewer.labels.markerStyle = state.markers
+
   if (state.epochMs !== null) {
     viewer.epochMs = state.epochMs
     // A link that pins an instant should not immediately drift away from it.
@@ -141,6 +149,9 @@ export function serializeUrlState(viewer: AtlasViewer): string {
   // invented one, and a link to an invented world has to carry it or the recipient
   // arrives at an empty star.
   if (viewer.engine.immersive) params.set('immersive', '1')
+  // Only when it is not the shipped glyph, so an ordinary share link carries no trace
+  // of the experiment — and so that cycling styles with the M key survives a reload.
+  if (viewer.labels.markerStyle !== 'rings') params.set('markers', viewer.labels.markerStyle)
   // The clock is only pinned when it is not simply tracking the present, so a casual
   // share link stays "live" rather than freezing the recipient at the sharer's instant.
   //

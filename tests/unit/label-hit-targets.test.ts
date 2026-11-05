@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Engine, type SceneNodeHandle } from '../../src/core/Engine'
-import { LabelEngine } from '../../src/core/labels/LabelEngine'
+import { LabelEngine, MARKER_STYLES } from '../../src/core/labels/LabelEngine'
 import { PC_M, sphericalToCartesian, vec3d } from '../../src/core/world'
 
 /**
@@ -149,5 +149,41 @@ describe('hit targets', () => {
 
     expect(asPoint.r).toBeLessThanOrEqual(4)
     expect(asEllipse.r).toBeGreaterThan(asPoint.r)
+  })
+})
+
+/**
+ * The glyph is a drawing decision. What can be clicked is not.
+ *
+ * `MarkerStyle` exists so the resting sky can stop looking like a heads-up display,
+ * and the one thing it must not quietly buy that with is reach: a mark faded to a
+ * quarter of a hairline because the pointer is elsewhere is still a mark you can put
+ * the pointer ON, and the moment you do it comes up to full. These two are allowed to
+ * disagree about ink and never about the hit set.
+ */
+describe('marker styles', () => {
+  it('change what is drawn and nothing about what is reachable', () => {
+    const engine = sceneAt(500)
+    engine.layer('galactic').active = true
+    const crowd = Array.from({ length: 60 }, (_, i) => ({
+      node: node(`ngc:NGC${2000 + i}`, `NGC ${2000 + i}`, 1000 + i, 0.05 * i - 1.5),
+      priority: 65,
+    }))
+
+    const sets = MARKER_STYLES.map((style) => {
+      const label = labels()
+      label.markerStyle = style
+      // Pointer in one corner, so every proximity reveal is at its resting floor —
+      // the state in which the quiet styles draw the least.
+      label.pointer = { x: 4, y: 4 }
+      label.setItems([anchor, ...crowd])
+      return label
+        .render(engine, SPAN)
+        .hits.map((hit) => `${hit.id}@${hit.r.toFixed(2)}:${hit.touch}`)
+        .sort()
+    })
+
+    expect(sets[0].length).toBeGreaterThan(20)
+    for (const set of sets.slice(1)) expect(set).toEqual(sets[0])
   })
 })

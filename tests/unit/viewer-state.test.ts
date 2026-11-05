@@ -5,7 +5,7 @@ import { KPC_M, PC_M, vec3d } from '../../src/core/world'
 import { SCALE_LADDER } from '../../src/data/scaleLadder'
 import { epochIsFitted, EPHEMERIS_VALID_FROM_MS, EPHEMERIS_VALID_TO_MS } from '../../src/astronomy/ephemeris'
 import type { AtlasViewer } from '../../src/core/AtlasViewer'
-import { serializeUrlState } from '../../src/state/urlState'
+import { parseUrlState, serializeUrlState } from '../../src/state/urlState'
 
 /**
  * The pure pieces of the viewer's own state, and the claims the chrome makes about it.
@@ -121,6 +121,9 @@ describe('the shared link', () => {
       // A real viewer always has an engine, and the link carries its immersive flag so
       // that a share of an invented world arrives somewhere rather than at an empty star.
       engine: { immersive: false },
+      // ...and a label engine, whose marker style the link carries only when it is not
+      // the shipped one. See `MarkerStyle`.
+      labels: { markerStyle: 'rings' },
     } as unknown as AtlasViewer
   }
 
@@ -141,6 +144,22 @@ describe('the shared link', () => {
     expect(url).toContain('t=')
     expect(url).toContain('rate=1')
     expect(decodeURIComponent(url)).toContain(new Date(fiveYearsOn).toISOString())
+  })
+
+  it('carries the marker style only when it is not the shipped one', () => {
+    // A DEMO SWITCH, so an ordinary share link should show no trace of it — and a link
+    // made while cycling styles with the M key has to survive a reload, or the switch
+    // resets itself every time the address bar is rewritten.
+    const viewer = viewerLike({ epochMs: Date.now(), timeRate: 1, paused: false })
+    expect(serializeUrlState(viewer)).not.toContain('markers=')
+    ;(viewer as unknown as { labels: { markerStyle: string } }).labels.markerStyle = 'halo'
+    expect(serializeUrlState(viewer)).toContain('markers=halo')
+  })
+
+  it('ignores a marker style it does not have', () => {
+    expect(parseUrlState('?markers=halo').markers).toBe('halo')
+    expect(parseUrlState('?markers=sparkles').markers).toBeNull()
+    expect(parseUrlState('?d=1e12').markers).toBeNull()
   })
 
   it('still spells a pause as rate zero', () => {

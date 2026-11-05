@@ -905,7 +905,15 @@ export class AtlasViewer {
    * cursor crosses while the camera is being swung is noise, not information.
    */
   private handlePointerMove = (event: PointerEvent) => {
-    if (event.buttons !== 0) return
+    // Mid-drag the camera is being swung, which is the moment the view is least about
+    // picking something out of it: the pointer goes null and the affordances settle
+    // back to their resting trace on their own. See `LabelEngine.pointer`.
+    if (event.buttons !== 0) {
+      this.labels.pointer = null
+      return
+    }
+    const rect = this.canvas.getBoundingClientRect()
+    this.labels.pointer = { x: event.clientX - rect.left, y: event.clientY - rect.top }
     const id = this.pick(event.clientX, event.clientY)
     if (id === this.labels.hovered) return
     this.labels.hovered = id
@@ -913,6 +921,7 @@ export class AtlasViewer {
   }
 
   private handlePointerLeave = () => {
+    this.labels.pointer = null
     if (this.labels.hovered === null) return
     this.labels.hovered = null
     this.canvas.style.cursor = ''

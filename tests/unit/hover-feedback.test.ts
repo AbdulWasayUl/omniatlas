@@ -44,7 +44,10 @@ describe('hover feedback', () => {
   it('does not light anything up mid-drag', () => {
     // Swinging the camera drags the pointer across half the sky. Highlighting whatever
     // it crosses on the way is noise.
-    expect(viewer).toMatch(/if \(event\.buttons !== 0\) return/)
+    expect(viewer).toMatch(/if \(event\.buttons !== 0\) \{/)
+    // ...and the pointer position goes with it, so the proximity reveal settles back
+    // to its resting trace instead of staying lit where the drag began.
+    expect(viewer).toMatch(/this\.labels\.pointer = null/)
   })
 
   it('turns the cursor into something that says "clickable"', () => {
@@ -55,7 +58,10 @@ describe('hover feedback', () => {
     // The whole failure was a field written at one end and read at neither.
     expect(labels).toMatch(/item\.node\.id === this\.hovered/)
     expect(labels).toMatch(/hovered = false/)
-    expect(labels).toMatch(/hovered \? 1\.75 : 1/)
+    // A hovered marker is drawn differently from a resting one, and — unlike the
+    // resting affordance — is never faded by how far the pointer is from it.
+    expect(labels).toMatch(/if \(hovered\) \{/)
+    expect(labels).toMatch(/hovered \|\| selected \? 1 : this\.revealAt/)
   })
 
   it('keeps a hovered marker visible even below the alpha cut', () => {
