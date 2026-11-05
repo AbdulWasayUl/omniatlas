@@ -522,15 +522,40 @@ export class LabelEngine {
     ctx.globalAlpha = alpha
 
     // Job 2, the affordance: the only part the pointer's distance is allowed to fade.
-    // Hover and selection are handled below and are never rationed.
+    // Hover and selection come after it and are never rationed.
+    if (style === 'halo') {
+      // No outline at rest: a soft disc of the object's own colour, which reads as
+      // light rather than as a mark drawn over the sky. The quietest of the four, and
+      // the one that leans hardest on the proximity reveal — so it keeps the glow when
+      // the pointer arrives and gains a ring on top rather than swapping for one.
+      const gradient = ctx.createRadialGradient(x, y, 0, x, y, MARKER_RADIUS + 4)
+      gradient.addColorStop(0, color)
+      gradient.addColorStop(1, 'transparent')
+      ctx.globalAlpha = alpha * (hovered ? 1 : reveal) * 0.5
+      ctx.fillStyle = gradient
+      ctx.beginPath()
+      ctx.arc(x, y, MARKER_RADIUS + 4, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.globalAlpha = alpha
+    }
+
     if (hovered) {
       // One ring, not two. The second ring was the whole of the hover language in
       // `rings` and it is what reads as a targeting reticle; weight and brightness say
       // the same thing on a single circle.
-      ctx.beginPath()
-      ctx.arc(x, y, MARKER_RADIUS, 0, Math.PI * 2)
+      //
+      // `halo` answers with the BROKEN ring rather than a closed one. It is the glyph
+      // that still reads as deliberate against a star field — nothing out there is a
+      // dashed circle — without putting a bubble round the thing you are pointing at,
+      // which is the whole reason the resting state dropped the outline in the first
+      // place.
       ctx.lineWidth = style === 'rings' ? 1.75 : 1.5
-      ctx.stroke()
+      if (style === 'halo') strokeBrokenRing(ctx, x, y, MARKER_RADIUS)
+      else {
+        ctx.beginPath()
+        ctx.arc(x, y, MARKER_RADIUS, 0, Math.PI * 2)
+        ctx.stroke()
+      }
       if (style === 'rings') {
         ctx.globalAlpha = alpha * 0.55
         ctx.beginPath()
@@ -539,33 +564,12 @@ export class LabelEngine {
         ctx.stroke()
         ctx.globalAlpha = alpha
       }
-    } else if (style === 'halo') {
-      // No outline at all: a soft disc of the object's own colour, which reads as
-      // light rather than as a mark drawn over the sky. The weakest affordance of the
-      // four and the most atmospheric; it leans hardest on the proximity reveal.
-      const gradient = ctx.createRadialGradient(x, y, 0, x, y, MARKER_RADIUS + 4)
-      gradient.addColorStop(0, color)
-      gradient.addColorStop(1, 'transparent')
-      ctx.globalAlpha = alpha * reveal * 0.5
-      ctx.fillStyle = gradient
-      ctx.beginPath()
-      ctx.arc(x, y, MARKER_RADIUS + 4, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.globalAlpha = alpha
     } else if (style === 'ticks') {
-      // A broken ring. The gaps face up, down, left and right, so the glyph keeps the
-      // circular read that says "mark" without closing a bubble around the object —
-      // which is what makes thirty-four of them look like a HUD.
       ctx.globalAlpha = alpha * reveal
       ctx.lineWidth = 1
-      for (let quadrant = 0; quadrant < 4; quadrant++) {
-        const centre = Math.PI / 4 + (quadrant * Math.PI) / 2
-        ctx.beginPath()
-        ctx.arc(x, y, MARKER_RADIUS, centre - 0.44, centre + 0.44)
-        ctx.stroke()
-      }
+      strokeBrokenRing(ctx, x, y, MARKER_RADIUS)
       ctx.globalAlpha = alpha
-    } else {
+    } else if (style !== 'halo') {
       // `rings` and `proximity`: the same closed hairline, drawn at the same constant
       // size. The only difference between the two is what `revealAt` returns.
       ctx.globalAlpha = alpha * reveal
@@ -703,6 +707,23 @@ function activeLayerFor(engine: Engine, node: SceneNodeHandle): Layer | null {
     if (alt?.active) return alt
   }
   return null
+}
+
+/**
+ * A ring with the gaps facing up, down, left and right.
+ *
+ * It keeps the circular read that says "this is a mark" without closing a bubble
+ * around the object, which is what makes thirty-four closed hairlines look like a
+ * heads-up display. Nothing in a star field is a dashed circle, so it stays
+ * unmistakably deliberate at four arcs of twenty-five degrees.
+ */
+function strokeBrokenRing(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number): void {
+  for (let quadrant = 0; quadrant < 4; quadrant++) {
+    const centre = Math.PI / 4 + (quadrant * Math.PI) / 2
+    ctx.beginPath()
+    ctx.arc(x, y, radius, centre - 0.44, centre + 0.44)
+    ctx.stroke()
+  }
 }
 
 function smoothstep(edge0: number, edge1: number, x: number): number {
