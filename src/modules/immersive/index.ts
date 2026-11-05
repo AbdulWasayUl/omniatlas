@@ -300,9 +300,14 @@ export class ImmersiveModule implements AtlasModule {
         uPixelHeight: { value: 1080 },
         uTanHalfFov: { value: 0.466 },
         uRadius: { value: layer.toLocalLength(system.star.radiusMetres) },
-        uMinPx: { value: 11 },
+        // Measured in the Vega system at a whole-system framing, counting pixels over
+        // 200: at 1.5 and an 11 px floor the host star put up 48 against the field
+        // stars' 101, so the star you had flown to was the second brightest thing in
+        // its own sky. At 3.4 and 18 px it is 309 against 101 and still short of
+        // clipping, which is a star rather than a flare.
+        uMinPx: { value: 18 },
         uColor: { value: new THREE.Vector3(starColour.r, starColour.g, starColour.b) },
-        uIntensity: { value: 1.5 },
+        uIntensity: { value: 3.4 },
       },
       vertexShader: GLARE_VERTEX,
       fragmentShader: GLARE_FRAGMENT,
