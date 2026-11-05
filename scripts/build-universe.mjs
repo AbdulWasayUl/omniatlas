@@ -38,6 +38,64 @@ const CDS_ACKNOWLEDGEMENT =
 const CDS_LICENCE =
   'Free for scientific use, citing the authors and journal below (CDS VizieR rules of usage); no blanket licence applies — underlying catalogue (c) the cited authors / AAS'
 
+const CDS_FTP = 'https://cdsarc.cds.unistra.fr/ftp'
+
+/**
+ * What a catalogue's OWN ReadMe says about copyright.
+ *
+ * VizieR applies no blanket licence. Whether a copyright applies is decided per
+ * catalogue by whoever the data came from, and where one applies it is recorded in
+ * that catalogue's ReadMe. That file is therefore the authority, and the only honest
+ * way to state the position is to read it.
+ *
+ * This deliberately tries once and gives up. CDS was unreachable from the machine
+ * this last ran on, and the point is to record what the ReadMe says or to record
+ * that it could not be read — not to hold a data build hostage to a service being
+ * up. An admitted gap in a licensing file is worth more than a confident guess.
+ */
+async function fetchReadme(catalogue) {
+  const cacheName = `readme-${catalogue.replaceAll('/', '_')}.txt`
+  const path = join(CACHE_DIR, cacheName)
+  if (!REFRESH && existsSync(path) && statSync(path).size > 0) return readFileSync(path, 'utf8')
+  mkdirSync(CACHE_DIR, { recursive: true })
+  const response = await fetch(`${CDS_FTP}/${catalogue}/ReadMe`)
+  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  const body = await response.text()
+  if (body.trim().length === 0) throw new Error('empty ReadMe')
+  writeFileSync(path, body)
+  return body
+}
+
+// A labelled block in a ReadMe: the matching line plus the indented lines under it.
+function readmeSection(text, label) {
+  const lines = text.split('\n')
+  const start = lines.findIndex((line) => new RegExp(label, 'i').test(line))
+  if (start < 0) return null
+  const out = [lines[start].trim()]
+  for (let i = start + 1; i < lines.length; i += 1) {
+    if (lines[i].trim() === '' || /^\S/.test(lines[i])) break
+    out.push(lines[i].trim())
+  }
+  return out.join(' ').replace(/\s+/g, ' ').trim()
+}
+
+async function readmeNotice(catalogue) {
+  try {
+    const text = await fetchReadme(catalogue)
+    const copyright = readmeSection(text, 'copyright')
+    const acknowledging = readmeSection(text, 'acknowledg')
+    process.stdout.write(`  ReadMe ${catalogue}: copyright ${copyright ? 'FOUND' : 'none stated'}\n`)
+    return { checked: RETRIEVED, retrieved: true, copyright, acknowledging }
+  } catch (error) {
+    const reason = String(error.message).slice(0, 160)
+    process.stdout.write(`  ReadMe ${catalogue}: UNREAD (${reason})\n`)
+    return { checked: RETRIEVED, retrieved: false, reason, copyright: null, acknowledging: null }
+  }
+}
+
+/** Filled before the catalogues are built; keyed by VizieR catalogue designation. */
+const READMES = {}
+
 // ---------------------------------------------------------------------------
 // download + cache
 // ---------------------------------------------------------------------------
@@ -249,6 +307,7 @@ async function buildUngc() {
         'frozen, citable 2013 catalogue. cartesian position = ra/dec/distMpc; no cosmology applied.',
       sourceUrl: 'https://vizier.cds.unistra.fr/viz-bin/VizieR-3?-source=J/AJ/145/101/catalog',
       vizierCatalogue: 'J/AJ/145/101',
+      copyrightNotice: READMES['J/AJ/145/101'],
       vizierTable: 'J/AJ/145/101/catalog',
       sourceVersion: 'Karachentsev, Makarov & Kaisina 2013, AJ 145, 101 (2013AJ....145..101K)',
       retrieved: RETRIEVED,
@@ -503,6 +562,7 @@ async function buildCf4() {
     },
     sourceUrl: 'https://vizier.cds.unistra.fr/viz-bin/VizieR-3?-source=J/ApJ/944/94/groups',
     vizierCatalogue: 'J/ApJ/944/94',
+    copyrightNotice: READMES['J/ApJ/944/94'],
     vizierTable: 'J/ApJ/944/94/groups (= published tables 3 and 4 merged by CDS)',
     sourceVersion: 'Tully, Kourkchi, Courtois et al. 2023, ApJ 944, 94 (2023ApJ...944...94T)',
     retrieved: RETRIEVED,
@@ -816,6 +876,7 @@ async function build2mrs() {
     zoneOfAvoidance: zoa,
     sourceUrl: 'https://vizier.cds.unistra.fr/viz-bin/VizieR-3?-source=J/ApJS/199/26/table3',
     vizierCatalogue: 'J/ApJS/199/26',
+    copyrightNotice: READMES['J/ApJS/199/26'],
     vizierTable: 'J/ApJS/199/26/table3',
     sourceVersion: 'Huchra, Macri, Masters et al. 2012, ApJS 199, 26 (2012ApJS..199...26H)',
     retrieved: RETRIEVED,
@@ -1007,6 +1068,17 @@ papers. Whether a copyright applies to a given catalogue depends on that catalog
 recorded, where one exists, in its VizieR ReadMe. Commercial use is governed by those same
 origin-specific terms rather than by VizieR. Each catalogue used here is cited individually below.
 
+### Per-catalogue copyright, as stated by each catalogue's own ReadMe
+
+${['J/AJ/145/101', 'J/ApJ/944/94', 'J/ApJS/199/26']
+  .map((c) => {
+    const n = READMES[c] ?? { retrieved: false, reason: 'not checked' }
+    if (!n.retrieved) return `- \`${c}\` — **ReadMe not read** (${n.reason}); copyright status unverified.`
+    if (!n.copyright) return `- \`${c}\` — ReadMe read on ${n.checked}; it states no copyright notice.`
+    return `- \`${c}\` — ReadMe read on ${n.checked}: ${n.copyright}`
+  })
+  .join('\n')}
+
 ## ungc.json — Updated Nearby Galaxy Catalog
 
 - VizieR catalogue: \`J/AJ/145/101\`, table \`catalog\`
@@ -1064,6 +1136,11 @@ No record in this directory carries a bare "distance". Every one declares its ki
 
 mkdirSync(OUT_DIR, { recursive: true })
 process.stdout.write(`build-universe — extragalactic & large-scale structure ETL\nout: ${OUT_DIR}\ncache: ${CACHE_DIR}\n`)
+
+process.stdout.write('\n[0/4] Catalogue ReadMe copyright notices\n')
+for (const catalogue of ['J/AJ/145/101', 'J/ApJ/944/94', 'J/ApJS/199/26']) {
+  READMES[catalogue] = await readmeNotice(catalogue)
+}
 
 const ungc = await buildUngc()
 const cf4 = await buildCf4()
