@@ -52,7 +52,21 @@ interface Internals {
   designationToRow: Map<string, number>
   rowToInstance: Map<number, number>
   rowToDisc: Map<number, number>
+  pointPlacement: { unitPc: number; distance: { getX(i: number): number }; radius: { getX(i: number): number } }[]
+  pointMagAttribute: { getX(i: number): number }
+  manifest: { named: { literature: number; drawnFromLiterature: number } }
   update(): void
+}
+
+/** Where one catalogue row is drawn, in parsecs, read back out of the vertex buffers. */
+function drawnAt(inner: Internals, designation: string): { distancePc: number; radiusPc: number; absoluteMag: number } {
+  const instance = inner.rowToInstance.get(inner.designationToRow.get(designation) as number) as number
+  const buffer = inner.pointPlacement[0]
+  return {
+    distancePc: buffer.distance.getX(instance) * buffer.unitPc,
+    radiusPc: buffer.radius.getX(instance) * buffer.unitPc,
+    absoluteMag: inner.pointMagAttribute.getX(instance),
+  }
 }
 
 /** Past the magnitude limit by construction: the vertex shader collapses the sprite. */
@@ -193,6 +207,62 @@ describe('the deep sky is as clickable as it is visible', () => {
     inner.update()
 
     expect([...inner.rowToDisc.values()].filter((disc) => discs[disc] < SUPPRESSED).length).toBe(before)
+    module.dispose?.()
+  })
+})
+
+/**
+ * The picture and the registry agree about where a thing is.
+ *
+ * The named pass falls back to a published distance before it falls back to the
+ * direction-only shell; the field, which reads `ngc.bin` and nothing else, has no such
+ * table. So 43 rows were REGISTERED at one distance and DRAWN at another — the Orion
+ * Nebula at 412 parsecs in the inspector and a hundred thousand on screen, which is the
+ * kind of disagreement nothing reports and everything downstream inherits: fly there
+ * and the proxy is built at one of the two numbers and the catalogue's own glyph is at
+ * the other.
+ */
+describe('rows placed from the literature', () => {
+  it('draws every one of them at the distance it registered them at', async () => {
+    const { engine, module, inner } = await boot()
+    expect(inner.manifest.named.literature).toBeGreaterThan(0)
+    expect(inner.manifest.named.drawnFromLiterature).toBe(inner.manifest.named.literature)
+
+    // The Orion Nebula: no OpenNGC distance this module will trust, a consensus 412 pc
+    // in the literature table, and the glyph now at the same 412 pc as the node.
+    const node = engine.node('ngc:NGC1976') as SceneNodeHandle & { distanceSource: string }
+    expect(node.distanceSource).toBe('literature')
+    const { x, y, z } = node.worldPosition
+    const nodePc = Math.hypot(x, y, z) / PC_M
+    const drawn = drawnAt(inner, 'NGC1976')
+    expect(drawn.distancePc).toBeCloseTo(nodePc, 0)
+    expect(drawn.radiusPc).toBeGreaterThan(0)
+
+    module.dispose?.()
+  })
+
+  it('converts the magnitude instead of carrying it across', async () => {
+    const { module, inner } = await boot()
+    // A bearing carries what Earth sees and the shader leaves it alone; a placed object
+    // carries an absolute magnitude the shader reduces by its true distance. Copying
+    // the first into the second makes a 4th-magnitude nebula an ABSOLUTE 4.
+    const { absoluteMag, distancePc } = drawnAt(inner, 'NGC1976')
+    expect(absoluteMag).toBeLessThan(0)
+    // ...and reducing it back by the distance returns the catalogue's own apparent one.
+    const apparent = absoluteMag + 5 * (Math.log10(distancePc) - 1)
+    expect(apparent).toBeGreaterThan(0)
+    expect(apparent).toBeLessThan(12)
+    module.dispose?.()
+  })
+
+  it('does not invent an extent for a row the binary gives no size for', async () => {
+    const { module, inner } = await boot()
+    // The Coalsack's seven degrees come from the literature table, not from OpenNGC,
+    // and they frame a camera rather than describe a bright object: it is a DARK
+    // nebula. Scaling the radius already in the buffer cannot give it one, which is
+    // exactly why the placement scales rather than recomputing from the angular axis.
+    expect(drawnAt(inner, 'C099').radiusPc).toBe(0)
+    expect(drawnAt(inner, 'C099').distancePc).toBeCloseTo(180, 0)
     module.dispose?.()
   })
 })

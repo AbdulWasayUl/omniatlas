@@ -561,6 +561,8 @@ export interface DeepSkyManifest {
     skippedNonObject: number
     /** Rows OpenNGC records no angular size for, so nothing could be framed or drawn. */
     skippedSizeless: number
+    /** ...of the `literature` rows, how many the FIELD was moved off the shell for. */
+    drawnFromLiterature: number
   }
   /**
    * The rest of the drawn catalogue, registered so that everything on screen can be
@@ -638,6 +640,13 @@ function identityKeys(node: SceneNodeHandle): string[] {
     if (key) keys.push(`d:${key}`)
   }
   return keys
+}
+
+/** A field's distance and size buffers for one layer, with the unit they are in. */
+interface PlacementBuffer {
+  unitPc: number
+  distance: THREE.InstancedBufferAttribute
+  radius: THREE.InstancedBufferAttribute
 }
 
 /** A registry node that knows how much of itself is a measurement. */
@@ -1118,6 +1127,7 @@ export class DeepSkyModule implements AtlasModule {
       literature: 0,
       skippedNonObject: 0,
       skippedSizeless: 0,
+      drawnFromLiterature: 0,
     },
     field: {
       registered: 0,
@@ -1147,6 +1157,10 @@ export class DeepSkyModule implements AtlasModule {
       ],
       derived: [
         'Physical radii: angular major axis x measured distance',
+        'Distances for 43 rows OpenNGC leaves distanceless, from the literature table: a ' +
+          'consensus figure and not a reduction done here, which is why the rows placed ' +
+          "from it are badged 'derived'. Both the registry entry and the drawn glyph use " +
+          'it, so the inspector and the picture cannot disagree about where the object is',
         'Absolute magnitudes: catalogue V (or B) magnitude reduced by the measured distance',
         'Sprite brightness recomputed from the true camera distance each frame',
         'Disc orientation: the catalogued major axis, minor axis and position angle are ' +
@@ -1204,6 +1218,15 @@ export class DeepSkyModule implements AtlasModule {
   private readonly rowToDisc = new Map<number, number>()
   /** One per layer copy; the disc buffers are not shared the way the sprite's is. */
   private readonly discMagAttributes: THREE.InstancedBufferAttribute[] = []
+  /**
+   * Where each layer copy keeps the two numbers that say where a row is drawn.
+   *
+   * One entry per layer per field, because the buffers hold the layer's own unit: the
+   * stellar copy counts parsecs and the galactic one kiloparsecs. See `placeInField`,
+   * which is the only thing that writes them after they are built.
+   */
+  private readonly pointPlacement: PlacementBuffer[] = []
+  private readonly discPlacement: PlacementBuffer[] = []
   /** Registry version the duplicate sweep last ran against; see `settleDuplicates`. */
   private duplicatesSettledAt = -1
   /** Catalogue rows this module has stopped drawing, by designation. */
@@ -1471,8 +1494,11 @@ export class DeepSkyModule implements AtlasModule {
       geometry.index = this.quad!.index
       geometry.setAttribute('position', this.quad!.getAttribute('position'))
       geometry.setAttribute('dsDir', new THREE.InstancedBufferAttribute(rotateDirections(dirs, slot, spec.frame), 3))
-      geometry.setAttribute('dsDist', new THREE.InstancedBufferAttribute(scaled(dists, slot, k), 1))
-      geometry.setAttribute('dsRadius', new THREE.InstancedBufferAttribute(scaled(radii, slot, k), 1))
+      const pointDistance = new THREE.InstancedBufferAttribute(scaled(dists, slot, k), 1)
+      const pointRadius = new THREE.InstancedBufferAttribute(scaled(radii, slot, k), 1)
+      this.pointPlacement.push({ unitPc: spec.unitPc, distance: pointDistance, radius: pointRadius })
+      geometry.setAttribute('dsDist', pointDistance)
+      geometry.setAttribute('dsRadius', pointRadius)
       // Colour and magnitude are frame- and unit-free, so both copies share one buffer.
       geometry.setAttribute('dsMag', magAttribute)
       geometry.setAttribute('dsColor', colorAttribute)
@@ -1536,8 +1562,11 @@ export class DeepSkyModule implements AtlasModule {
         discGeometry.setAttribute('dsDir', new THREE.InstancedBufferAttribute(rotateDirections(discDirs, discSlot, spec.frame), 3))
         discGeometry.setAttribute('dsU', new THREE.InstancedBufferAttribute(rotateDirections(discU, discSlot, spec.frame), 3))
         discGeometry.setAttribute('dsV', new THREE.InstancedBufferAttribute(rotateDirections(discV, discSlot, spec.frame), 3))
-        discGeometry.setAttribute('dsDist', new THREE.InstancedBufferAttribute(scaled(discDists, discSlot, k), 1))
-        discGeometry.setAttribute('dsRadius', new THREE.InstancedBufferAttribute(scaled(discRadii, discSlot, k), 1))
+        const discDistance = new THREE.InstancedBufferAttribute(scaled(discDists, discSlot, k), 1)
+        const discRadius = new THREE.InstancedBufferAttribute(scaled(discRadii, discSlot, k), 1)
+        this.discPlacement.push({ unitPc: spec.unitPc, distance: discDistance, radius: discRadius })
+        discGeometry.setAttribute('dsDist', discDistance)
+        discGeometry.setAttribute('dsRadius', discRadius)
         discGeometry.setAttribute('dsRatio', new THREE.InstancedBufferAttribute(discRatios.slice(0, discSlot), 1))
         const discMagAttribute = new THREE.InstancedBufferAttribute(discMags.slice(0, discSlot), 1)
         this.discMagAttributes.push(discMagAttribute)
@@ -1666,7 +1695,15 @@ export class DeepSkyModule implements AtlasModule {
       }
       // Counted after the size filter, not before, so the manifest's buckets describe
       // the rows that were actually registered.
-      if (literaturePc !== null) stats.literature++
+      if (literaturePc !== null) {
+        stats.literature++
+        // ...and the field has to hear about it, or the picture and the registry
+        // disagree about where the object is. See `placeInField`.
+        if (rowIndex >= 0 && this.placeInField(rowIndex, literaturePc)) {
+          this.shellDesignations.delete(object.designation)
+          stats.drawnFromLiterature++
+        }
+      }
 
       // A radius is a physical size, and SHELL_PC is not a distance. Deriving one from
       // the other turns a placeholder into a measurement, so an object with no distance
@@ -1711,6 +1748,7 @@ export class DeepSkyModule implements AtlasModule {
       if (placed) stats.measured++
       else stats.directionOnly++
     }
+    if (stats.drawnFromLiterature > 0) this.flushPlacements()
     this.manifest.datasets['ngc-names.json'] = 'loaded'
   }
 
@@ -1718,6 +1756,83 @@ export class DeepSkyModule implements AtlasModule {
     if (object.names?.length) return object.names[0]
     if (object.messier) return `Messier ${object.messier}`
     return object.designation
+  }
+
+  /**
+   * Move a drawn row off the direction-only shell and onto a published distance.
+   *
+   * The named pass falls back to the literature table before it falls back to the
+   * shell; the field, which reads `ngc.bin` and nothing else, has no such table. So 43
+   * rows were registered at a distance and drawn at a different one. The Orion Nebula
+   * is the case that makes it plain: the inspector said 412 parsecs, the sprite was at
+   * a hundred thousand, and flying there left the proxy and the catalogue's own glyph
+   * 250 times apart. M24, the Small Sagittarius Star Cloud, was the ring still on
+   * screen at 715 kly after the duplicates were settled.
+   *
+   * ## What moves and what does not
+   *
+   * The distance, and the physical radius scaled to keep it — which is to say the
+   * object keeps exactly the angular size Earth measures and gains a depth. Deriving a
+   * NEW size here from the published distance and the catalogue's angular axis would
+   * be the same arithmetic, but it would also quietly give an extent to the three rows
+   * whose angular size comes from the literature table rather than the binary: the
+   * Coalsack is seven degrees of DARK nebula, and a seven-degree additive blob is not
+   * what the catalogue says about it. Scaling what is already there cannot do that,
+   * because for those rows what is already there is zero.
+   *
+   * The magnitude has to be converted, not kept. A bearing carries what Earth sees and
+   * the shader leaves it alone; a placed object carries an absolute magnitude and the
+   * shader recomputes the apparent one from wherever the camera is. Writing the first
+   * into the second makes a 9th-magnitude nebula an absolute 9, which at 412 pc is
+   * three magnitudes brighter than Venus.
+   *
+   * Returns false where there is nothing drawn to move, which is how the caller knows
+   * not to count it.
+   */
+  private placeInField(row: number, distancePc: number): boolean {
+    if (!(distancePc > 0)) return false
+    // Absolute from apparent, the inverse of what the field wrote for a placed row.
+    const brightening = 5 * (Math.log10(distancePc) - 1)
+    // The buffers hold `angularRadius * SHELL_PC`; the same angle at the new distance
+    // is that number times the ratio of the two. Scaling rather than recomputing keeps
+    // a row the binary gave no size for at zero. See above.
+    const shrink = distancePc / SHELL_PC
+
+    let moved = false
+    const instance = this.rowToInstance.get(row)
+    if (instance !== undefined) {
+      for (const buffer of this.pointPlacement) {
+        buffer.distance.setX(instance, distancePc / buffer.unitPc)
+        buffer.radius.setX(instance, buffer.radius.getX(instance) * shrink)
+      }
+      if (this.pointMagAttribute) {
+        this.pointMagAttribute.setX(instance, this.pointMagAttribute.getX(instance) - brightening)
+      }
+      moved = this.pointPlacement.length > 0
+    }
+
+    const disc = this.rowToDisc.get(row)
+    if (disc !== undefined) {
+      for (const buffer of this.discPlacement) {
+        buffer.distance.setX(disc, distancePc / buffer.unitPc)
+        buffer.radius.setX(disc, buffer.radius.getX(disc) * shrink)
+      }
+      for (const attribute of this.discMagAttributes) {
+        attribute.setX(disc, attribute.getX(disc) - brightening)
+      }
+      moved = moved || this.discPlacement.length > 0
+    }
+    return moved
+  }
+
+  /** Push everything `placeInField` touched to the GPU, once, after the named pass. */
+  private flushPlacements(): void {
+    for (const buffer of [...this.pointPlacement, ...this.discPlacement]) {
+      buffer.distance.needsUpdate = true
+      buffer.radius.needsUpdate = true
+    }
+    if (this.pointMagAttribute) this.pointMagAttribute.needsUpdate = true
+    for (const attribute of this.discMagAttributes) attribute.needsUpdate = true
   }
 
   /** Half the major axis, carried out to a physical radius at the given distance. */
