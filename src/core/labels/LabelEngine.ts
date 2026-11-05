@@ -159,28 +159,32 @@ function isDesignation(name: string): boolean {
 const MARKER_RADIUS = 5.5
 
 /**
- * Which glyph says "you can click this". A DEMO SWITCH, to be removed once one wins.
+ * What a marker is for, and why so little of it is on screen at rest.
  *
- * `rings` is what shipped: a closed hairline circle on every marked object at all
- * times, a second circle under the pointer, and a four-corner bracket on the selection.
- * It is unambiguous and it is also a heads-up display pasted over a photograph of the
- * sky — thirty-four of them in frame at once, none of which the telescope would show.
+ * The first version drew a closed hairline circle on every marked object at all times,
+ * a second circle under the pointer, and a four-corner bracket on the selection. It
+ * was unambiguous, and with thirty-four marks in frame it was also a heads-up display
+ * pasted over a photograph of the sky. None of those rings is a thing a telescope
+ * would show.
  *
- * The other three split the marker's jobs apart and ration the ink by job, which is
- * what the resting sky actually needs:
+ * The answer was not a prettier ring. One glyph was doing four jobs and only one of
+ * them needs to be on screen all the time:
  *
  *   1. LOCATE  — say where a thing is when it is smaller than a pixel. Always drawn,
- *                at full strength, in every style: without it a label points at
- *                nothing. This is the centre dot and the body disc.
- *   2. AFFORD  — say the thing is touchable. Faded by how near the pointer is, so the
- *                sky is quiet where you are not pointing and a pool of touchable marks
- *                follows the cursor. The first mouse move teaches the whole rule.
- *   3. HOVER   — say "this one". Always full strength, and ONE ring rather than two.
- *   4. SELECT  — say "this is what you picked". Always full strength.
+ *                at full strength: without it a label points at nothing. This is the
+ *                centre dot and the body disc.
+ *   2. AFFORD  — say the thing is touchable. A soft disc of the object's own colour,
+ *                faded by how near the pointer is, so the sky is quiet where you are
+ *                not pointing and a pool of touchable marks follows the cursor. The
+ *                first mouse move teaches the whole rule.
+ *   3. HOVER   — say "this one". Full strength, and a BROKEN ring: the resting state
+ *                drops the outline because a closed circle round a star is the thing
+ *                that reads as an instrument, so answering the pointer with exactly
+ *                that circle would hand the bubble back at the moment the eye is on
+ *                it. Nothing in a star field is a dashed circle.
+ *   4. SELECT  — say "this is what you picked". Full strength, and a bracket rather
+ *                than a circle, because there is only ever one of it on screen.
  */
-export type MarkerStyle = 'rings' | 'proximity' | 'ticks' | 'halo'
-
-export const MARKER_STYLES: readonly MarkerStyle[] = ['rings', 'proximity', 'ticks', 'halo']
 
 /** Inside this many pixels of the pointer, an affordance is at full strength. */
 const REVEAL_NEAR_PX = 80
@@ -241,8 +245,6 @@ export class LabelEngine {
    * on its own, which is the moment the view is least about picking things out of it.
    */
   pointer: { x: number; y: number } | null = null
-  /** See `MarkerStyle`. Demo switch; `rings` is the shipped behaviour. */
-  markerStyle: MarkerStyle = 'rings'
   selectedId: string | null = null
   /** The camera's anchor. Always marked, so you can never lose the thing you orbit. */
   anchorId: string | null = null
@@ -493,12 +495,10 @@ export class LabelEngine {
   /**
    * How much of an affordance to draw at a point, given how near the pointer is.
    *
-   * See `MarkerStyle`. `rings` keeps every mark at full strength, which is what it
-   * shipped as; the rest fall away from the cursor so the sky is quiet where nobody is
-   * looking for anything to click.
+   * Job 2 only. The locator, the hover mark and the selection bracket are never
+   * rationed by this — see the note above the constants.
    */
   private revealAt(x: number, y: number): number {
-    if (this.markerStyle === 'rings') return 1
     const pointer = this.pointer
     if (!pointer) return REVEAL_FLOOR
     const near = 1 - smoothstep(REVEAL_NEAR_PX, REVEAL_FAR_PX, Math.hypot(pointer.x - x, pointer.y - y))
@@ -516,68 +516,28 @@ export class LabelEngine {
     reveal = 1,
   ): void {
     const ctx = this.ctx
-    const style = this.markerStyle
     ctx.save()
     ctx.strokeStyle = color
     ctx.globalAlpha = alpha
 
-    // Job 2, the affordance: the only part the pointer's distance is allowed to fade.
-    // Hover and selection come after it and are never rationed.
-    if (style === 'halo') {
-      // No outline at rest: a soft disc of the object's own colour, which reads as
-      // light rather than as a mark drawn over the sky. The quietest of the four, and
-      // the one that leans hardest on the proximity reveal — so it keeps the glow when
-      // the pointer arrives and gains a ring on top rather than swapping for one.
-      const gradient = ctx.createRadialGradient(x, y, 0, x, y, MARKER_RADIUS + 4)
-      gradient.addColorStop(0, color)
-      gradient.addColorStop(1, 'transparent')
-      ctx.globalAlpha = alpha * (hovered ? 1 : reveal) * 0.5
-      ctx.fillStyle = gradient
-      ctx.beginPath()
-      ctx.arc(x, y, MARKER_RADIUS + 4, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.globalAlpha = alpha
-    }
+    // Job 2, the affordance, and the only part the pointer's distance may fade. A soft
+    // disc of the object's own colour rather than an outline: it reads as light rather
+    // than as a mark drawn over the sky. It stays under the pointer, at full strength,
+    // and the hover ring arrives on top of it rather than replacing it.
+    const glow = ctx.createRadialGradient(x, y, 0, x, y, MARKER_RADIUS + 4)
+    glow.addColorStop(0, color)
+    glow.addColorStop(1, 'transparent')
+    ctx.globalAlpha = alpha * (hovered ? 1 : reveal) * 0.5
+    ctx.fillStyle = glow
+    ctx.beginPath()
+    ctx.arc(x, y, MARKER_RADIUS + 4, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.globalAlpha = alpha
 
+    // Job 3: one ring, broken, never rationed. See the note above the constants.
     if (hovered) {
-      // One ring, not two. The second ring was the whole of the hover language in
-      // `rings` and it is what reads as a targeting reticle; weight and brightness say
-      // the same thing on a single circle.
-      //
-      // `halo` answers with the BROKEN ring rather than a closed one. It is the glyph
-      // that still reads as deliberate against a star field — nothing out there is a
-      // dashed circle — without putting a bubble round the thing you are pointing at,
-      // which is the whole reason the resting state dropped the outline in the first
-      // place.
-      ctx.lineWidth = style === 'rings' ? 1.75 : 1.5
-      if (style === 'halo') strokeBrokenRing(ctx, x, y, MARKER_RADIUS)
-      else {
-        ctx.beginPath()
-        ctx.arc(x, y, MARKER_RADIUS, 0, Math.PI * 2)
-        ctx.stroke()
-      }
-      if (style === 'rings') {
-        ctx.globalAlpha = alpha * 0.55
-        ctx.beginPath()
-        ctx.arc(x, y, MARKER_RADIUS + 3.5, 0, Math.PI * 2)
-        ctx.lineWidth = 1
-        ctx.stroke()
-        ctx.globalAlpha = alpha
-      }
-    } else if (style === 'ticks') {
-      ctx.globalAlpha = alpha * reveal
-      ctx.lineWidth = 1
+      ctx.lineWidth = 1.5
       strokeBrokenRing(ctx, x, y, MARKER_RADIUS)
-      ctx.globalAlpha = alpha
-    } else if (style !== 'halo') {
-      // `rings` and `proximity`: the same closed hairline, drawn at the same constant
-      // size. The only difference between the two is what `revealAt` returns.
-      ctx.globalAlpha = alpha * reveal
-      ctx.beginPath()
-      ctx.arc(x, y, MARKER_RADIUS, 0, Math.PI * 2)
-      ctx.lineWidth = 1
-      ctx.stroke()
-      ctx.globalAlpha = alpha
     }
 
     // A centre dot only while the body itself is too small to see.
@@ -603,14 +563,14 @@ export class LabelEngine {
       // A four-piece corner bracket, not a circle — it reads as a selection reticle
       // rather than as another object in the scene.
       const r = Math.max(MARKER_RADIUS + 6, Math.min(apparentPixels * 1.35, 64))
-      // Shorter arms and a hairline outside `rings`. The bracket is the one mark that
-      // has to be unmistakable — there is exactly one on screen and it answers "what
-      // did I pick" — so it keeps its shape; what it does not need is the weight of a
-      // mark competing with thirty-three others.
-      const arm = r * (style === 'rings' ? 0.42 : 0.3)
-      ctx.globalAlpha = style === 'rings' ? 1 : 0.85
+      // Short arms and a hairline. The bracket is the one mark that has to be
+      // unmistakable — there is exactly one on screen and it answers "what did I
+      // pick" — so it keeps its shape; what it does not need is the weight of a mark
+      // competing with thirty-three others, because there are no others now.
+      const arm = r * 0.3
+      ctx.globalAlpha = 0.85
       ctx.strokeStyle = '#8bdbff'
-      ctx.lineWidth = style === 'rings' ? 1.5 : 1
+      ctx.lineWidth = 1
       for (const [sx, sy] of [
         [-1, -1],
         [1, -1],

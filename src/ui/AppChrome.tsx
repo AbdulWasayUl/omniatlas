@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { MARKER_STYLES } from '../core/labels/LabelEngine'
 import type { AtlasViewer, ViewerSnapshot } from '../core/AtlasViewer'
 import { chooseScaleBar, formatDistance, formatRate, formatUtc } from '../format/units'
 import { epochIsFitted } from '../astronomy/ephemeris'
@@ -62,13 +61,6 @@ export function AppChrome({ viewer }: { viewer: AtlasViewer | null }) {
       }
       if (event.key === 'n' || event.key === 'N') {
         viewer?.resumeLive()
-      }
-      // DEMO SWITCH: cycle the clickability glyph, so the four can be judged against
-      // the same frame rather than against four reloads. See `MarkerStyle`.
-      if (event.key === 'm' || event.key === 'M') {
-        if (!viewer) return
-        const styles = MARKER_STYLES
-        viewer.labels.markerStyle = styles[(styles.indexOf(viewer.labels.markerStyle) + 1) % styles.length]
       }
       // Up one level in the containment hierarchy: moon to planet, planet to Sun.
       if (event.key === 'Backspace' || event.key === 'u' || event.key === 'U') {

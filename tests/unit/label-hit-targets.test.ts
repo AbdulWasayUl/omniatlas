@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Engine, type SceneNodeHandle } from '../../src/core/Engine'
-import { LabelEngine, MARKER_STYLES } from '../../src/core/labels/LabelEngine'
+import { LabelEngine } from '../../src/core/labels/LabelEngine'
 import { PC_M, sphericalToCartesian, vec3d } from '../../src/core/world'
 
 /**
@@ -20,7 +20,13 @@ import { PC_M, sphericalToCartesian, vec3d } from '../../src/core/world'
  */
 
 const ctx2d = new Proxy(
-  { measureText: () => ({ width: 40 }), canvas: {} },
+  {
+    measureText: () => ({ width: 40 }),
+    // The marker's affordance is a gradient, so a stub that returns nothing from this
+    // throws the moment anything is drawn.
+    createRadialGradient: () => ({ addColorStop: () => {} }),
+    canvas: {},
+  },
   {
     get: (target: Record<string, unknown>, key: string) =>
       key in target ? target[key] : typeof key === 'string' ? () => {} : undefined,
@@ -153,16 +159,16 @@ describe('hit targets', () => {
 })
 
 /**
- * The glyph is a drawing decision. What can be clicked is not.
+ * How much of a marker is drawn is a drawing decision. What can be clicked is not.
  *
- * `MarkerStyle` exists so the resting sky can stop looking like a heads-up display,
- * and the one thing it must not quietly buy that with is reach: a mark faded to a
- * quarter of a hairline because the pointer is elsewhere is still a mark you can put
- * the pointer ON, and the moment you do it comes up to full. These two are allowed to
- * disagree about ink and never about the hit set.
+ * The resting sky stopped looking like a heads-up display by fading each affordance
+ * with its distance from the pointer, and the one thing that must not quietly buy:
+ * reach. A mark at a quarter strength because the pointer is elsewhere is still a mark
+ * you can put the pointer ON, and the moment you do it comes up to full. Ink and the
+ * hit set are allowed to disagree about everything except what is in them.
  */
-describe('marker styles', () => {
-  it('change what is drawn and nothing about what is reachable', () => {
+describe('the proximity reveal', () => {
+  it('changes what is drawn and nothing about what is reachable', () => {
     const engine = sceneAt(500)
     engine.layer('galactic').active = true
     const crowd = Array.from({ length: 60 }, (_, i) => ({
@@ -170,20 +176,21 @@ describe('marker styles', () => {
       priority: 65,
     }))
 
-    const sets = MARKER_STYLES.map((style) => {
+    const reach = (pointer: { x: number; y: number } | null) => {
       const label = labels()
-      label.markerStyle = style
-      // Pointer in one corner, so every proximity reveal is at its resting floor —
-      // the state in which the quiet styles draw the least.
-      label.pointer = { x: 4, y: 4 }
+      label.pointer = pointer
       label.setItems([anchor, ...crowd])
       return label
         .render(engine, SPAN)
         .hits.map((hit) => `${hit.id}@${hit.r.toFixed(2)}:${hit.touch}`)
         .sort()
-    })
+    }
 
-    expect(sets[0].length).toBeGreaterThan(20)
-    for (const set of sets.slice(1)) expect(set).toEqual(sets[0])
+    // In a corner, in the middle of the crowd, and absent entirely — which is a touch
+    // screen, where nothing is ever near the pointer because there is no pointer.
+    const far = reach({ x: 4, y: 4 })
+    expect(far.length).toBeGreaterThan(20)
+    expect(reach({ x: 480, y: 400 })).toEqual(far)
+    expect(reach(null)).toEqual(far)
   })
 })
