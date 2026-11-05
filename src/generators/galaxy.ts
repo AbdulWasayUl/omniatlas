@@ -75,6 +75,17 @@ export interface GeneratedGalaxy {
   /** How tightly the arms wind: radians of rotation per e-folding of radius. */
   armPitch: number
   landmarks: GeneratedLandmark[]
+  /**
+   * How the drawn star cloud is distributed.
+   *
+   * 'blob' is centrally concentrated, which is right for an emission nebula, an
+   * elliptical and a cluster. 'shell' puts the material at the rim, which is what a
+   * supernova remnant actually is: the star is gone and what is left is a front still
+   * moving outward. Drawn as a blob instead, a remnant reads as an emission nebula, and
+   * the shock fronts named along its rim hang in empty space outside anything visible —
+   * which is exactly how the Crab looked.
+   */
+  profile?: 'blob' | 'shell'
   /** Points in the drawn star cloud. */
   starCount: number
   description: string
@@ -731,7 +742,12 @@ export function generateGalaxy(hostId: string, radiusMetres: number, shapeHint?:
       r * Math.cos(theta),
       r * Math.sin(theta),
       rng.signed() * thicknessKpc * 0.8,
-      radiusKpc * rng.range(0.015, 0.06),
+      // Capped in absolute terms, not as a fraction of the host. At six per cent of a
+      // 25 kpc disc an invented nursery came out about 1.5 kpc across — several times
+      // the Tarantula, which is the largest one anybody has actually found, at roughly
+      // 200 pc. A reader who learns the scale of a star-forming region here should not
+      // have to unlearn it. 0.12 kpc is a radius, so about 240 pc across at the top.
+      Math.min(0.12, radiusKpc * rng.range(0.015, 0.06)),
       rng.pick(NEBULA_COLORS),
       rng.range(0.5, 1),
     )
@@ -798,6 +814,17 @@ export function generateGalaxy(hostId: string, radiusMetres: number, shapeHint?:
  * inside it rather than orbiting it, the knots are being eaten rather than forming, and
  * there is no core, no halo and nothing in orbit around anything.
  */
+/**
+ * Where a supernova remnant's material is, as a fraction of its radius.
+ *
+ * Read by two places that must agree: the star field that draws the shell, and the
+ * placement of the shock fronts named along it. They were written independently, and
+ * independently is how they drifted — fronts out at 1.05 of the radius with the drawn
+ * gas stopping at 1.01, which is how a named front ends up hanging outside anything
+ * visible. One constant, two readers, no drift.
+ */
+const REMNANT_SHELL = { centre: 0.86, spread: 0.19 }
+
 function generateNebula(hostId: string, radiusMetres: number, remnantHint?: boolean): GeneratedGalaxy {
   const seed = hashSeed(`nebula:${hostId}`)
   const rng = rngFrom(seed)
@@ -832,7 +859,11 @@ function generateNebula(hostId: string, radiusMetres: number, remnantHint?: bool
       const theta = rng.range(0, Math.PI * 2)
       const cosPhi = rng.range(-1, 1)
       const sinPhi = Math.sqrt(Math.max(0, 1 - cosPhi * cosPhi))
-      const r = radiusKpc * rng.range(0.7, 1.05)
+      // Inside the shell the field actually draws, with a margin at both ends.
+      const r = radiusKpc * rng.range(
+        REMNANT_SHELL.centre - REMNANT_SHELL.spread * 0.7,
+        REMNANT_SHELL.centre + REMNANT_SHELL.spread * 0.7,
+      )
       add('front', r * sinPhi * Math.cos(theta), r * sinPhi * Math.sin(theta), r * cosPhi,
         radiusKpc * rng.range(0.1, 0.22), rng.pick(['#7fd0c8', '#9fd8e8', '#c86a7a']), rng.range(0.5, 0.95))
     }
@@ -857,7 +888,7 @@ function generateNebula(hostId: string, radiusMetres: number, remnantHint?: bool
 
   return {
     hostId, seed, basis, shape: 'irregular', radiusKpc, thicknessKpc: radiusKpc * 0.7,
-    armCount: 0, armPitch: 0, landmarks,
+    armCount: 0, armPitch: 0, landmarks, profile: remnant ? 'shell' : 'blob',
     starCount: Math.round(2500 + rng.next() * 3500),
     description: remnant
       ? 'Supernova remnant. A star ended here, and what it threw off is still moving outward fast enough to measure.'
@@ -934,7 +965,20 @@ export function galaxyStarField(galaxy: GeneratedGalaxy): Float32Array {
     let x: number
     let y: number
     let z: number
-    if (!discLike) {
+    if (galaxy.profile === 'shell') {
+      // A shell, not a blob. Three uniforms summed is near enough to a normal
+      // distribution, and this one is centred on 0.86 of the radius with a spread that
+      // brackets the 0.7-1.05 band the shock fronts are placed in, so a front is now
+      // inside lit gas instead of beside it.
+      const spread = rng.next() + rng.next() + rng.next() - 1.5
+      const r = galaxy.radiusKpc * Math.max(0.05, REMNANT_SHELL.centre + spread * REMNANT_SHELL.spread)
+      const theta = rng.range(0, Math.PI * 2)
+      const cosPhi = rng.range(-1, 1)
+      const sinPhi = Math.sqrt(Math.max(0, 1 - cosPhi * cosPhi))
+      x = r * sinPhi * Math.cos(theta)
+      y = r * sinPhi * Math.sin(theta)
+      z = r * cosPhi
+    } else if (!discLike) {
       // A de Vaucouleurs-ish blob: dense middle, long tail, no preferred plane.
       const r = galaxy.radiusKpc * Math.pow(rng.next(), 2.2) * 1.6
       const theta = rng.range(0, Math.PI * 2)

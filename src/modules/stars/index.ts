@@ -407,11 +407,24 @@ const STAR_FRAGMENT = /* glsl */ `
   varying vec2 vQuad;
 
   void main() {
-    // A soft Gaussian-ish core. A hard disc reads as a dot of paint; the falloff is
-    // what makes a field of these read as stars.
+    // A point source: a tight core with a soft halo around it.
+    //
+    // One broad Gaussian reads as a fuzzy BALL rather than a star, and every ball is
+    // the same size because the radius has a pixel floor -- which is exactly what you
+    // see from inside a star cluster, where a dozen identical white spheres hang in
+    // front of you. Measured from inside omi Vel: the old curve lit 383,000 pixels,
+    // about half the viewport.
+    //
+    // Two terms fix it. The core is sharp enough to read as a point at any size; the
+    // halo is what still says "light source" rather than "dot of paint". The
+    // subtraction takes the falloff to exactly zero at the rim, so the quad has no
+    // visible edge -- the old curve was still at 1.5% there, a faint disc on every star.
     float r2 = dot(vQuad, vQuad);
     if (r2 > 1.0) discard;
-    float falloff = exp(-4.2 * r2);
+    float core = exp(-22.0 * r2);
+    float halo = exp(-2.6 * r2);
+    const float EDGE = 0.02525;  // exp(-22.0) + 0.34 * exp(-2.6)
+    float falloff = max((core + 0.34 * halo - EDGE) / (1.34 - EDGE), 0.0);
     gl_FragColor = vec4(vColor * vIntensity * falloff, falloff);
   }
 `

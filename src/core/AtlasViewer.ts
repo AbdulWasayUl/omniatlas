@@ -281,7 +281,7 @@ const POINT_ARRIVAL_SPAN_M: Record<LayerId, number> = {
   helio: 1.7e9,
   // An invented world always carries a radius, so this is unreachable today and is here
   // only to keep the lookup total.
-  imagined: 1.7e9,
+  starSystem: 1.7e9,
   system: 1.7e9,
   surface: 1.7e9,
 }
@@ -390,6 +390,8 @@ export class AtlasViewer {
     // Selection is a click, not a drag that happened to end on an object.
     options.canvas.addEventListener('pointerdown', this.handlePointerDown)
     options.canvas.addEventListener('pointerup', this.handlePointerUp)
+    options.canvas.addEventListener('pointermove', this.handlePointerMove)
+    options.canvas.addEventListener('pointerleave', this.handlePointerLeave)
     options.canvas.addEventListener('dblclick', this.handleDoubleClick)
 
     this.resizeObserver = new ResizeObserver(() => this.resize())
@@ -919,6 +921,31 @@ export class AtlasViewer {
     this.pointerDownAt = { x: event.clientX, y: event.clientY, time: performance.now() }
   }
 
+  /**
+   * What the pointer is over, so a marker can say it is clickable before it is clicked.
+   *
+   * Markers were the only pick targets and gave no hover feedback at all, which left
+   * the sky looking inert: the only way to find out that a dot could be clicked was to
+   * click it. `pick` is a linear scan over the hits the last frame published, so this
+   * costs a few hundred comparisons on a pointer move and nothing on a still frame.
+   *
+   * Skipped while a button is down, because that is a drag: lighting up whatever the
+   * cursor crosses while the camera is being swung is noise, not information.
+   */
+  private handlePointerMove = (event: PointerEvent) => {
+    if (event.buttons !== 0) return
+    const id = this.pick(event.clientX, event.clientY)
+    if (id === this.labels.hovered) return
+    this.labels.hovered = id
+    this.canvas.style.cursor = id ? 'pointer' : ''
+  }
+
+  private handlePointerLeave = () => {
+    if (this.labels.hovered === null) return
+    this.labels.hovered = null
+    this.canvas.style.cursor = ''
+  }
+
   private handlePointerUp = (event: PointerEvent) => {
     const moved = Math.hypot(event.clientX - this.pointerDownAt.x, event.clientY - this.pointerDownAt.y)
     if (moved > 5 || performance.now() - this.pointerDownAt.time > 600) return
@@ -998,6 +1025,8 @@ export class AtlasViewer {
     this.disposed = true
     this.stop()
     this.resizeObserver.disconnect()
+    this.canvas.removeEventListener('pointermove', this.handlePointerMove)
+    this.canvas.removeEventListener('pointerleave', this.handlePointerLeave)
     this.canvas.removeEventListener('pointerdown', this.handlePointerDown)
     this.canvas.removeEventListener('pointerup', this.handlePointerUp)
     this.canvas.removeEventListener('dblclick', this.handleDoubleClick)

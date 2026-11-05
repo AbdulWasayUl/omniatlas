@@ -133,6 +133,8 @@ const GLOW_VERTEX = /* glsl */ `
 const GLOW_FRAGMENT = /* glsl */ `
   uniform vec3 uColor;
   uniform float uIntensity;
+  uniform float uCore;
+  uniform float uHalo;
   varying vec2 vQuad;
   varying float vFade;
 
@@ -142,10 +144,32 @@ const GLOW_FRAGMENT = /* glsl */ `
     // Clouds and crowds, not discs with edges. The subtraction is what makes that true:
     // exp(-2.2) is still eleven per cent of peak at the rim, so the old falloff gave
     // every landmark a hard elliptical outline and turned a nebula into a pastel egg.
-    float fall = (exp(-3.4 * r2) - 0.0334) / 0.9666;
+    //
+    // uCore sets how fast the middle falls away and uHalo adds a wide, faint skirt. A
+    // cloud wants a soft, slow core and no skirt. A STAR wants the opposite: one gaussian
+    // at cloud settings is a ball of light, which is why a cluster's named members read as
+    // small spheres rather than as stars. A tight core with a faint halo reads as a point
+    // source, which is what they are.
+    float core = exp(-uCore * r2);
+    float halo = exp(-2.0 * r2);
+    float v = core + uHalo * halo;
+    // Normalised so the centre is exactly 1 and the rim exactly 0 at any setting; without
+    // that the skirt reintroduces the hard outline it is there to avoid.
+    float edge = exp(-uCore) + uHalo * exp(-2.0);
+    float fall = (v - edge) / max(1.0 + uHalo - edge, 1e-4);
     gl_FragColor = vec4(uColor * max(fall, 0.0) * uIntensity * vFade, 1.0);
   }
 `
+
+/**
+ * How hard a landmark's light falls off: a point source or a cloud.
+ *
+ * Only the two star-like kinds are point sources. Everything else here is gas, a crowd
+ * or a hole in one, and wants the soft profile the clouds have always had.
+ */
+function glowProfile(kind: GeneratedLandmark['kind']): { core: number; halo: number } {
+  return kind === 'member' || kind === 'pulsar' ? { core: 26, halo: 0.26 } : { core: 3.4, halo: 0 }
+}
 
 /** `ngc:NGC5194` and `ungc:ngc5194` both reduce to NGC5194. */
 function designationKey(id: string): string | null {
@@ -313,6 +337,8 @@ export class ImaginedGalaxyModule implements AtlasModule {
         uRadiusKpc: { value: landmark.radiusKpc },
         uColor: { value: new THREE.Vector3(colour.r, colour.g, colour.b) },
         uIntensity: { value: landmark.intensity },
+        uCore: { value: glowProfile(landmark.kind).core },
+        uHalo: { value: glowProfile(landmark.kind).halo },
         uFade: { value: 1 },
       },
       vertexShader: GLOW_VERTEX,

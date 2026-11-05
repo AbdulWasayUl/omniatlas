@@ -15,6 +15,18 @@ papers. Whether a copyright applies to a given catalogue depends on that catalog
 recorded, where one exists, in its VizieR ReadMe. Commercial use is governed by those same
 origin-specific terms rather than by VizieR. Each catalogue used here is cited individually below.
 
+### Per-catalogue copyright, as stated by each catalogue's own ReadMe
+
+- `J/AJ/145/101` — **ReadMe not read** (connect ECONNREFUSED 130.79.128.5:443); copyright status unverified.
+- `J/ApJ/944/94` — **ReadMe not read** (connect ECONNREFUSED 130.79.128.5:443); copyright status unverified.
+- `J/ApJS/199/26` — **ReadMe not read** (connect ECONNREFUSED 130.79.128.5:443); copyright status unverified.
+
+CDS refused every connection from the network this was last checked on (2026-11-05), across
+`cdsarc.cds.unistra.fr`, `vizier.cds.unistra.fr` and both `u-strasbg.fr` aliases, which resolve to
+the same two addresses. `scripts/build-universe.mjs` now reads these three ReadMes on each run and
+rewrites the list above, so the next build from a network that can reach CDS settles it without
+anyone having to remember to look.
+
 ## ungc.json — Updated Nearby Galaxy Catalog
 
 - VizieR catalogue: `J/AJ/145/101`, table `catalog`

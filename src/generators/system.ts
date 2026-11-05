@@ -284,7 +284,7 @@ function hslToHex(h: number, sat: number, l: number): string {
 }
 
 /** One world's colour: its kind's, moved by an amount the seed decides. */
-function worldColor(kind: WorldKind, rng: Rng): string {
+export function worldColor(kind: WorldKind, rng: Rng): string {
   const [dh, ds, dl] = WORLD_COLOR_SPREAD[kind]
   const [h, sat, l] = hexToHsl(WORLD_BASE_COLOR[kind])
   return hslToHex(
@@ -342,7 +342,7 @@ function mainSequenceTemperature(radiusMetres: number): number {
 }
 
 /** Blackbody colour, roughly, for a star of this temperature. */
-function starColor(temperatureK: number): string {
+export function starColor(temperatureK: number): string {
   const stops: readonly [number, string][] = [
     [2400, '#ffb56b'],
     [3200, '#ffc993'],
@@ -458,7 +458,7 @@ export interface WorldRolls {
  * tell you anyway: two worlds the same size at the same distance can be an ocean and a
  * desert, and which one you get is a question about its history.
  */
-function classify(
+export function classify(
   radiusMetres: number,
   equilibriumK: number,
   distanceAu: number,

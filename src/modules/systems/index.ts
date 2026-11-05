@@ -15,6 +15,13 @@ import {
 import { describeWorld } from '../../generators/description'
 import { rngFrom } from '../../generators/random'
 import { surfaceTexture } from '../../generators/surface'
+import {
+  type ExoplanetSystemRow,
+  type MeasuredWorld,
+  describeMeasuredWorld,
+  loadExoplanetSystems,
+  measuredSystem,
+} from '../../data/exoplanets'
 
 /**
  * Immersive mode: invented planetary systems around real stars.
@@ -60,11 +67,14 @@ import { surfaceTexture } from '../../generators/surface'
  * belt are STATIC geometry built about the origin, and static geometry does not move
  * when the origin does, so the real solar system's orbits were drawn around Sabik.
  *
- * `imagined` has the same unit and span band as `helio` and an origin this module owns.
- * It also means invented content can never share a scene with measured content, which is
- * worth more than the convenience of reusing a layer.
+ * `starSystem` has the same unit and span band as `helio` and an origin this module owns.
+ * It also means invented content can never share a scene with content at another scale,
+ * which is worth more than the convenience of reusing a layer. It DOES now share the
+ * layer with measured content — the real exoplanets of a real star — which is why the
+ * layer is no longer called `imagined`: a measured planet drawn into a layer by that
+ * name is the kind of quiet lie this atlas is built to avoid.
  */
-const LAYER = 'imagined' as const
+const LAYER = 'starSystem' as const
 /** Generated positions are stated in the frame the star catalogue uses. */
 const FRAME = 'icrf' as const
 
@@ -77,8 +87,15 @@ const FRAME = 'icrf' as const
  * declares itself. Without it a generated world got no chip at all, which the inspector
  * treats as "says nothing about itself" and is far too quiet for something made up.
  */
-interface ImaginedNode extends SceneNodeHandle {
-  provenance: 'illustration'
+interface SystemNode extends SceneNodeHandle {
+  /**
+   * `illustration` for an invented world, `measured` for one the archive publishes.
+   *
+   * The distinction is the entire point of the feature: a world drawn from the NASA
+   * Exoplanet Archive is a thing that is there, and must not wear the chip that says it
+   * was made up — nor the other way round.
+   */
+  provenance: 'illustration' | 'measured'
   provenanceNote: string
   /** The kind of world, and what makes it that kind. Shown above the provenance note. */
   caveat: string
@@ -153,8 +170,8 @@ interface Body {
   world: Vec3d
 }
 
-export class ImmersiveModule implements AtlasModule {
-  readonly id = 'immersive'
+export class SystemsModule implements AtlasModule {
+  readonly id = 'systems'
   private engine!: Engine
   private builtFor: string | null = null
   private system: GeneratedSystem | null = null
@@ -171,6 +188,12 @@ export class ImmersiveModule implements AtlasModule {
   private readonly quad = new THREE.BufferGeometry()
   private hostNode: SceneNodeHandle | null = null
   private readonly local = new THREE.Vector3()
+  /** The measured table, once it arrives. Null until then, which only costs invention. */
+  private exoplanets: Map<number, ExoplanetSystemRow> | null = null
+  /** True when what is currently built came from the archive rather than the generator. */
+  private measured = false
+  /** Every world node this module has registered, to the star it belongs to. */
+  private readonly nodeToStar = new Map<string, string>()
 
   init(engine: Engine): void {
     this.engine = engine
@@ -179,6 +202,15 @@ export class ImmersiveModule implements AtlasModule {
       new THREE.Float32BufferAttribute([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0], 3),
     )
     this.quad.setIndex([0, 1, 2, 0, 2, 3])
+    // Not awaited. Until it lands the atlas behaves exactly as it did before, which is
+    // to say it invents; once it lands, the stars with real planets stop being invented
+    // around on the next frame the camera is at one.
+    void loadExoplanetSystems().then((table) => {
+      this.exoplanets = table
+      // Whatever is built now may be an invented system around a star we have just
+      // learned has real planets. Drop it and let `update` rebuild from the archive.
+      if (this.builtFor && !this.measured && this.measuredRowFor(this.builtFor)) this.teardown()
+    })
   }
 
   /**
@@ -187,7 +219,9 @@ export class ImmersiveModule implements AtlasModule {
    * created in `preRender` is invisible for its first frame.
    */
   update(ctx: FrameContext): void {
-    const wanted = this.engine.immersive ? this.hostStar(ctx) : null
+    // NOT gated on the toggle. The toggle governs INVENTION; a planet that is actually
+    // there is not an imagined world and does not belong behind a switch labelled one.
+    const wanted = this.hostStar(ctx)
     if (wanted !== this.builtFor) {
       this.teardown()
       if (wanted) this.build(wanted)
@@ -236,11 +270,28 @@ export class ImmersiveModule implements AtlasModule {
     // first frame after every arrival building the system it just left.
     for (const id of [this.engine.anchorId, ctx.transitFromId]) {
       if (!id) continue
-      const starId = id.startsWith('gen:') ? id.slice(4).split('/')[0] : id
+      const starId = this.nodeToStar.get(id) ?? (id.startsWith('gen:') ? id.slice(4).split('/')[0] : id)
       const node = this.engine.node(starId)
-      if (node && canHostInventedSystem(node, this.hasRealChildren(starId))) return starId
+      if (!node) continue
+      // A star with measured planets draws them whatever the toggle says.
+      if (this.measuredRowFor(starId)) return starId
+      if (this.engine.immersive && canHostInventedSystem(node, this.hasRealChildren(starId))) return starId
     }
     return null
+  }
+
+  /**
+   * The archive's row for a star, if it has one.
+   *
+   * Keyed on the global star index, which is what the node id already carries: the star
+   * module builds `star:<i>` from the same l0 ++ l1 index the exoplanet match was
+   * recorded against, so no second lookup table is needed to join them.
+   */
+  private measuredRowFor(starId: string): ExoplanetSystemRow | null {
+    if (!this.exoplanets) return null
+    const match = /^star:(\d+)$/.exec(starId)
+    if (!match) return null
+    return this.exoplanets.get(Number(match[1])) ?? null
   }
 
   /** Whether the registry already holds something orbiting this star. */
@@ -262,7 +313,15 @@ export class ImmersiveModule implements AtlasModule {
     this.builtFor = starId
     this.hostNode = host
     this.usedLines = new Set<string>()
-    const system = nameSystem(generateSystem({ id: starId, radiusMetres: host.radiusMetres, temperatureK: host.temperatureK }), host.name)
+    // The archive first, always. `measuredSystem` returns null where no planet in the
+    // row can be placed at all, which keeps a star with an unusable row from standing
+    // invention down and then drawing nothing.
+    const row = this.measuredRowFor(starId)
+    const fromArchive = row ? measuredSystem(row, starId) : null
+    this.measured = fromArchive !== null
+    const system: GeneratedSystem =
+      fromArchive ??
+      nameSystem(generateSystem({ id: starId, radiusMetres: host.radiusMetres, temperatureK: host.temperatureK }), host.name)
     this.system = system
     const layer = this.engine.layer(LAYER)
     // This module owns the layer's origin; nothing else draws into it.
@@ -300,9 +359,14 @@ export class ImmersiveModule implements AtlasModule {
         uPixelHeight: { value: 1080 },
         uTanHalfFov: { value: 0.466 },
         uRadius: { value: layer.toLocalLength(system.star.radiusMetres) },
-        uMinPx: { value: 11 },
+        // Measured in the Vega system at a whole-system framing, counting pixels over
+        // 200: at 1.5 and an 11 px floor the host star put up 48 against the field
+        // stars' 101, so the star you had flown to was the second brightest thing in
+        // its own sky. At 3.4 and 18 px it is 309 against 101 and still short of
+        // clipping, which is a star rather than a flare.
+        uMinPx: { value: 18 },
         uColor: { value: new THREE.Vector3(starColour.r, starColour.g, starColour.b) },
-        uIntensity: { value: 1.5 },
+        uIntensity: { value: 3.4 },
       },
       vertexShader: GLARE_VERTEX,
       fragmentShader: GLARE_FRAGMENT,
@@ -368,8 +432,12 @@ export class ImmersiveModule implements AtlasModule {
     // A map of its own, so the text and the picture say the same thing. Null under a
     // test runner, where SphereBody falls back to the flat colour.
     const map = surfaceTexture(world.id, world.kind, world.color) ?? undefined
+    // A measured world's id is already `exo:<name>`; only invented ones take the `gen:`
+    // prefix, which is what the breadcrumb, the URL state and `hasRealChildren` all read
+    // to decide whether something was made up.
+    const nodeId = this.measured ? world.id : `gen:${world.id}`
     const body = new SphereBody({
-      id: `gen:${world.id}`,
+      id: nodeId,
       radius: layer.toLocalLength(world.radiusMetres),
       color: world.color,
       textureUrl: map,
@@ -396,8 +464,8 @@ export class ImmersiveModule implements AtlasModule {
     body.requestTextures()
     layer.scene.add(body.group)
 
-    const node: ImaginedNode = {
-      id: `gen:${world.id}`,
+    const node: SystemNode = {
+      id: nodeId,
       worldPosition: vec3d(),
       frame: FRAME,
       radiusMetres: world.radiusMetres,
@@ -410,11 +478,13 @@ export class ImmersiveModule implements AtlasModule {
       // no stronger one in the vocabulary, and adding a fourth kind for this would mean
       // every consumer of provenance had to learn it; what the chip cannot say, the note
       // underneath it does, in the first four words.
-      provenance: 'illustration',
+      provenance: this.measured ? 'measured' : 'illustration',
       // What kind of world this is, said first, because it is the thing a viewer wants
       // to know on arrival and the thing the colour is only hinting at.
       // The kind names what it is; the description is only ever true of THIS world.
-      caveat: `${WORLD_KINDS[world.kind].label}. ${describeWorld({
+      caveat: this.measured
+        ? `${WORLD_KINDS[world.kind].label}. ${describeMeasuredWorld(world as MeasuredWorld, this.hostNode?.name ?? 'its star')}`
+        : `${WORLD_KINDS[world.kind].label}. ${describeWorld({
         id: world.id,
         kind: world.kind,
         radiusMetres: world.radiusMetres,
@@ -429,14 +499,22 @@ export class ImmersiveModule implements AtlasModule {
         isMoon: !isPlanet,
         primaryName,
       }, this.usedLines)}`,
-      provenanceNote:
-        `Invented, not observed. ${this.hostNode?.name ?? 'This star'}'s measured radius and ` +
+      provenanceNote: this.measured
+        ? `Measured, not invented. This planet is in the NASA Exoplanet Archive as ` +
+          `${(world as MeasuredWorld).catalogueName}: the size, shape and period of its orbit, and ` +
+          `its radius and mass, are published values. What it LOOKS like is not — no telescope ` +
+          `has resolved its surface, so the colour and the map are drawn from its size and its ` +
+          `temperature. Nor is where it sits along its orbit at this instant: the archive gives a ` +
+          `transit time for some planets and none for most, so the phase is seeded from the ` +
+          `planet's own name and is the same on every visit.`
+        : `Invented, not observed. ${this.hostNode?.name ?? 'This star'}'s measured radius and ` +
         'temperature set the scale, and everything else — how many worlds there are, how big ' +
         'they are, what they are made of and what orbits them — was generated from the star\'s ' +
         'identifier. The same star always yields the same system, so a link to this world ' +
         'shows anyone the same world.',
     }
     this.engine.register(node)
+    this.nodeToStar.set(nodeId, this.builtFor ?? '')
     this.bodies.set(world.id, {
       id: world.id,
       node,
@@ -542,7 +620,7 @@ export class ImmersiveModule implements AtlasModule {
     const offset = new THREE.Vector3()
       .addScaledVector(e1, mid * Math.cos(azimuth))
       .addScaledVector(e2, mid * Math.sin(azimuth))
-    const node: ImaginedNode = {
+    const node: SystemNode = {
       id: `gen:${belt.id}`,
       worldPosition: vec3d(),
       frame: FRAME,
@@ -643,6 +721,8 @@ export class ImmersiveModule implements AtlasModule {
   }
 
   private teardown(): void {
+    this.nodeToStar.clear()
+    this.measured = false
     const layer = this.engine.layer(LAYER)
     const restoreOrigin = this.builtFor !== null
     for (const entry of this.bodies.values()) {

@@ -74,14 +74,32 @@ export function applyUrlState(viewer: AtlasViewer, state: AtlasUrlState): void {
     // straight to one therefore resolved to nothing and fell back to the Sun, which
     // made every shared view of a generated world a lie about where it pointed.
     //
-    // The id carries its own host: `gen:star:88/d` is the fourth world of `star:88`.
-    // Anchor the star, let the module build, then land on the world itself. The wait is
-    // bounded because a system that has not appeared within a few frames is not going to.
-    const generated = state.focus.startsWith('gen:') && viewer.engine.node(state.focus) === null
-    if (generated) {
+    // A measured exoplanet has the same problem for the same reason -- it is built when
+    // its star becomes the anchor and not before -- so it gets the same treatment.
+    //
+    // The id carries its own host: `gen:star:88/d` is the fourth world of `star:88`, and
+    // `exo:star:21901/55-cnc-e` is a real planet of `star:21901`. Both prefixes are four
+    // characters, which is what lets one slice serve both. Anchor the star, let the
+    // module build, then land on the world itself. The wait is bounded because a system
+    // that has not appeared within a few frames is not going to.
+    const deferred =
+      (state.focus.startsWith('gen:') || state.focus.startsWith('exo:')) &&
+      viewer.engine.node(state.focus) === null
+    if (deferred) {
       const host = state.focus.slice(4).split('/')[0]
       viewer.focus(host, { instant: true })
-      let framesLeft = 12
+      // Bounded by TIME, not by a frame count. Twelve frames was enough for an invented
+      // system, which is built from a seed the moment its star is anchored and needs
+      // nothing from the network. A measured one cannot be built until the exoplanet
+      // table has been fetched, and on a cold load — which is exactly what following a
+      // shared link is — that table is still in flight for far longer than twelve
+      // frames. The link then anchored the star and gave up one planet short, which is
+      // the same silent near-miss the frame budget was added to fix in the first place.
+      //
+      // A frame count is also the wrong unit when the tab is throttled: twelve frames in
+      // a backgrounded tab is twelve seconds, and twelve frames in a fast one is a fifth
+      // of a second. The thing being waited for is a fetch, so wait in seconds.
+      const deadline = performance.now() + 2500
       const land = () => {
         if (viewer.engine.node(state.focus!) !== null) {
           viewer.focus(state.focus!, { instant: true, distanceMetres: state.distanceMetres ?? undefined })
@@ -90,7 +108,7 @@ export function applyUrlState(viewer: AtlasViewer, state: AtlasUrlState): void {
           }
           return
         }
-        if (framesLeft-- > 0) requestAnimationFrame(land)
+        if (performance.now() < deadline) requestAnimationFrame(land)
       }
       requestAnimationFrame(land)
     } else {

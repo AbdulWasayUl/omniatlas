@@ -151,3 +151,60 @@ describe('generateInterior', () => {
     expect(spread, 'azimuthal structure too smooth to read as arms').toBeGreaterThan(0.1)
   })
 })
+
+/**
+ * Two things the reviewer could see and the generator could not.
+ *
+ * Both were cases of a number that was fine in the abstract and wrong on screen: gas
+ * drawn in the middle of something whose material is all at the rim, and a nursery
+ * scaled as a fraction of its host rather than against the ones that exist.
+ */
+describe('what a reader would notice', () => {
+  const KPC_M = 3.0856775814913673e19
+  const radial = (field: Float32Array) => {
+    const out: number[] = []
+    for (let i = 0; i < field.length; i += 3) out.push(Math.hypot(field[i], field[i + 1], field[i + 2]))
+    return out
+  }
+
+  it('builds a supernova remnant as a shell, not as a ball of gas', () => {
+    const crab = generateInterior('ngc:NGC1952', 1.6e17, 'nebula') as GeneratedGalaxy
+    expect(crab.profile).toBe('shell')
+    const r = radial(galaxyStarField(crab)).map((v) => v / crab.radiusKpc)
+    const inside = r.filter((v) => v < 0.4).length / r.length
+    const atRim = r.filter((v) => v >= 0.6 && v <= 1.15).length / r.length
+    // The middle of a remnant is the hole the star left; the light is on the front.
+    expect(inside).toBeLessThan(0.05)
+    expect(atRim).toBeGreaterThan(0.8)
+  })
+
+  it('puts a remnant’s shock fronts inside the gas it draws, not beside it', () => {
+    const crab = generateInterior('ngc:NGC1952', 1.6e17, 'nebula') as GeneratedGalaxy
+    const r = radial(galaxyStarField(crab)).map((v) => v / crab.radiusKpc).sort((a, b) => a - b)
+    const lo = r[Math.floor(r.length * 0.05)]
+    const hi = r[Math.floor(r.length * 0.95)]
+    const fronts = crab.landmarks.filter((l) => l.kind === 'front')
+    expect(fronts.length).toBeGreaterThan(0)
+    for (const f of fronts) {
+      const d = Math.hypot(f.x, f.y, f.z) / crab.radiusKpc
+      expect(d).toBeGreaterThanOrEqual(lo)
+      expect(d).toBeLessThanOrEqual(hi)
+    }
+  })
+
+  it('never invents a star-forming region larger than the largest real one', () => {
+    // The Tarantula is about 200 pc across, and it is the biggest anybody has found.
+    // A landmark radius of 0.12 kpc is 240 pc across, so this is the ceiling plus a
+    // little, not a licence.
+    for (const host of ['ngc:NGC5194', 'ngc:NGC0224', 'ngc:NGC1232', 'ngc:NGC4565', 'ngc:NGC3031']) {
+      for (const radius of [1.2e20, 6.0e20, 2.4e21]) {
+        const g = generateInterior(host, radius, 'galaxy') as GeneratedGalaxy
+        for (const l of g.landmarks) {
+          if (l.kind !== 'nebula' && l.kind !== 'starCloud') continue
+          expect(l.radiusKpc).toBeLessThanOrEqual(0.12)
+          expect(l.radiusKpc * 2 * (KPC_M / 3.0856775814913673e16)).toBeLessThanOrEqual(240.0001)
+        }
+      }
+    }
+  })
+})
