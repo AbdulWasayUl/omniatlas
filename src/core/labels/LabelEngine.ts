@@ -157,7 +157,14 @@ export class LabelEngine {
   private width = 1
   private height = 1
 
-  /** Set by the host so clicks can hit-test markers. */
+  /**
+   * The marked object under the pointer, or null.
+   *
+   * This field existed and was never written to, which is a fair summary of the state
+   * of hover in this atlas: markers were clickable but gave no sign of it, so the only
+   * way to learn that a dot could be clicked was to click it and see. Written by
+   * `AtlasViewer` on pointer move; read here to light the ring under the cursor.
+   */
   hovered: string | null = null
   selectedId: string | null = null
   /** The camera's anchor. Always marked, so you can never lose the thing you orbit. */
@@ -332,9 +339,14 @@ export class LabelEngine {
     // Painting back to front puts the object the view is actually about on top.
     for (let i = marked.length - 1; i >= 0; i--) {
       const { item, x, y, apparentPixels, selected } = marked[i]
-      const markerAlpha = markerAlphaFor(apparentPixels, selected)
+      const hovered = item.node.id === this.hovered
+      // A hovered marker is always drawn, even below the alpha cut: the pointer is on
+      // it, so the one thing the view must not do is show nothing there.
+      const markerAlpha = hovered
+        ? Math.max(markerAlphaFor(apparentPixels, selected), 0.9)
+        : markerAlphaFor(apparentPixels, selected)
       if (markerAlpha > 0.01) {
-        this.drawMarker(x, y, classStyle(item.node.objectClass).color, markerAlpha, apparentPixels, selected)
+        this.drawMarker(x, y, classStyle(item.node.objectClass).color, markerAlpha, apparentPixels, selected, hovered)
       }
     }
 
@@ -371,6 +383,7 @@ export class LabelEngine {
     alpha: number,
     apparentPixels: number,
     selected: boolean,
+    hovered = false,
   ): void {
     const ctx = this.ctx
     ctx.save()
@@ -380,8 +393,20 @@ export class LabelEngine {
     ctx.beginPath()
     ctx.arc(x, y, MARKER_RADIUS, 0, Math.PI * 2)
     ctx.strokeStyle = color
-    ctx.lineWidth = 1
+    ctx.lineWidth = hovered ? 1.75 : 1
     ctx.stroke()
+
+    // Under the pointer: a second ring standing off the first. An outline that grows
+    // would fight the glyph's job of teaching apparent size, and a filled highlight
+    // would hide the body. A halo around it changes nothing the mark is saying.
+    if (hovered) {
+      ctx.globalAlpha = alpha * 0.55
+      ctx.beginPath()
+      ctx.arc(x, y, MARKER_RADIUS + 3.5, 0, Math.PI * 2)
+      ctx.lineWidth = 1
+      ctx.stroke()
+      ctx.globalAlpha = alpha
+    }
 
     // A centre dot only while the body itself is too small to see.
     if (apparentPixels < 1.2) {
