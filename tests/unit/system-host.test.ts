@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canHostInventedSystem } from '../../src/modules/immersive/index'
+import { canHostInventedSystem } from '../../src/modules/systems/index'
 
 /**
  * Which stars may have a system invented for them.

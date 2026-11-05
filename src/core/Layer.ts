@@ -41,7 +41,7 @@ export type LayerId =
   | 'stellar'
   | 'galaxyInterior'
   | 'helio'
-  | 'imagined'
+  | 'starSystem'
   | 'system'
   | 'surface'
 
@@ -201,7 +201,7 @@ export const LAYER_CONFIGS: readonly LayerConfig[] = [
      * -- judged on whether its content is the right size for the view, never on distance
      * from a fixed origin -- and its origin is set by the module that fills it.
      */
-    id: 'imagined',
+    id: 'starSystem',
     unitMetres: AU_M,
     frame: 'ecliptic',
     order: 15,

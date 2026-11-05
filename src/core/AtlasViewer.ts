@@ -281,7 +281,7 @@ const POINT_ARRIVAL_SPAN_M: Record<LayerId, number> = {
   helio: 1.7e9,
   // An invented world always carries a radius, so this is unreachable today and is here
   // only to keep the lookup total.
-  imagined: 1.7e9,
+  starSystem: 1.7e9,
   system: 1.7e9,
   surface: 1.7e9,
 }

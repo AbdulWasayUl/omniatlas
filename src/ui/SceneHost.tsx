@@ -104,10 +104,10 @@ export function SceneHost({ onViewer }: { onViewer?: (viewer: AtlasViewer | null
           // last write in a frame is the one the engine reads. Proxy computes it from
           // its own live set every frame, so an earlier write by this module was simply
           // erased and the generated system went out with the layer.
-          id: 'immersive',
+          id: 'systems',
           load: async () => {
-            const { ImmersiveModule } = await import('../modules/immersive')
-            return new ImmersiveModule()
+            const { SystemsModule } = await import('../modules/systems')
+            return new SystemsModule()
           },
         },
       ],
