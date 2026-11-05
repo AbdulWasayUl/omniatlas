@@ -273,8 +273,23 @@ button {
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--text-3);
+  /* The class is worn by an <a> as well as by a <button> — the GitHub link is the one
+     control in the bar that leaves the page — and a link arrives underlined. */
+  text-decoration: none;
   transition: background var(--d-micro) var(--ease-micro), color var(--d-micro) var(--ease-micro),
     border-color var(--d-micro) var(--ease-micro);
+}
+
+/* Square, for a control whose whole label is its glyph. */
+.tool-button.icon-only {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  padding: 0;
+  /* A glyph has no slack to give. Left shrinkable it was squeezed to 18px of a 34px
+     mark on a phone — still there, no longer recognisable, which is worse than either
+     fitting or being absent. */
+  flex: none;
 }
 
 .tool-button:hover {
@@ -1633,6 +1648,23 @@ button.chip:hover {
   .now-button {
     margin-left: 4px;
     padding: 0 8px;
+  }
+
+  /* The bar was already a few pixels over its own width at 375 before the GitHub mark
+     was added, and the mark made it twenty-five. Tightening the gap and the buttons'
+     side padding buys back more than the mark costs, so the whole row fits where it
+     did not before — measured at 375, where it now ends 3px inside the edge. */
+  .topbar {
+    gap: 10px;
+  }
+
+  .tool-button {
+    padding: 0 8px;
+  }
+
+  .tool-button.icon-only {
+    width: 30px;
+    padding: 0;
   }
 }
 
