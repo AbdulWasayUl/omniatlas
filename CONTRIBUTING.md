@@ -123,3 +123,6 @@ Bugs and ideas both go to [Issues](https://github.com/AbdulWasayUl/omniatlas/iss
 For a wrong position, a wrong label or a mis-sourced object, the templates ask for the
 share URL from the address bar — it carries the exact view, so it is usually enough to
 reproduce the problem on the first try.
+
+A security vulnerability goes privately through [SECURITY.md](SECURITY.md), not into an
+issue.
