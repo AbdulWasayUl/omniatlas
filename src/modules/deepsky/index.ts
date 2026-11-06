@@ -161,6 +161,45 @@ function hasTrustworthyDistance(kind: number, distancePc: number, redshift: numb
 const SHELL_PC = 1e5
 
 /**
+ * Outline names OpenNGC spells differently from its own catalogue rows.
+ *
+ * The outline set is named by file, and three of those files name an object the
+ * catalogue does carry under another designation. Matching on the file name alone
+ * missed all three, which cost them their catalogue colour and left the widest
+ * nebula contour on the screen sitting over a sprite that had not been told to
+ * stand aside.
+ *
+ * Only aliases for rows that already exist belong here. A name with no row behind
+ * it is a region, and `registerOutlineComplexes` is what handles those.
+ */
+const OUTLINE_ALIASES: Readonly<Record<string, string>> = {
+  /** Caldwell 9, the Cave Nebula; the catalogue zero-pads Caldwell numbers. */
+  C9: 'C009',
+  /** The Pleiades, which have no NGC number and are numbered by Melotte here. */
+  M045: 'Mel022',
+  /** The Large Magellanic Cloud, catalogued under its ESO designation. */
+  LMC: 'ESO056-115',
+}
+
+/**
+ * The named sky regions OpenNGC traces but numbers in no catalogue.
+ *
+ * Ten of the 193 traced objects are regional complexes — Orion, Cygnus, Vela and the
+ * rest — plus two Lynds bright nebulae. They are contours over whole constellations,
+ * not rows: there is no NGC or IC number to carry them, so nothing in the catalogue
+ * passes can register them, and until `registerOutlineComplexes` they were twenty-four
+ * of the largest shapes in the sky with nothing behind them to click.
+ *
+ * The name is the source's own, prettified only for spacing. Giving them a term of art
+ * they were not published with ("the Orion molecular cloud complex") would be inventing
+ * an identification on the strength of a filename.
+ */
+function complexDisplayName(objectName: string): string {
+  const spaced = objectName.replace(/^([A-Z]+)(\d+)$/, '$1 $2')
+  return spaced === objectName ? objectName.replace(/([a-z])([A-Z])/g, '$1 $2') : spaced
+}
+
+/**
  * Camera distances (pc from the Sun) over which the direction-only shell fades out.
  *
  * The shell is the same kind of claim as the contours below: a bearing taken from
@@ -592,7 +631,15 @@ export interface DeepSkyManifest {
     /** NGC/IC point sprites suppressed because Harris draws the same cluster. */
     suppressedNgcSprites: number
   }
-  outlines: { outlines: number; rings: number; points: number; matchedToCatalogue: number; filledRings: number }
+  outlines: {
+    outlines: number
+    rings: number
+    points: number
+    matchedToCatalogue: number
+    filledRings: number
+    /** Traced regions carried in no catalogue, given a node here; see `registerOutlineComplexes`. */
+    complexesRegistered: number
+  }
   provenance: {
     measured: string[]
     derived: string[]
@@ -652,6 +699,15 @@ interface PlacementBuffer {
 /** A registry node that knows how much of itself is a measurement. */
 export interface DeepSkyNode extends SceneNodeHandle {
   provenance: 'measured' | 'derived' | 'illustration'
+  /**
+   * One line the inspector prints under the chip, where the chip alone understates it.
+   *
+   * The catalogue rows do not need it: 'Measured' over an OpenNGC row says everything
+   * there is to say. The traced regions do, because 'Illustrated' is true of their
+   * position and badly wrong about their shape, which is the part the user is looking
+   * at. See `registerOutlineComplexes`.
+   */
+  provenanceNote?: string
   /** True when only the direction is known and the position is a shell projection. */
   directionOnly: boolean
   /**
@@ -661,7 +717,8 @@ export interface DeepSkyNode extends SceneNodeHandle {
    * one it is the catalogued angular size carried out to the 100 kpc shell the glyph
    * is drawn on, which is a statement about the picture and not about the object, and
    * is why it does not go in `radiusMetres`: the inspector prints that one as a
-   * measurement. Nothing reads this yet; `focus()` is the intended consumer.
+   * measurement. `AtlasViewer.focus()` is the consumer — it takes this whenever
+   * `radiusMetres` is 0, which is exactly the direction-only case.
    */
   framingRadiusMetres: number
   distanceSource: 'parallax' | 'redshift' | 'literature' | 'harris-2010' | 'none'
@@ -1146,7 +1203,7 @@ export class DeepSkyModule implements AtlasModule {
       replacedNgcEntries: 0,
       suppressedNgcSprites: 0,
     },
-    outlines: { outlines: 0, rings: 0, points: 0, matchedToCatalogue: 0, filledRings: 0 },
+    outlines: { outlines: 0, rings: 0, points: 0, matchedToCatalogue: 0, filledRings: 0, complexesRegistered: 0 },
     provenance: {
       measured: [
         'NGC/IC directions (OpenNGC, ICRS J2000)',
@@ -1196,6 +1253,17 @@ export class DeepSkyModule implements AtlasModule {
   private readonly farMaterials: THREE.ShaderMaterial[] = []
   private readonly geometries: THREE.BufferGeometry[] = []
   private readonly nodeIds: string[] = []
+
+  /**
+   * Settles when the traced outlines have finished loading.
+   *
+   * `init` does not await them, because nothing the first frame needs is in there. It
+   * does now register nodes, though, so "the registry is complete" and "init resolved"
+   * stopped being the same moment, and anything that wants the whole set — a test
+   * asserting that drawn and clickable are one set, for instance — has to be able to
+   * wait for the later one.
+   */
+  outlinesSettled: Promise<void> = Promise.resolve()
 
   /** Index of the catalogue row -> instance slot, for the outline/sprite handoff. */
   private rowToInstance = new Map<number, number>()
@@ -1278,8 +1346,11 @@ export class DeepSkyModule implements AtlasModule {
     // Last, so that the named and Harris passes have already claimed their rows.
     this.registerField()
 
-    // The outlines register nothing, so they can finish after the first frame.
-    void this.loadOutlines().catch((error) => {
+    // The outlines are last and are not awaited: the catalogue passes above are what
+    // the first frame needs. They do register the handful of traced regions that are
+    // in no catalogue, which lands a few frames in; `registryVersion` is what tells
+    // the label engine to pick them up. See `registerOutlineComplexes`.
+    this.outlinesSettled = this.loadOutlines().catch((error) => {
       this.manifest.datasets['outlines.bin'] = 'malformed'
       console.warn('[omniatlas] nebula outlines failed to load', error)
     })
@@ -2241,6 +2312,8 @@ export class DeepSkyModule implements AtlasModule {
 
     const scratch = vec3d()
     const contour: THREE.Vector2[] = []
+    /** Traced objects with no catalogue row, and the widest contour found for each. */
+    const complexes = new Map<string, { raDeg: number; decDeg: number; radiusDeg: number }>()
     let matched = 0
     let filledRings = 0
     let rings = 0
@@ -2249,7 +2322,7 @@ export class DeepSkyModule implements AtlasModule {
       const meta = manifest.outlines[o]
       const objectName = meta?.object ?? ''
       const level = meta?.level ?? 1
-      const row = rowOf.get(objectName)
+      const row = rowOf.get(OUTLINE_ALIASES[objectName] ?? objectName)
       const instance = row === undefined ? undefined : this.rowToInstance.get(row)
       // A matched outline takes the colour the catalogue already gave its object, so
       // the contour and its sprite are visibly the same thing. The thirteen regional
@@ -2281,6 +2354,15 @@ export class DeepSkyModule implements AtlasModule {
       if (instance !== undefined) {
         for (const attribute of this.outlineAttributes) {
           if (angularRadiusDeg > attribute.getX(instance)) attribute.setX(instance, angularRadiusDeg)
+        }
+      } else if (objectName) {
+        // A traced shape with no catalogue row behind it. Keep the widest contour of
+        // each one: the levels are nested isophotes of the same object, so the faintest
+        // is the extent, and a node built from the brightest core would under-report
+        // the thing the user is actually looking at by a factor of several.
+        const widest = complexes.get(objectName)
+        if (!widest || angularRadiusDeg > widest.radiusDeg) {
+          complexes.set(objectName, { raDeg: raMid[o], decDeg: decMid[o], radiusDeg: angularRadiusDeg })
         }
       }
 
@@ -2394,14 +2476,79 @@ export class DeepSkyModule implements AtlasModule {
 
     for (const attribute of this.outlineAttributes) attribute.needsUpdate = true
 
+    this.registerOutlineComplexes(complexes)
+
     this.manifest.outlines = {
       outlines: outlineCount,
       rings,
       points: totalPoints,
       matchedToCatalogue: matched,
       filledRings,
+      complexesRegistered: complexes.size,
     }
     this.manifest.datasets['outlines.bin'] = 'loaded'
+  }
+
+  /**
+   * Give the traced regions that are in no catalogue a node of their own.
+   *
+   * ## Why
+   *
+   * Same invariant as `registerField`, one scale down. OpenNGC traces 379 contours
+   * over 193 objects; 355 of them sit on a catalogue row, which already has a node, so
+   * a click anywhere in the contour reaches it. The other twenty-four did not, because
+   * the ten objects they belong to — Orion, Cygnus, Cepheus, Vela, Puppis, Antlia,
+   * Corona Australis, Scorpion, and two Lynds bright nebulae — are regions rather than
+   * rows and carry no NGC or IC number for a catalogue pass to find. They are also
+   * among the largest shapes in the sky: the thing most worth clicking on that part of
+   * the screen was the one thing that did nothing.
+   *
+   * ## What these nodes claim
+   *
+   * The direction and the extent, and nothing else. Both come off the traced contour
+   * itself, which is a measurement of where the light is, so the centre is the midpoint
+   * the dataset publishes and the radius is the widest point of the faintest isophote.
+   *
+   * No distance. OpenNGC publishes none for a contour, and a molecular cloud complex
+   * does not have one number anyway — Orion runs from about 390 to 420 pc front to
+   * back, and the figure a reader would want depends on which part of it they mean. So
+   * these go on the shell with everything else whose bearing is known and whose
+   * position is not, badged `illustration` and drawn as the ring that means exactly
+   * that. Picking a literature distance per region would place them to within a few
+   * percent and would be the project telling its first lie.
+   */
+  private registerOutlineComplexes(
+    complexes: ReadonlyMap<string, { raDeg: number; decDeg: number; radiusDeg: number }>,
+  ): void {
+    for (const [objectName, shape] of complexes) {
+      const id = `region:${objectName}`
+      if (this.engine.registry.has(id)) continue
+      // Small-angle, the same conversion the field uses to put a bearing on the shell.
+      const angularRadiusRad = shape.radiusDeg * (Math.PI / 180)
+      const node = this.makeNode({
+        id,
+        name: complexDisplayName(objectName),
+        designation: objectName,
+        catalogue: 'OpenNGC outlines',
+        objectClass: 'nebula',
+        raDeg: shape.raDeg,
+        decDeg: shape.decDeg,
+        distancePc: SHELL_PC,
+        // The contour is a shape on the sky, not an extent in space; `radiusMetres`
+        // stays 0 so the inspector keeps reporting that nobody has published a size.
+        radiusMetres: 0,
+        framingRadiusMetres: angularRadiusRad * SHELL_PC * PC_M,
+        measured: false,
+        distanceSource: 'none',
+        parentId: null,
+      })
+      node.provenanceNote =
+        'A region traced from sky imagery, carried in no catalogue. Its outline is ' +
+        'measured; its distance is not published, so it is drawn on the direction-only ' +
+        'shell like everything else here whose bearing is known and whose place is not.'
+      this.engine.register(node)
+      this.nodeIds.push(node.id)
+    }
   }
 
   // -------------------------------------------------------------------------

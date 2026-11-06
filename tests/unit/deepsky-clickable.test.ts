@@ -54,7 +54,11 @@ interface Internals {
   rowToDisc: Map<number, number>
   pointPlacement: { unitPc: number; distance: { getX(i: number): number }; radius: { getX(i: number): number } }[]
   pointMagAttribute: { getX(i: number): number }
-  manifest: { named: { literature: number; drawnFromLiterature: number } }
+  manifest: {
+    named: { literature: number; drawnFromLiterature: number }
+    outlines: { outlines: number; matchedToCatalogue: number; complexesRegistered: number }
+  }
+  outlinesSettled: Promise<void>
   update(): void
 }
 
@@ -186,6 +190,48 @@ describe('the deep sky is as clickable as it is visible', () => {
     // The row keeps its registry entry: the designation is still a true thing to
     // search for, and nothing is drawn for it, so nothing is left unclickable.
     expect(engine.registry.has('ngc:ESO056-115')).toBe(true)
+    module.dispose?.()
+  })
+
+  it('gives the traced regions that are in no catalogue a node of their own', async () => {
+    const { engine, module, inner } = await boot()
+    // The outlines land after init resolves; the registry is not complete until here.
+    await inner.outlinesSettled
+
+    // OpenNGC traces 379 contours. Most sit on a catalogue row, which already has a
+    // node, so a click in the contour reaches it. The rest belong to regions the
+    // catalogue does not number, and those used to be the largest shapes on the
+    // screen with nothing behind them.
+    const { outlines, matchedToCatalogue, complexesRegistered } = inner.manifest.outlines
+    expect(outlines).toBeGreaterThan(300)
+    expect(matchedToCatalogue).toBeLessThan(outlines)
+    expect(complexesRegistered).toBeGreaterThan(0)
+
+    for (const name of ['Orion', 'Cygnus', 'Vela']) {
+      const node = engine.node(`region:${name}`)
+      expect(node, name).toBeTruthy()
+      // The contour is a shape on the sky, not an extent in space.
+      expect(node?.radiusMetres, name).toBe(0)
+      expect(node?.drawnRadiusMetres, name).toBeGreaterThan(0)
+      expect((node as { provenance?: string } | null)?.provenance, name).toBe('illustration')
+    }
+    module.dispose?.()
+  })
+
+  it('matches an outline to the row its catalogue spells differently', async () => {
+    const { engine, module, inner } = await boot()
+    await inner.outlinesSettled
+
+    // The Pleiades, the Cave Nebula and the LMC are all traced under a name the
+    // catalogue does not use for them. Unaliased they looked like regions, so they
+    // would have been registered a SECOND time here, next to the row that already
+    // had them.
+    for (const name of ['M045', 'C9', 'LMC']) {
+      expect(engine.registry.has(`region:${name}`), name).toBe(false)
+    }
+    for (const designation of ['Mel022', 'C009', 'ESO056-115']) {
+      expect(engine.registry.has(`ngc:${designation}`), designation).toBe(true)
+    }
     module.dispose?.()
   })
 
