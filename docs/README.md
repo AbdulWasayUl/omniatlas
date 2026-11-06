@@ -1,6 +1,6 @@
 # OmniAtlas documentation
 
-These documents define the product before the catalogue and renderer grow beyond the first Sun–Earth–Moon milestone.
+These documents define the product: what it is for, how it is built, where its numbers come from, and what is still missing.
 
 1. [PRODUCT_SPEC.md](PRODUCT_SPEC.md) — product boundaries, users, behavior, requirements, and acceptance criteria.
 2. [ARCHITECTURE.md](ARCHITECTURE.md) — renderer boundaries, services, persistence, APIs, deployment, and observability.
@@ -37,6 +37,13 @@ before it merges to `main`.
 - Make data provenance, epoch, coordinate frame, uncertainty, and licensing first-class fields.
 - Stream and aggregate. The browser must never download an entire billion-row catalogue.
 
-## Milestone 1 status
+## Where the build stands
 
-The repository implements the Sun–Earth–Moon foundation described in the roadmap. It includes a current-UTC browser ephemeris, true Sun/Earth/Moon scale, a camera-derived kilometre ruler, directional sunlight, semantic-zoom coastlines, and single-local-label selection for continents and 25 named lunar craters. It intentionally stops before tiled terrain, mission-grade SPICE kernels, accounts, or a backend catalogue API.
+Milestone 1 (the sourced Sun–Earth–Moon foundation) is done and has been built on. The
+app now carries the solar system, 329,860 stars, 14,026 deep-sky rows, the exoplanet
+archive, a derived Milky Way, the Local Volume and the cosmic web, across eight
+coordinate layers.
+
+Still unbuilt: tiled planetary terrain (the `surface` rung), the heliosphere and Oort
+cloud rungs, the observable-universe rung, mission-grade SPICE kernels, accounts, and a
+backend catalogue API. [ROADMAP.md](ROADMAP.md) sequences them.

@@ -1,0 +1,65 @@
+name: Wrong or missing data
+description: An object is in the wrong place, named wrongly, mis-sourced, or absent
+labels: ["data"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is the report the project most wants. OmniAtlas claims only to show what
+        has been catalogued and published, so a position or a label that contradicts
+        the literature is a direct failure of the thing it is for.
+
+  - type: input
+    id: object
+    attributes:
+      label: Which object
+      description: Any name or designation that identifies it.
+      placeholder: NGC 224 / M31 / Andromeda
+    validations:
+      required: true
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What is wrong
+      options:
+        - It is in the wrong position
+        - Its distance is wrong
+        - Its name or designation is wrong
+        - It is drawn at the wrong size
+        - It is shown twice
+        - It is missing entirely
+        - Its provenance chip is wrong (measured / derived / illustrated)
+        - Its attribution or licence is wrong
+    validations:
+      required: true
+
+  - type: textarea
+    id: observed
+    attributes:
+      label: What OmniAtlas shows
+      description: The values from the inspector panel, if the object can be selected.
+      placeholder: |
+        Inspector reads 100 kpc, chip says "Direction only".
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What the literature says
+      description: |
+        The published value, and where it comes from. A catalogue name and a row, a
+        paper with a DOI, or a SIMBAD or VizieR link — anything that can be checked.
+      placeholder: |
+        785 ± 25 kpc — Ribas et al. (2005), ApJ 635, L37.
+    validations:
+      required: true
+
+  - type: input
+    id: share-url
+    attributes:
+      label: Share URL
+      description: A view with the object on screen, straight from the address bar.
+    validations:
+      required: false

@@ -1,0 +1,75 @@
+name: Bug report
+description: Something renders, behaves or performs wrongly
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The address bar carries the whole view — focus, distance, orientation, epoch
+        and time rate. Pasting that URL is usually enough to reproduce a problem on the
+        first try, so please include it.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+      placeholder: |
+        Clicking the ring near Dorado selects nothing. I expected the inspector to open.
+    validations:
+      required: true
+
+  - type: input
+    id: share-url
+    attributes:
+      label: Share URL
+      description: Copy it straight out of the address bar at the moment the problem is on screen.
+      placeholder: https://omniatlas-five.vercel.app/?focus=sun&d=1.9614e%2B19&yaw=-2.3323&pitch=1.3247
+    validations:
+      required: false
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps
+      description: Only if the URL alone does not get there.
+      placeholder: |
+        1. Open the share URL
+        2. Zoom in two notches
+        3. Hover the ring left of centre
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part
+      options:
+        - Rendering or visual glitch
+        - Selecting, hovering or labels
+        - Camera, scale ladder or navigation
+        - Search and the command palette
+        - Time and the ephemeris
+        - Performance or a stutter
+        - Loading and data fetching
+        - Something else
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Browser, OS and GPU
+      description: WebGL problems are usually driver-specific, so the GPU matters.
+      placeholder: Chrome 141, Ubuntu 24.04, Intel Arc A770
+    validations:
+      required: true
+
+  - type: textarea
+    id: console
+    attributes:
+      label: Console output
+      description: Anything the browser console logged. It is formatted as code, no backticks needed.
+      render: shell
+    validations:
+      required: false

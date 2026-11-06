@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://github.com/AbdulWasayUl/omniatlas/tree/main/docs
+    about: Architecture, the coordinate and data model, rendering, and the roadmap.
+  - name: Live atlas
+    url: https://omniatlas-five.vercel.app
+    about: Check whether the behaviour still happens on the deployed build.

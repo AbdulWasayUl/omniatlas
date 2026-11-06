@@ -37,3 +37,6 @@ dist-ssr
 # Scratch screenshots and probe pages from agent runs
 /*.png
 /*-probe.html
+
+# Claude Code local settings (machine-specific)
+.claude/settings.local.json

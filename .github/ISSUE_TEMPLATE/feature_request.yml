@@ -1,0 +1,53 @@
+name: Feature or dataset request
+description: Something the atlas should be able to show or do
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check [docs/ROADMAP.md](https://github.com/AbdulWasayUl/omniatlas/blob/main/docs/ROADMAP.md)
+        first — four scale-ladder rungs are already known-missing and tracked there.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What should it do
+      description: Describe the behaviour, not the implementation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: What you are trying to see or understand that you currently cannot.
+    validations:
+      required: true
+
+  - type: textarea
+    id: data
+    attributes:
+      label: Where the data would come from
+      description: |
+        Only for a new dataset. Name the catalogue, where it is published, and its
+        licence — OmniAtlas can only ship data it is allowed to redistribute, and
+        every object needs a source behind it.
+      placeholder: |
+        Gaia DR3 parallaxes — ESA/Gaia/DPAC, CC BY-SA 3.0 IGO, via the Gaia archive.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: scale
+    attributes:
+      label: Which scale
+      options:
+        - Planetary surface
+        - Solar system
+        - Stellar neighbourhood
+        - The Milky Way
+        - Local Group and beyond
+        - Cosmic web
+        - Not scale-specific (UI, search, performance)
+    validations:
+      required: true
