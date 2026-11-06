@@ -121,9 +121,17 @@ export const SCALE_LADDER: readonly ScaleRung[] = [
     layer: 'helio',
     caption: 'The heliopause at 121 AU, where Voyager 1 crossed into interstellar space.',
     scaleCaption: 'About a thousand astronomical units: the reach of a single star’s wind.',
-    shipped: false,
-    provenance: 'measured',
-    datasets: ['Voyager 1 plasma wave instrument, 2012-08-25'],
+    shipped: true,
+    // Four crossings are measured; the surfaces drawn through them are a model, and
+    // the model is most of what fills the view. See modules/heliosphere.
+    provenance: 'derived',
+    datasets: [
+      'Voyager 1 termination shock, 94 AU, 2004-12-16 — Burlaga et al. (2005)',
+      'Voyager 2 termination shock, 84 AU, 2007-08-30 — Burlaga et al. (2008)',
+      'Voyager 1 heliopause, 121.6 AU, 2012-08-25 — Gurnett et al. (2013)',
+      'Voyager 2 heliopause, 119.0 AU, 2018-11-05 — Stone et al. (2019)',
+      'Interstellar wind direction — IBEX, Swaczyna et al. (2023)',
+    ],
   },
   {
     id: 'oort',

@@ -50,6 +50,13 @@ export function SceneHost({ onViewer }: { onViewer?: (viewer: AtlasViewer | null
           },
         },
         {
+          id: 'heliosphere',
+          load: async () => {
+            const { HeliosphereModule } = await import('../modules/heliosphere')
+            return new HeliosphereModule()
+          },
+        },
+        {
           id: 'stars',
           load: async () => {
             const { StarsModule } = await import('../modules/stars')
