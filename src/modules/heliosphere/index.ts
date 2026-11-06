@@ -57,6 +57,8 @@ import { spanVisibility } from '../../core/render/spanFade'
  */
 
 const LAYER = 'helio' as const
+/** Where the spacecraft schematics are drawn; see `addSpacecraft` for why not `helio`. */
+const CRAFT_LAYER = 'system' as const
 const FRAME = 'ecliptic' as const
 
 /**
@@ -174,6 +176,79 @@ function shapeFactor(thetaRad: number): number {
   return Math.sqrt(2 / (1 + Math.cos(thetaRad)))
 }
 
+/** 1 AU per year, in km/s. The Voyager speeds are published in km/s and used in AU/yr. */
+const KM_S_PER_AU_YEAR = 4.740570
+
+/**
+ * The two spacecraft themselves, as opposed to the four events they caused.
+ *
+ * ## Where they are
+ *
+ * Propagated from the heliopause crossing, because that is the most recent moment at
+ * which somebody published a heliocentric distance for these two with a date attached
+ * to it. The widely quoted current figures — 172.5 AU for Voyager 1, 143 AU for
+ * Voyager 2 — are distances from EARTH, which is a different number by up to an AU
+ * depending on the time of year, and neither is a citation with an epoch on it.
+ *
+ * So: start at the crossing distance on the crossing date, travel outward along the
+ * escape asymptote at the speed published for that same instant. Both spacecraft are
+ * far past every planet, so there is nothing left to perturb them.
+ *
+ * ## What that costs
+ *
+ * The Sun still pulls. At 150 AU it decelerates them by about 2.6e-7 m/s^2, which over
+ * the fourteen years since Voyager 1's crossing is roughly 0.1 km/s of speed and 0.2 AU
+ * of distance — the model runs about a fifth of an AU ahead of the truth, or one part
+ * in eight hundred. That is far below the width of the marker drawn for them, and it
+ * is why the position is badged DERIVED rather than measured.
+ *
+ * ## What they look like
+ *
+ * A schematic: a 3.66 m high-gain antenna, the bus behind it, and the booms. Those are
+ * published dimensions, not a shape model, and `shapeIsIllustration` is what makes the
+ * inspector say so. The alternative was to leave them as the proxy module's hashed
+ * irregular blob, which is the right answer for an asteroid of unknown shape and an
+ * absurd one for a spacecraft whose engineering drawings are public.
+ */
+interface Spacecraft {
+  id: string
+  name: string
+  /** The crossing this one's position is propagated from. */
+  anchorCrossingId: string
+  /** Heliocentric speed at that instant, km/s. */
+  speedKmS: number
+  speedSource: string
+  /** Half the high-gain antenna, in metres: the largest real dimension. */
+  radiusMetres: number
+  launchedIso: string
+}
+
+const SPACECRAFT: readonly Spacecraft[] = [
+  {
+    id: 'helio:voyager-1',
+    name: 'Voyager 1',
+    anchorCrossingId: 'helio:v1-heliopause',
+    speedKmS: 17.043,
+    speedSource: 'JPL, September 2012',
+    radiusMetres: 1.83,
+    launchedIso: '1977-09-05',
+  },
+  {
+    id: 'helio:voyager-2',
+    name: 'Voyager 2',
+    anchorCrossingId: 'helio:v2-heliopause',
+    speedKmS: 15.341,
+    speedSource: 'JPL, at the 2018 crossing',
+    radiusMetres: 1.83,
+    launchedIso: '1977-08-20',
+  },
+]
+
+const MS_PER_YEAR = 365.25 * 86_400_000
+
+/** The Sun, which is this layer's own origin in world terms. Reused, never mutated. */
+const SUN_WORLD: Readonly<Vec3d> = vec3d()
+
 const DEG = Math.PI / 180
 
 export class HeliosphereModule implements AtlasModule {
@@ -184,10 +259,23 @@ export class HeliosphereModule implements AtlasModule {
   private readonly materials: THREE.ShaderMaterial[] = []
   /** One per boundary, faded together by `preRender`. */
   private readonly surfaces: { object: THREE.LineSegments; sizeMetres: number; baseOpacity: number }[] = []
+  /** One per spacecraft: the schematic, the node it moves, and what it is propagated from. */
+  private readonly craft: {
+    group: THREE.Group
+    node: SceneNodeHandle
+    bearing: Vec3d
+    anchorMs: number
+    anchorAu: number
+    auPerYear: number
+    materials: { material: THREE.Material & { opacity: number }; baseOpacity: number }[]
+  }[] = []
+  /** Materials owned by the schematics, disposed with the module. */
+  private readonly disposables: THREE.Material[] = []
 
   /** Scratch, reused: `preRender` runs every frame and must not allocate. */
   private readonly scratchWorld: Vec3d = vec3d()
   private readonly scratchLocal = new THREE.Vector3()
+  private readonly scratchSun = new THREE.Vector3()
 
   init(engine: Engine): void {
     this.engine = engine
@@ -228,6 +316,10 @@ export class HeliosphereModule implements AtlasModule {
 
     for (const crossing of CROSSINGS) {
       this.registerCrossing(crossing, bearings.get(crossing.spacecraft) as Vec3d)
+    }
+
+    for (const craft of SPACECRAFT) {
+      this.addSpacecraft(craft, bearings.get(craft.name) as Vec3d)
     }
 
     const heliopause = fits.get('heliopause')
@@ -432,8 +524,163 @@ export class HeliosphereModule implements AtlasModule {
   }
 
   // -------------------------------------------------------------------------
+  // The spacecraft
+  // -------------------------------------------------------------------------
+
+  private addSpacecraft(craft: Spacecraft, bearing: Readonly<Vec3d>): void {
+    const anchor = CROSSINGS.find((c) => c.id === craft.anchorCrossingId)
+    if (!anchor) return
+
+    const group = this.buildSchematic(craft)
+    const node: SceneNodeHandle & {
+      provenance: string
+      provenanceNote: string
+      shapeIsIllustration: boolean
+    } = {
+      id: craft.id,
+      name: craft.name,
+      worldPosition: vec3d(),
+      frame: FRAME,
+      // The high-gain antenna is 3.66 m across and that is a published dimension, so
+      // this one IS a measurement, unlike almost everything else in this module.
+      radiusMetres: craft.radiusMetres,
+      layer: LAYER,
+      objectClass: 'spacecraft',
+      parentId: null,
+      // Owning an object3D is what keeps the proxy module from standing in with its
+      // hashed irregular blob, which would be the wrong shape rather than no shape.
+      object3D: group,
+      provenance: 'derived',
+      shapeIsIllustration: true,
+      provenanceNote:
+        `Propagated from the heliopause crossing on ${anchor.dateIso} at ${anchor.distanceAu} AU, ` +
+        `outward along the escape asymptote at ${craft.speedKmS} km/s (${craft.speedSource}). ` +
+        `Solar gravity still decelerates it, which this ignores: about 0.2 AU of accumulated ` +
+        `error per decade at this range. The shape is a schematic from published dimensions — ` +
+        `a 3.66 m antenna, the bus, the booms — and not a shape model. Launched ${craft.launchedIso}.`,
+    }
+
+    // NOT the helio layer, where everything else in this module lives.
+    //
+    // A layer's near plane cannot go below MIN_NEAR of its own unit, and helio's unit
+    // is the AU: 1e-9 AU is 150 metres. A 3.66 m spacecraft is therefore INSIDE the
+    // near plane at every distance from which you could see it, and flying to one
+    // showed empty space — the inspector describing an object the renderer had
+    // clipped. `system` is anchor-local and its unit is 1000 km, which puts the same
+    // floor at a millimetre.
+    this.engine.layer(CRAFT_LAYER).scene.add(group)
+    this.engine.register(node)
+    this.nodeIds.push(node.id)
+    this.craft.push({
+      group,
+      node,
+      bearing: vec3d(bearing.x, bearing.y, bearing.z),
+      anchorMs: Date.parse(`${anchor.dateIso}T00:00:00Z`),
+      anchorAu: anchor.distanceAu,
+      auPerYear: craft.speedKmS / KM_S_PER_AU_YEAR,
+      materials: [],
+    })
+    const entry = this.craft[this.craft.length - 1]
+    group.traverse((object) => {
+      const material = (object as THREE.Mesh | THREE.LineSegments).material
+      if (!material || Array.isArray(material)) return
+      const typed = material as THREE.Material & { opacity: number }
+      // Capture the author's opacity ONCE, here. Reading it back inside the frame loop
+      // reads whatever the previous frame's fade left behind, and the surface ratchets
+      // to zero over a few seconds.
+      entry.materials.push({ material: typed, baseOpacity: typed.opacity })
+    })
+  }
+
+  /**
+   * A Voyager, at true scale, from the published dimensions and nothing else.
+   *
+   * Built at unit size and scaled by the group, so the vertex buffer holds numbers
+   * near 1 while the object sits 170 AU from the layer origin — the split the whole
+   * floating-origin scheme depends on.
+   */
+  private buildSchematic(craft: Spacecraft): THREE.Group {
+    const group = new THREE.Group()
+    // Deliberately NOT the `heliosphere:` prefix the two boundary surfaces use: these
+    // are objects in the heliosphere, not parts of it, and anything scanning the layer
+    // for the modelled surfaces must not pick up a spacecraft.
+    group.name = `spacecraft:${craft.id.replace('helio:', '')}`
+
+    // Built facing -Z, so `lookAt` the Sun turns the antenna the way the real one is
+    // turned. The high-gain antenna has pointed back at Earth continuously since the
+    // planetary encounters ended; at 170 AU the Sun and the Earth are the same
+    // direction to well within the width of the dish.
+    const shell = new THREE.MeshBasicMaterial({ color: 0xcfd9e4, transparent: true, opacity: 0.5, side: THREE.DoubleSide })
+    const edge = new THREE.LineBasicMaterial({ color: 0xeaf2fb, transparent: true, opacity: 0.95 })
+    const strut = new THREE.LineBasicMaterial({ color: 0x9fb4c8, transparent: true, opacity: 0.8 })
+
+    // Every dimension below is in units of the node's own radius, 1.83 m, which is
+    // HALF the 3.66 m antenna. Getting that wrong once drew a Voyager seven metres
+    // across — so: the dish is radius 1.0, not 2.
+    const dishGeometry = new THREE.ConeGeometry(1, 0.31, 28, 1, true)
+    const dish = new THREE.Mesh(dishGeometry, shell)
+    dish.rotation.x = -Math.PI / 2
+    dish.position.z = 0.16
+    group.add(dish)
+
+    // Its rim, as a bright circle, because an unlit cone from the side is a triangle
+    // and from the front is a disc, and neither says "dish" on its own.
+    const rim: number[] = []
+    for (let i = 0; i < 48; i++) {
+      const a = (i / 48) * Math.PI * 2
+      const b = ((i + 1) / 48) * Math.PI * 2
+      rim.push(Math.cos(a), Math.sin(a), 0, Math.cos(b), Math.sin(b), 0)
+    }
+    const rimGeometry = new THREE.BufferGeometry()
+    rimGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(rim), 3))
+    group.add(new THREE.LineSegments(rimGeometry, edge))
+
+    // The bus: the ten-sided box of electronics behind the dish, 1.78 m across.
+    const busGeometry = new THREE.CylinderGeometry(0.49, 0.49, 0.26, 10)
+    const bus = new THREE.Mesh(busGeometry, shell)
+    bus.rotation.x = Math.PI / 2
+    bus.position.z = -0.2
+    group.add(bus)
+
+    // The booms. The magnetometer boom is 13 m — three and a half times the width of
+    // the dish, and the thing that makes the silhouette a spacecraft rather than a
+    // saucer. The other two carry the science scan platform and the RTGs.
+    const booms = new Float32Array([
+      0, 0, -0.2, 0, 7.1, -0.2,
+      0, 0, -0.2, -1.3, -0.55, -0.3,
+      0, 0, -0.2, 1.2, -0.65, -0.3,
+    ])
+    const boomGeometry = new THREE.BufferGeometry()
+    boomGeometry.setAttribute('position', new THREE.BufferAttribute(booms, 3))
+    group.add(new THREE.LineSegments(boomGeometry, strut))
+
+    // The three RTGs, as a short stack on the end of their boom.
+    const rtgGeometry = new THREE.CylinderGeometry(0.11, 0.11, 0.82, 8)
+    const rtg = new THREE.Mesh(rtgGeometry, shell)
+    rtg.position.set(-1.3, -0.55, -0.3)
+    rtg.rotation.z = Math.PI / 3
+    group.add(rtg)
+
+    this.geometries.push(dishGeometry, rimGeometry, busGeometry, boomGeometry, rtgGeometry)
+    this.disposables.push(shell, edge, strut)
+    group.visible = false
+    return group
+  }
+
+  // -------------------------------------------------------------------------
   // Frame
   // -------------------------------------------------------------------------
+
+  update(ctx: FrameContext): void {
+    // Both spacecraft move with the clock, so the time controls carry them outward.
+    for (const entry of this.craft) {
+      const years = (ctx.epochMs - entry.anchorMs) / MS_PER_YEAR
+      const au = entry.anchorAu + entry.auPerYear * years
+      entry.node.worldPosition.x = entry.bearing.x * au * AU_M
+      entry.node.worldPosition.y = entry.bearing.y * au * AU_M
+      entry.node.worldPosition.z = entry.bearing.z * au * AU_M
+    }
+  }
 
   preRender(ctx: FrameContext): void {
     const layer = this.engine.layer(LAYER)
@@ -443,6 +690,28 @@ export class HeliosphereModule implements AtlasModule {
       const material = surface.object.material as THREE.ShaderMaterial
       material.uniforms.uOpacity.value = surface.baseOpacity * visibility * layer.renderOpacity
     }
+
+    const craftLayer = this.engine.layer(CRAFT_LAYER)
+    let anyCraftVisible = false
+    for (const entry of this.craft) {
+      // A 3.7 m object seen from anywhere the solar system is legible is far smaller
+      // than one pixel; the marker glyph is what represents it there. The schematic
+      // only earns its place once the view is a few spacecraft wide.
+      const visibility = spanVisibility(ctx.viewSpanMetres, entry.node.radiusMetres * 2)
+      entry.group.visible = visibility > 0.01
+      if (!entry.group.visible) continue
+      anyCraftVisible = true
+      craftLayer.toLocal(this.scratchLocal, entry.node.worldPosition, FRAME)
+      entry.group.position.copy(this.scratchLocal)
+      entry.group.scale.setScalar(craftLayer.toLocalLength(entry.node.radiusMetres))
+      // Turn the antenna back towards the Sun, which is where Earth is from out here.
+      craftLayer.toLocal(this.scratchSun, SUN_WORLD, FRAME)
+      entry.group.lookAt(this.scratchSun)
+      for (const { material, baseOpacity } of entry.materials) {
+        material.opacity = baseOpacity * visibility * craftLayer.renderOpacity
+      }
+    }
+    if (anyCraftVisible) craftLayer.forceActive = true
   }
 
   // -------------------------------------------------------------------------
@@ -461,6 +730,11 @@ export class HeliosphereModule implements AtlasModule {
   }
 
   dispose(): void {
+    for (const entry of this.craft) entry.group.removeFromParent()
+    if (this.engine) this.engine.layer(CRAFT_LAYER).forceActive = false
+    for (const material of this.disposables) material.dispose()
+    this.craft.length = 0
+    this.disposables.length = 0
     for (const surface of this.surfaces) surface.object.removeFromParent()
     for (const geometry of this.geometries) geometry.dispose()
     for (const material of this.materials) material.dispose()

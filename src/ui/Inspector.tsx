@@ -27,6 +27,16 @@ interface NodeProvenance {
   /** A sentence about how the class, rather than the object, was treated. */
   provenanceNote?: string
   distanceSource?: string
+  /**
+   * The module drew this one itself, and what it drew is a schematic.
+   *
+   * `illustratedShape` below infers the same thing from the ABSENCE of an `object3D`,
+   * which is right for everything the proxy module stands in for and wrong for a
+   * module that builds its own invented geometry: owning the mesh is not evidence
+   * that the mesh is a measurement. The Voyagers are the case — drawn at their
+   * published dimensions, from no shape model.
+   */
+  shapeIsIllustration?: boolean
 }
 
 /** What the Evidence chip should say, derived from the node rather than asserted. */
@@ -74,7 +84,8 @@ export function Inspector({ viewer }: { viewer: AtlasViewer | null }) {
   // A node with no Three.js object of its own is drawn by the proxy module, which
   // builds a shape from the catalogue radius alone. Say so rather than letting the
   // Measured chip cover the geometry as well as the astrometry.
-  const illustratedShape = !!node && !node.object3D && node.radiusMetres > 0
+  const illustratedShape =
+    (!!node && !node.object3D && node.radiusMetres > 0) || !!(node as NodeProvenance | null)?.shapeIsIllustration
   // The VSOP87/ELP note is true of the planets and moons and of nothing else.
   const ephemerisBody = !!entity && node?.layer === 'helio' && !illustratedShape
   const chip = provenanceChip(node)
