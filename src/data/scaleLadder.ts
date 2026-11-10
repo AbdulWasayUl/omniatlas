@@ -233,9 +233,15 @@ export const SCALE_LADDER: readonly ScaleRung[] = [
     layer: 'cosmic',
     caption: 'The microwave background: the limit of what can be seen, not the edge of the universe.',
     scaleCaption: 'The whole observable universe, out to the microwave background.',
-    shipped: false,
-    provenance: 'measured',
-    datasets: ['Planck 2018 SMICA'],
+    shipped: true,
+    // The parameters are measured; the two radii are integrated from them, which is
+    // what cosmology.json says about itself. Better than a percent either way — the
+    // most sharply determined boundary in the atlas. See modules/horizon.
+    provenance: 'derived',
+    datasets: [
+      'Planck 2018 cosmological parameters — Planck Collaboration, A&A 641, A6',
+      'Particle horizon and last-scattering distance — integrated from those parameters',
+    ],
   },
 ] as const
 

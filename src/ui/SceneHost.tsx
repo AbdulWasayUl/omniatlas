@@ -101,6 +101,13 @@ export function SceneHost({ onViewer }: { onViewer?: (viewer: AtlasViewer | null
           },
         },
         {
+          id: 'horizon',
+          load: async () => {
+            const { HorizonModule } = await import('../modules/horizon')
+            return new HorizonModule()
+          },
+        },
+        {
           id: 'notable',
           load: async () => {
             const { NotableModule } = await import('../modules/notable')
