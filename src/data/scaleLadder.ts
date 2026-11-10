@@ -143,9 +143,15 @@ export const SCALE_LADDER: readonly ScaleRung[] = [
     // here is a shell standing in for an inference, and is badged as such.
     caption: 'A hypothesised shell of icy bodies. No catalogue of it exists.',
     scaleCaption: 'A few light-years: the space between one star and the next.',
-    shipped: false,
+    shipped: true,
+    // The shell is invented. What is NOT invented is the set of orbits drawn through
+    // it — real JPL solutions for the bodies that fell out of the cloud, which are the
+    // whole evidential basis for believing it is there. See modules/oort.
     provenance: 'illustration',
-    datasets: [],
+    datasets: [
+      'Long-period comet and detached-object orbits — NASA/JPL Small-Body Database',
+      'Shell radii and r^-3.5 density profile — assumed, not measured',
+    ],
   },
   {
     id: 'nearest-stars',

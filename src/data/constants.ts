@@ -18,3 +18,15 @@ export const SUN_RADIUS_UNITS = kmToUnits(SUN_RADIUS_KM)
 export const MOON_RADIUS_UNITS = kmToUnits(MOON_RADIUS_KM)
 export const EARTH_MOON_DISTANCE_UNITS = kmToUnits(MEAN_EARTH_MOON_DISTANCE_KM)
 
+
+/**
+ * Aphelion, in AU, beyond which a small body counts as reaching the Oort region.
+ *
+ * Shared between two modules that must agree about it exactly. `oort` draws the orbit
+ * of everything past this line, and `smallbodies` keeps a registry node for everything
+ * past it regardless of where the notability cap would otherwise put it — because an
+ * orbit drawn with nothing behind it to click is the defect those two rules exist to
+ * prevent, and the two modules initialise CONCURRENTLY, so the ownership has to be
+ * decided here rather than raced for at runtime.
+ */
+export const OORT_REACHING_APHELION_AU = 500

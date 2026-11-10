@@ -4,6 +4,7 @@ import { AU_M, type Vec3d, vec3d } from '../../core/world'
 import { type KeplerianElements, keplerianPosition, sampleOrbit } from '../../astronomy/orbit'
 import { spanVisibility } from '../../core/render/spanFade'
 import { assetUrl } from '../../data/assetUrl'
+import { OORT_REACHING_APHELION_AU } from '../../data/constants'
 
 /**
  * Small bodies: the main belt, and the named asteroids and comets.
@@ -407,6 +408,8 @@ export class SmallBodiesModule implements AtlasModule {
     radiusNominal: 0,
     radiusUnknown: 0,
     orbitPaths: 0,
+    /** Kept past the cap because their orbits reach the Oort region; see the selection. */
+    namedOortReaching: 0,
   }
 
   async init(engine: Engine): Promise<void> {
@@ -599,6 +602,22 @@ export class SmallBodiesModule implements AtlasModule {
     const chosenComets = comets.slice(0, cometSlots)
     const chosenAsteroids = asteroids.slice(0, MAX_NAMED_NODES - chosenComets.length)
     const chosen = [...chosenAsteroids, ...chosenComets]
+
+    // Then, regardless of rank, everything whose orbit reaches the Oort region.
+    //
+    // The `oort` module draws those orbits — twenty-six of them, out to 94,000 AU —
+    // and an orbit on screen with nothing registered behind it is exactly the
+    // drawn-but-unclickable defect the catalogue modules are built to avoid. It cannot
+    // register them itself: module init runs concurrently, so whichever of the two got
+    // there first would own Sedna, and one of the two owners is wrong about what Sedna
+    // is. The cap is an inner-system concern and these are not in the inner system:
+    // every one of them is tens to hundreds of AU out.
+    const picked = new Set(chosen)
+    const reaching = candidates.filter(
+      (candidate) => !picked.has(candidate) && (candidate.object.elements?.adAu ?? 0) > OORT_REACHING_APHELION_AU,
+    )
+    chosen.push(...reaching)
+    this.stats.namedOortReaching = reaching.length
     this.stats.namedWithheldByCap = candidates.length - chosen.length
 
     for (const { object, nodeId } of chosen) {

@@ -64,6 +64,15 @@ export function SceneHost({ onViewer }: { onViewer?: (viewer: AtlasViewer | null
           },
         },
         {
+          // After `smallbodies`, which owns the five distant bodies it ranks highly
+          // enough to keep; this one takes the twenty-one it drops.
+          id: 'oort',
+          load: async () => {
+            const { OortModule } = await import('../modules/oort')
+            return new OortModule()
+          },
+        },
+        {
           id: 'stars',
           load: async () => {
             const { StarsModule } = await import('../modules/stars')
