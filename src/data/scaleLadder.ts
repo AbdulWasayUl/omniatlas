@@ -59,11 +59,21 @@ export const SCALE_LADDER: readonly ScaleRung[] = [
     scaleLabel: 'Kilometres',
     spanMetres: 1e4,
     layer: 'surface',
-    caption: 'Terrain, coastlines, craters and cities on a single world.',
+    // Was "Terrain, coastlines, craters and cities". Terrain is struck out rather than
+    // left as a promise: the shipped imagery is 7.4 km per pixel on Earth and 2.7 on
+    // the Moon, so at this rung's own ten-kilometre span the picture underneath is
+    // between one and four pixels and contains nothing. What IS good here is the
+    // geometry — a crater rim at its catalogued diameter is true at a scale where the
+    // image has nothing to say. See modules/surface.
+    caption: 'Named craters and cities, at measured positions and sizes.',
     scaleCaption: 'About ten kilometres across: a crater floor, a city, a mountain range.',
-    shipped: false,
+    shipped: true,
     provenance: 'measured',
-    datasets: ['Natural Earth 1:50m', 'USGS Gazetteer of Planetary Nomenclature'],
+    datasets: [
+      'Lunar craters — USGS Gazetteer of Planetary Nomenclature (1,615, IAU-approved)',
+      'Cities — Natural Earth (1,251)',
+      'Imagery: NASA Blue Marble at 7.4 km/pixel, LROC at 2.7 km/pixel — no terrain',
+    ],
   },
   {
     id: 'body',

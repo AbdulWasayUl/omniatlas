@@ -50,6 +50,15 @@ export function SceneHost({ onViewer }: { onViewer?: (viewer: AtlasViewer | null
           },
         },
         {
+          // After `solar`, which owns the body nodes these hang off. It reads them in
+          // `update`, not `init`, so the concurrent load order does not matter.
+          id: 'surface',
+          load: async () => {
+            const { SurfaceModule } = await import('../modules/surface')
+            return new SurfaceModule()
+          },
+        },
+        {
           id: 'heliosphere',
           load: async () => {
             const { HeliosphereModule } = await import('../modules/heliosphere')
