@@ -57,6 +57,13 @@ export function SceneHost({ onViewer }: { onViewer?: (viewer: AtlasViewer | null
           },
         },
         {
+          id: 'spacecraft',
+          load: async () => {
+            const { SpacecraftModule } = await import('../modules/spacecraft')
+            return new SpacecraftModule()
+          },
+        },
+        {
           id: 'stars',
           load: async () => {
             const { StarsModule } = await import('../modules/stars')
